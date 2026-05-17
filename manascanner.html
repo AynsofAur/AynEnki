@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Malikeye — Mana Scanner</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    background: radial-gradient(ellipse at top, #1a1530 0%, #0a0a0f 50%, #050507 100%);
+    background-attachment: fixed;
+    color: #e8e3d4;
+    min-height: 100vh;
+  }
+  /* api-key gate */
+  .key-gate {
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 32px 20px;
+    text-align: center;
+  }
+  .key-gate .ornament {
+    display: flex; align-items: center; justify-content: center;
+    gap: 12px; color: rgba(212, 165, 116, 0.4);
+    margin-bottom: 18px;
+  }
+  .key-gate .ornament .line { flex: 0 0 60px; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(212, 165, 116, 0.4), transparent); }
+  .key-gate h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 44px; font-weight: 500;
+    letter-spacing: 0.02em; line-height: 1;
+    margin: 0 0 8px;
+  }
+  .key-gate .sub {
+    font-size: 13px; letter-spacing: 0.15em;
+    text-transform: uppercase; color: #8a8478;
+    margin: 0 0 32px;
+  }
+  .key-gate .panel {
+    background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%);
+    border: 1px solid rgba(212, 165, 116, 0.2);
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 500px; width: 100%;
+    text-align: left;
+  }
+  .key-gate .panel p {
+    color: #b8b0a0;
+    font-size: 13.5px;
+    line-height: 1.65;
+    margin: 0 0 16px;
+  }
+  .key-gate .panel a { color: #d4a574; }
+  .key-gate input {
+    width: 100%;
+    background: rgba(10,10,15,0.7);
+    border: 1px solid rgba(212, 165, 116, 0.25);
+    border-radius: 8px;
+    padding: 12px 14px;
+    color: #e8e3d4;
+    font-family: ui-monospace, 'SF Mono', monospace;
+    font-size: 13px;
+    outline: none;
+  }
+  .key-gate input:focus { border-color: #d4a574; }
+  .key-gate .submit {
+    margin-top: 12px; width: 100%;
+    background: #d4a574; color: #1a1530;
+    border: none; border-radius: 8px;
+    padding: 12px 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 600; font-size: 14px;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+  }
+  .key-gate .submit:hover { background: #e0b785; }
+  .key-gate .note {
+    font-size: 11px; color: #5a5650;
+    margin-top: 14px; line-height: 1.6;
+  }
+  /* settings cog */
+  .settings-cog {
+    position: fixed; top: 12px; right: 12px;
+    width: 38px; height: 38px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(212, 165, 116, 0.18);
+    border-radius: 50%;
+    color: #8a8478;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; z-index: 50;
+    transition: all 0.2s;
+  }
+  .settings-cog:hover { color: #d4a574; border-color: #d4a574; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef } = React;
+
+/* ============ window.storage polyfill (uses localStorage) ============ */
+if (!window.storage) {
+  window.storage = {
+    get: async (key) => {
+      const v = localStorage.getItem(key);
+      return v != null ? { value: v } : null;
+    },
+    set: async (key, value) => { localStorage.setItem(key, value); }
+  };
+}
+
+/* ============ Inline lucide-react replacements ============ */
+const I = ({ size = 16, strokeWidth = 2, children, style = {} }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24"
+       fill="none" stroke="currentColor" strokeWidth={strokeWidth}
+       strokeLinecap="round" strokeLinejoin="round" style={style}>
+    {children}
+  </svg>
+);
+const Camera     = (p) => <I {...p}><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></I>;
+const Plus       = (p) => <I {...p}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></I>;
+const Minus      = (p) => <I {...p}><line x1="5" y1="12" x2="19" y2="12"/></I>;
+const X          = (p) => <I {...p}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></I>;
+const Loader2    = (p) => <I {...p}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></I>;
+const AlertCircle= (p) => <I {...p}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></I>;
+const Check      = (p) => <I {...p}><polyline points="20 6 9 17 4 12"/></I>;
+const Sparkles   = (p) => <I {...p}><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/><path d="M19 17l.7 1.8L21.5 19l-1.8.7L19 21l-.7-1.3L16.5 19l1.8-.2L19 17z"/></I>;
+const Trash2     = (p) => <I {...p}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></I>;
+const Copy       = (p) => <I {...p}><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></I>;
+const ImagePlus  = (p) => <I {...p}><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"/><polyline points="21 15 16 10 5 21"/><line x1="18" y1="2" x2="18" y2="8"/><line x1="15" y1="5" x2="21" y2="5"/></I>;
+const Settings   = (p) => <I {...p}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></I>;
+
+/* ============ API key gate ============ */
+function KeyGate({ onReady }) {
+  const [key, setKey] = useState('');
+  const submit = (e) => {
+    e.preventDefault();
+    if (!key.trim() || !key.startsWith('sk-')) return;
+    localStorage.setItem('anthropic_key', key.trim());
+    onReady(key.trim());
+  };
+  return (
+    <div className="key-gate">
+      <div className="ornament"><span className="line"/><Sparkles size={14}/><span className="line"/></div>
+      <h1>Mana Scanner</h1>
+      <p className="sub">The eye reads what you place before it</p>
+      <div className="panel">
+        <p>
+          This scanner uses Claude vision to identify Magic cards from a photo. It runs entirely in your browser — your API key is stored only on this device (localStorage), and requests go directly to api.anthropic.com.
+        </p>
+        <p>
+          You'll need an Anthropic API key. Get one at <a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a>. Usage is metered to your account.
+        </p>
+        <form onSubmit={submit}>
+          <input
+            type="password" autoComplete="off" spellCheck="false"
+            placeholder="sk-ant-..."
+            value={key} onChange={e => setKey(e.target.value)}
+          />
+          <button className="submit" type="submit" disabled={!key.startsWith('sk-')}>Open the Eye</button>
+        </form>
+        <p className="note">
+          Stored locally only. Clear from your browser's site data to remove. Nothing is sent to any server other than Anthropic's API (for vision) and Scryfall (for card lookups).
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ============ Mana Scanner (lightly modified from original) ============ */
+function ManaScanner({ apiKey, onResetKey }) {
+  const [cards, setCards] = useState([]);
+  const [scanning, setScanning] = useState(false);
+  const [status, setStatus] = useState(null);
+  const [loaded, setLoaded] = useState(false);
+  const [showExport, setShowExport] = useState(false);
+  const [previewCard, setPreviewCard] = useState(null);
+  const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const result = await window.storage.get('mana_collection');
+        if (result?.value) setCards(JSON.parse(result.value));
+      } catch (e) { /* no saved collection */ }
+      setLoaded(true);
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!loaded) return;
+    window.storage.set('mana_collection', JSON.stringify(cards)).catch(() => {});
+  }, [cards, loaded]);
+
+  useEffect(() => {
+    if (!status) return;
+    if (status.type === 'error') return;
+    const t = setTimeout(() => setStatus(null), 3500);
+    return () => clearTimeout(t);
+  }, [status]);
+
+  const fileToBase64 = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      const idx = typeof result === 'string' ? result.indexOf(',') : -1;
+      if (idx < 0) return reject(new Error("couldn't read file"));
+      resolve(result.slice(idx + 1));
+    };
+    reader.onerror = () => reject(new Error('file read failed'));
+    reader.readAsDataURL(file);
+  });
+
+  const canvasToJpegBase64 = (sourceCanvas) => new Promise((resolve, reject) => {
+    const max = 1024;
+    let w = sourceCanvas.width, h = sourceCanvas.height;
+    let canvas = sourceCanvas;
+    if (w > max || h > max) {
+      if (w >= h) { h = Math.round(h * max / w); w = max; }
+      else { w = Math.round(w * max / h); h = max; }
+      canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(sourceCanvas, 0, 0, w, h);
+    }
+    canvas.toBlob((blob) => {
+      if (!blob) return reject(new Error('canvas encode failed'));
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result;
+        const idx = typeof result === 'string' ? result.indexOf(',') : -1;
+        if (idx < 0) return reject(new Error('canvas read failed'));
+        resolve(result.slice(idx + 1));
+      };
+      reader.onerror = () => reject(new Error('canvas read failed'));
+      reader.readAsDataURL(blob);
+    }, 'image/jpeg', 0.85);
+  });
+
+  const decodeViaImageElement = (file) => new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth || img.width;
+      canvas.height = img.naturalHeight || img.height;
+      canvas.getContext('2d').drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      canvasToJpegBase64(canvas).then(resolve, reject);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('img element rejected file')); };
+    img.src = url;
+  });
+
+  const decodeViaImageBitmap = async (file) => {
+    if (typeof createImageBitmap !== 'function') throw new Error('createImageBitmap unavailable');
+    const bitmap = await createImageBitmap(file);
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    canvas.getContext('2d').drawImage(bitmap, 0, 0);
+    if (typeof bitmap.close === 'function') bitmap.close();
+    return canvasToJpegBase64(canvas);
+  };
+
+  const prepareImage = async (file) => {
+    try {
+      const data = await decodeViaImageElement(file);
+      return { data, mediaType: 'image/jpeg' };
+    } catch (_e1) {
+      try {
+        const data = await decodeViaImageBitmap(file);
+        return { data, mediaType: 'image/jpeg' };
+      } catch (_e2) {
+        const apiSupported = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        if (file.type && apiSupported.includes(file.type)) {
+          const data = await fileToBase64(file);
+          return { data, mediaType: file.type };
+        }
+        const hint = file.type || 'unknown format';
+        throw new Error(`Couldn't decode ${hint}. iPhone fix: Settings → Camera → Formats → Most Compatible.`);
+      }
+    }
+  };
+
+  const lookupOnScryfall = async (rawName) => {
+    try {
+      const res = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(rawName)}`);
+      if (res.ok) {
+        const c = await res.json();
+        return {
+          name: c.name,
+          set: c.set?.toUpperCase() || null,
+          image: c.image_uris?.small || c.card_faces?.[0]?.image_uris?.small || null,
+          verified: true,
+        };
+      }
+    } catch { /* network error */ }
+    return { name: rawName, set: null, image: null, verified: false };
+  };
+
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    setScanning(true);
+    setStatus(null);
+    try {
+      const { data: base64, mediaType } = await prepareImage(file);
+
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1500,
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+              { type: 'text', text: 'This photo may contain one or more Magic: The Gathering cards. For every clearly visible card, read the card name from its title line at the top of the card frame. Return a JSON array of exact English card names as printed, e.g. ["Lightning Bolt", "Counterspell", "Sol Ring"]. Include duplicates if you see the same card multiple times. Skip cards whose titles are obscured, illegible, or cut off. If no Magic cards are visible at all, return []. Return ONLY the JSON array — no markdown fences, no commentary, no other text.' }
+            ]
+          }]
+        })
+      });
+
+      if (!response.ok) {
+        let body = '';
+        try { body = (await response.text()).slice(0, 300); } catch {}
+        throw new Error(`API ${response.status}${body ? ` — ${body}` : ''}`);
+      }
+      const data = await response.json();
+      const rawText = (data.content?.find(c => c.type === 'text')?.text || '[]').trim();
+      const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+
+      let names;
+      try {
+        names = JSON.parse(cleaned);
+        if (!Array.isArray(names)) throw new Error('not an array');
+      } catch {
+        setStatus({ type: 'error', message: "Couldn't read the cards — try again with better lighting" });
+        setScanning(false);
+        return;
+      }
+
+      names = names
+        .filter(n => typeof n === 'string' && n.trim().length > 1)
+        .map(n => n.trim().replace(/^["']|["']$/g, ''))
+        .slice(0, 30);
+
+      if (names.length === 0) {
+        setStatus({ type: 'error', message: "No cards found — try a clearer photo" });
+        setScanning(false);
+        return;
+      }
+
+      const lookups = [];
+      for (let i = 0; i < names.length; i += 5) {
+        const chunk = names.slice(i, i + 5);
+        const results = await Promise.all(chunk.map(lookupOnScryfall));
+        lookups.push(...results);
+        if (i + 5 < names.length) await new Promise(r => setTimeout(r, 120));
+      }
+
+      setCards(prev => {
+        const next = [...prev];
+        for (const found of lookups) {
+          const idx = next.findIndex(c => c.name === found.name);
+          if (idx >= 0) {
+            const merged = { ...next[idx], quantity: next[idx].quantity + 1 };
+            next.splice(idx, 1);
+            next.unshift(merged);
+          } else {
+            next.unshift({ ...found, quantity: 1 });
+          }
+        }
+        return next;
+      });
+
+      const verifiedCount = lookups.filter(l => l.verified).length;
+      const unverified = lookups.length - verifiedCount;
+      if (lookups.length === 1) {
+        const c = lookups[0];
+        setStatus({ type: 'success', message: `Added ${c.name}${c.set ? ` · ${c.set}` : ''}${!c.verified ? ' (unverified)' : ''}` });
+      } else {
+        setStatus({ type: 'success', message: `Added ${lookups.length} cards${unverified > 0 ? ` · ${unverified} unverified` : ''}` });
+      }
+    } catch (err) {
+      setStatus({ type: 'error', message: 'Scan failed', detail: err?.message ? String(err.message) : String(err) });
+    }
+    setScanning(false);
+  };
+
+  const updateQuantity = (name, delta) => {
+    setCards(prev => prev
+      .map(c => c.name === name ? { ...c, quantity: c.quantity + delta } : c)
+      .filter(c => c.quantity > 0));
+  };
+  const removeCard = (name) => setCards(prev => prev.filter(c => c.name !== name));
+  const totalCards = cards.reduce((s, c) => s + c.quantity, 0);
+  const uniqueCards = cards.length;
+  const moxfieldText = cards.map(c => `${c.quantity} ${c.name}${c.set ? ` (${c.set})` : ''}`).join('\n');
+  const copyExport = async () => {
+    try {
+      await navigator.clipboard.writeText(moxfieldText);
+      setStatus({ type: 'success', message: 'Copied — paste into Moxfield import' });
+    } catch {
+      setStatus({ type: 'error', message: 'Copy failed — select the text manually' });
+    }
+  };
+  const clearAll = () => {
+    if (window.confirm('Clear your entire collection? This cannot be undone.')) {
+      setCards([]); setShowExport(false);
+    }
+  };
+
+  return (
+    <>
+      <style>{`
+        .ms-root { font-family: 'DM Sans', system-ui, sans-serif;
+          background: radial-gradient(ellipse at top, #1a1530 0%, #0a0a0f 50%, #050507 100%);
+          background-attachment: fixed; min-height: 100vh; color: #e8e3d4;
+          padding-bottom: 140px; position: relative; overflow-x: hidden; }
+        .ms-root::before { content: ''; position: fixed; inset: 0;
+          background-image: radial-gradient(circle at 20% 10%, rgba(212,165,116,0.06) 0%, transparent 40%), radial-gradient(circle at 80% 80%, rgba(140,90,200,0.05) 0%, transparent 40%);
+          pointer-events: none; z-index: 0; }
+        .ms-content { position: relative; z-index: 1; }
+        .display { font-family: 'Cormorant Garamond', serif; }
+        .scan-btn { position: relative; width: 100%; padding: 22px 24px; border-radius: 16px;
+          background: linear-gradient(135deg, #1d1a2e 0%, #15131f 100%);
+          border: 1px solid rgba(212,165,116,0.3); color: #e8e3d4;
+          font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 500;
+          letter-spacing: 0.04em; cursor: pointer; transition: all 0.2s ease; overflow: hidden;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05); }
+        .scan-btn:not(:disabled):active { transform: scale(0.98); }
+        .scan-btn:disabled { opacity: 0.85; cursor: wait; }
+        .scan-btn .glow { position: absolute; inset: 0;
+          background: linear-gradient(90deg, transparent, rgba(212,165,116,0.18), transparent);
+          background-size: 200% 100%; animation: shimmer 1.6s infinite linear; pointer-events: none; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fadeSlide { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+        .card-row { animation: fadeSlide 0.3s ease; }
+        .qty-btn { width: 32px; height: 32px; border-radius: 50%;
+          border: 1px solid rgba(212,165,116,0.25); background: rgba(255,255,255,0.03);
+          color: #d4a574; display: flex; align-items: center; justify-content: center;
+          cursor: pointer; transition: all 0.15s; }
+        .qty-btn:active { transform: scale(0.9); background: rgba(212,165,116,0.15); }
+        .qty-btn.danger { color: #c97070; border-color: rgba(201,112,112,0.25); }
+        .status-banner { animation: fadeSlide 0.25s ease; }
+        .export-sheet { animation: fadeSlide 0.3s ease; }
+        textarea.export-area { width: 100%; min-height: 160px; background: #0a0a0f;
+          border: 1px solid rgba(212,165,116,0.2); border-radius: 8px; padding: 12px;
+          color: #e8e3d4; font-family: ui-monospace, 'SF Mono', monospace;
+          font-size: 13px; line-height: 1.6; resize: vertical; }
+        .ornament { display: flex; align-items: center; justify-content: center;
+          gap: 12px; color: rgba(212,165,116,0.4); margin: 4px 0 12px; }
+        .ornament .line { flex: 1; height: 1px;
+          background: linear-gradient(90deg, transparent, rgba(212,165,116,0.3), transparent);
+          max-width: 60px; }
+      `}</style>
+
+      <div className="ms-root">
+        <button className="settings-cog" onClick={onResetKey} title="Reset API key"><Settings size={16}/></button>
+        <div className="ms-content">
+          <header style={{ padding: '36px 20px 20px', textAlign: 'center' }}>
+            <div className="ornament"><span className="line"/><Sparkles size={14}/><span className="line"/></div>
+            <h1 className="display" style={{ margin: 0, fontSize: 42, fontWeight: 500, letterSpacing: '0.02em', lineHeight: 1 }}>Mana Scanner</h1>
+            <p style={{ margin: '10px 0 0', fontSize: 13, letterSpacing: '0.15em', textTransform: 'uppercase', color: '#8a8478' }}>
+              {totalCards === 0 ? 'Tap to scan your first cards' : `${totalCards} ${totalCards === 1 ? 'card' : 'cards'} · ${uniqueCards} unique`}
+            </p>
+          </header>
+
+          <div style={{ padding: '8px 20px 0' }}>
+            <button className="scan-btn" onClick={() => fileInputRef.current?.click()} disabled={scanning}>
+              {scanning && <span className="glow"/>}
+              <span style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+                {scanning ? (
+                  <><Loader2 size={22} style={{ animation: 'spin 1s linear infinite' }}/><span>Reading cards…</span></>
+                ) : (
+                  <><Camera size={22} strokeWidth={1.5}/><span>Scan cards</span></>
+                )}
+              </span>
+            </button>
+            <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={handleFile} style={{ display: 'none' }}/>
+            <p style={{ margin: '10px 0 0', fontSize: 11, color: '#5a5650', textAlign: 'center', letterSpacing: '0.05em' }}>
+              One card or many — lay them out in a grid, no overlap
+            </p>
+          </div>
+
+          {status && (
+            <div className="status-banner" style={{
+              margin: '14px 20px 0', padding: '12px 14px', borderRadius: 10,
+              background: status.type === 'error' ? 'rgba(196,86,86,0.1)' : 'rgba(140,180,110,0.1)',
+              border: `1px solid ${status.type === 'error' ? 'rgba(196,86,86,0.3)' : 'rgba(140,180,110,0.3)'}`,
+              color: status.type === 'error' ? '#e89090' : '#b0d090',
+              fontSize: 14, display: 'flex', alignItems: 'flex-start', gap: 10,
+            }}>
+              {status.type === 'error' ? <AlertCircle size={16} style={{ flexShrink: 0, marginTop: 2 }}/> : <Check size={16} style={{ flexShrink: 0, marginTop: 2 }}/>}
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div>{status.message}</div>
+                {status.detail && <div style={{ marginTop: 6, fontSize: 11, fontFamily: 'ui-monospace, "SF Mono", monospace', opacity: 0.75, wordBreak: 'break-word', lineHeight: 1.4 }}>{status.detail}</div>}
+              </div>
+            </div>
+          )}
+
+          <div style={{ padding: '24px 20px 0' }}>
+            {cards.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '48px 20px', color: '#5a5650' }}>
+                <ImagePlus size={36} strokeWidth={1.2} style={{ opacity: 0.4 }}/>
+                <p className="display" style={{ margin: '14px 0 4px', fontSize: 22, color: '#8a8478', fontStyle: 'italic' }}>Your grimoire is empty</p>
+                <p style={{ margin: 0, fontSize: 13, color: '#5a5650' }}>Cards you scan will appear here</p>
+              </div>
+            ) : (
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {cards.map(card => (
+                  <li key={card.name} className="card-row" style={{
+                    display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
+                    background: 'linear-gradient(135deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.01) 100%)',
+                    border: '1px solid rgba(212,165,116,0.12)', borderRadius: 12,
+                  }}>
+                    {card.image ? (
+                      <img src={card.image} alt={card.name} onClick={() => setPreviewCard(card)}
+                        style={{ width: 44, height: 60, objectFit: 'cover', borderRadius: 5, flexShrink: 0, cursor: 'pointer', border: '1px solid rgba(212,165,116,0.2)' }}/>
+                    ) : (
+                      <div style={{ width: 44, height: 60, borderRadius: 5, flexShrink: 0, background: 'rgba(212,165,116,0.08)', border: '1px solid rgba(212,165,116,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Sparkles size={14} style={{ color: 'rgba(212,165,116,0.4)' }}/>
+                      </div>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="display" style={{ fontSize: 18, fontWeight: 500, lineHeight: 1.2, color: '#e8e3d4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{card.name}</div>
+                      <div style={{ fontSize: 11, color: '#8a8478', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {card.set && <span>{card.set}</span>}
+                        {!card.verified && <span style={{ color: '#c89060' }}>· unverified</span>}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <button className="qty-btn" onClick={() => updateQuantity(card.name, -1)} aria-label="decrease"><Minus size={14}/></button>
+                      <span className="display" style={{ fontSize: 22, fontWeight: 500, minWidth: 22, textAlign: 'center', color: '#d4a574' }}>{card.quantity}</span>
+                      <button className="qty-btn" onClick={() => updateQuantity(card.name, 1)} aria-label="increase"><Plus size={14}/></button>
+                      <button className="qty-btn danger" onClick={() => removeCard(card.name)} aria-label="remove" style={{ marginLeft: 4 }}><X size={14}/></button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {showExport && cards.length > 0 && (
+            <div className="export-sheet" style={{ margin: 20, padding: 16, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(212,165,116,0.2)', borderRadius: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <span className="display" style={{ fontSize: 18 }}>Moxfield import</span>
+                <button onClick={() => setShowExport(false)} style={{ background: 'none', border: 'none', color: '#8a8478', cursor: 'pointer', padding: 4 }}><X size={18}/></button>
+              </div>
+              <textarea className="export-area" readOnly value={moxfieldText} onClick={(e) => e.target.select()}/>
+              <button onClick={copyExport} style={{
+                width: '100%', marginTop: 10, padding: 12, borderRadius: 10,
+                background: '#d4a574', color: '#1a1530', border: 'none',
+                fontFamily: 'DM Sans', fontSize: 14, fontWeight: 600,
+                letterSpacing: '0.05em', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}><Copy size={16}/> Copy to clipboard</button>
+              <p style={{ fontSize: 12, color: '#8a8478', margin: '10px 0 0', textAlign: 'center' }}>Paste this into Moxfield → Import</p>
+            </div>
+          )}
+        </div>
+
+        {cards.length > 0 && !showExport && (
+          <div style={{
+            position: 'fixed', bottom: 0, left: 0, right: 0,
+            padding: '14px 20px 22px',
+            background: 'linear-gradient(180deg, transparent 0%, rgba(10,10,15,0.95) 30%, #0a0a0f 100%)',
+            display: 'flex', gap: 10, zIndex: 10,
+          }}>
+            <button onClick={() => setShowExport(true)} style={{
+              flex: 1, padding: '14px 16px', borderRadius: 12,
+              background: '#d4a574', color: '#1a1530', border: 'none',
+              fontFamily: 'DM Sans', fontSize: 15, fontWeight: 600,
+              letterSpacing: '0.04em', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              boxShadow: '0 4px 16px rgba(212,165,116,0.25)',
+            }}>Export to Moxfield</button>
+            <button onClick={clearAll} style={{
+              padding: 14, borderRadius: 12,
+              background: 'rgba(255,255,255,0.05)', color: '#c97070',
+              border: '1px solid rgba(201,112,112,0.25)',
+              cursor: 'pointer', display: 'flex', alignItems: 'center',
+            }} aria-label="Clear all"><Trash2 size={18}/></button>
+          </div>
+        )}
+
+        {previewCard && (
+          <div onClick={() => setPreviewCard(null)} style={{
+            position: 'fixed', inset: 0, background: 'rgba(5,5,8,0.92)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 100, padding: 24, cursor: 'pointer', backdropFilter: 'blur(8px)',
+          }}>
+            <img src={previewCard.image?.replace('/small/', '/normal/') || previewCard.image} alt={previewCard.name}
+              style={{ maxWidth: '100%', maxHeight: '85vh', borderRadius: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.6)' }}/>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+/* ============ App shell ============ */
+function App() {
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('anthropic_key') || '');
+  if (!apiKey) return <KeyGate onReady={setApiKey}/>;
+  return <ManaScanner apiKey={apiKey} onResetKey={() => { localStorage.removeItem('anthropic_key'); setApiKey(''); }}/>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
