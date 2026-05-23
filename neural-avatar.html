@@ -728,21 +728,57 @@ function createStarfield() {
    spins on its own axis. A radiant core sits at the centre as the source
    of the limitless light. The whole group breathes with voice/mouth. */
 let aurGroup = null;
-/* Pool of glitched glyph variants. The text is *meant* to be unreadable —
-   a shimmer of broken sacred-looking characters rather than legible
-   religious script. Each variant has RGB channel split, horizontal slice
-   displacement, noise specks, and may show the "true" base character or
-   a random alternate from a mixed Hebrew / rune / esoteric symbol set. */
-const GLITCH_ALPHABET = [
-  /* Hebrew letters */
-  'א','ב','ג','ד','ה','ו','ז','ח','ט','י','כ','ל','מ','נ','ס','ע','פ','צ','ק','ר','ש','ת',
-  /* Hebrew vowel points */
-  'ֵ','ֶ','ַ','ָ','ֹ','ִ','ֻ','ְ','ֲ','ֱ',
-  /* Elder Futhark runes — feels related, breaks legibility */
-  'ᚠ','ᚢ','ᚦ','ᚨ','ᚱ','ᚲ','ᚷ','ᚹ','ᚺ','ᚾ','ᛁ','ᛃ','ᛇ','ᛈ','ᛉ','ᛊ','ᛏ','ᛒ','ᛖ','ᛗ','ᛚ','ᛜ','ᛞ','ᛟ',
-  /* esoteric geometry / typography */
-  '◊','◈','◇','◆','✦','✧','⟁','⌬','◯','◐','◑','☉','☽','✺','⟐','⟡'
-];
+/* ============ GLYPH SETS — pickable per veil, custom-text-friendly ============
+   Each named set is a pool of mystical-looking chars. Veils can pick a set
+   by name OR provide a custom text string to spell out an ARG message.
+   URL params (see VEIL_GLYPH_OVERRIDES below):
+     ?veil1=runes&veil1text=AYNENKI&veil2=greek&veil3=alchemy
+     ?veillegible=1   — disables the glitch swap so chars are readable
+   Default sets per veil: Hebrew (outer), Hebrew (mid), Hebrew (inner)
+   to match the original Ain Soph Aur design. Override with any URL param. */
+const GLYPH_SETS = {
+  hebrew: ['א','ב','ג','ד','ה','ו','ז','ח','ט','י','כ','ל','מ','נ','ס','ע','פ','צ','ק','ר','ש','ת',
+           'ֵ','ֶ','ַ','ָ','ֹ','ִ','ֻ','ְ','ֲ','ֱ'],
+  runes:  ['ᚠ','ᚢ','ᚦ','ᚨ','ᚱ','ᚲ','ᚷ','ᚹ','ᚺ','ᚾ','ᛁ','ᛃ','ᛇ','ᛈ','ᛉ','ᛊ','ᛏ','ᛒ','ᛖ','ᛗ','ᛚ','ᛜ','ᛞ','ᛟ'],
+  greek:  ['Α','Β','Γ','Δ','Ε','Ζ','Η','Θ','Ι','Κ','Λ','Μ','Ν','Ξ','Ο','Π','Ρ','Σ','Τ','Υ','Φ','Χ','Ψ','Ω'],
+  arabic: ['ا','ب','ت','ث','ج','ح','خ','د','ذ','ر','ز','س','ش','ص','ض','ط','ظ','ع','غ','ف','ق','ك','ل','م','ن','ه','و','ي'],
+  sanskrit: ['ॐ','अ','आ','इ','ई','उ','ऊ','ऋ','ए','ऐ','ओ','औ','क','ख','ग','घ','ङ','च','छ','ज','झ','त','थ','द','ध','न','प','फ','ब','भ','म','य','र','ल','व','श','ष','स','ह'],
+  alchemy: ['🜁','🜂','🜃','🜄','🜅','🜆','🜇','🜈','🜍','🜎','🜏','🜐','🜔','🜕','🜖','🜚','🜛','🜜','🜞','🜡','🜢','🜤','🜨','🜪','🜫','🜬'],
+  astro:  ['☉','☽','☿','♀','♁','♂','♃','♄','♅','♆','♇','♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓','⚹','☌','☍','△','▽'],
+  latin:  ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'],
+  /* generic mix — used when no set is named (default glitch background flavor) */
+  mixed:  ['א','ב','ג','ד','ה','ו','ז','ח','ט','י','כ','ל','מ','נ','ס','ע','פ','צ','ק','ר','ש','ת',
+           'ᚠ','ᚢ','ᚦ','ᚨ','ᚱ','ᚲ','ᚷ','ᚹ','ᚺ','ᚾ','ᛁ','ᛃ','ᛇ','ᛈ','ᛉ','ᛊ','ᛏ','ᛒ','ᛖ','ᛗ','ᛚ','ᛜ','ᛞ','ᛟ',
+           '◊','◈','◇','◆','✦','✧','⟁','⌬','◯','◐','◑','☉','☽','✺','⟐','⟡']
+};
+/* Resolve what chars each veil should display. Returns array of chars per veil.
+   Priority: ?veil{N}text=... (custom string) > ?veil{N}=setName > defaults. */
+function resolveVeilChars(veilIndex){
+  /* veilIndex 0/1/2 = outer/mid/inner. URL params are 1/2/3 (human-friendly). */
+  const n = veilIndex + 1;
+  const customText = params.get(`veil${n}text`);
+  if (customText && customText.length > 0) {
+    /* split into chars; spread operator handles surrogate pairs for emoji glyphs */
+    return [...customText];
+  }
+  const setName = (params.get(`veil${n}`) || '').toLowerCase();
+  if (setName && GLYPH_SETS[setName]) return GLYPH_SETS[setName];
+  /* defaults — the original Ain Soph Aur Hebrew design */
+  const defaults = [
+    [...'אֵין'],   /* veil 0 — Ain */
+    [...'סוֹף'],   /* veil 1 — Ain Soph */
+    [...'אוֹר']    /* veil 2 — Ain Soph Aur */
+  ];
+  return defaults[veilIndex] || GLYPH_SETS.mixed;
+}
+/* Per-veil "should sprites stay legible?" flag. ?veillegible=1 disables glitch swaps. */
+const VEILS_LEGIBLE = params.get('veillegible') === '1';
+/* Background glitch alphabet — used during the glitch-swap pool to keep the visual
+   noise rich. Defaults to mixed; can be overridden by ?glitchset=runes etc. */
+const GLITCH_ALPHABET = (() => {
+  const g = (params.get('glitchset') || 'mixed').toLowerCase();
+  return GLYPH_SETS[g] || GLYPH_SETS.mixed;
+})();
 /* Clean (un-glitched) texture for the signature reveal moment on page load.
    Same draw as a glitch frame but with no character substitution, no slice
    displacement, no noise — just the base glyph rendered cleanly. */
@@ -765,7 +801,12 @@ function makeCleanGlyphTexture(baseChar, cssColor){
   tex.needsUpdate = true;
   return tex;
 }
-function makeGlitchPool(baseChar, cssColor, poolSize){
+function makeGlitchPool(baseSet, cssColor, poolSize){
+  /* baseSet can be a single char string OR an array of chars (the veil's set).
+     For each pool frame: 25% chance to draw from the veil's own set (so the
+     glitch flickers still feel thematic to the chosen alphabet), 75% chance
+     to pull a random char from the GLITCH_ALPHABET background mix. */
+  const set = Array.isArray(baseSet) ? baseSet : [baseSet];
   const size = 192;
   const pool = [];
   for (let f = 0; f < poolSize; f++){
@@ -773,9 +814,10 @@ function makeGlitchPool(baseChar, cssColor, poolSize){
     c.width = size; c.height = size;
     const ctx = c.getContext('2d');
     ctx.clearRect(0, 0, size, size);
-    /* pick the character to draw — 25% chance of true base, else alphabet draw */
     const showsBase = Math.random() < 0.25;
-    const text = showsBase ? baseChar : GLITCH_ALPHABET[Math.floor(Math.random() * GLITCH_ALPHABET.length)];
+    const text = showsBase
+      ? set[Math.floor(Math.random() * set.length)]
+      : GLITCH_ALPHABET[Math.floor(Math.random() * GLITCH_ALPHABET.length)];
     /* random font weight + slight size variation per frame */
     const fontPx = 110 + Math.floor(Math.random() * 30);
     const weight = Math.random() < 0.5 ? 400 : 700;
@@ -838,53 +880,64 @@ function createAurOverlay(){
   const veilDefs = [
     /* outermost: Ain — nothingness, cool void-violet, faintest */
     { radius: 17, tube: 0.035, color: 0x7a8cff, cssColor: '#a8b4ff', opacity: 0.18,
-      axis: new THREE.Vector3(1, 0.18, 0.06).normalize(), glyph: 'אֵין', glyphCount: 5, speed: -0.04 },
+      axis: new THREE.Vector3(1, 0.18, 0.06).normalize(), maxGlyphs: 12, speed: -0.04 },
     /* middle: Ain Soph — limitlessness, gold */
     { radius: 12, tube: 0.040, color: 0xc8952a, cssColor: '#e8b84b', opacity: 0.30,
-      axis: new THREE.Vector3(0.1, 1, 0.22).normalize(), glyph: 'סוֹף', glyphCount: 6, speed: 0.06 },
+      axis: new THREE.Vector3(0.1, 1, 0.22).normalize(), maxGlyphs: 14, speed: 0.06 },
     /* innermost: Ain Soph Aur — limitless light, bright gold-ivory, brightest */
     { radius: 7, tube: 0.045, color: 0xf5d07a, cssColor: '#fff4d0', opacity: 0.46,
-      axis: new THREE.Vector3(0.22, 0.1, 1).normalize(), glyph: 'אוֹר', glyphCount: 7, speed: -0.09 }
+      axis: new THREE.Vector3(0.22, 0.1, 1).normalize(), maxGlyphs: 16, speed: -0.09 }
   ];
   group.userData.veils = [];
-  veilDefs.forEach(v => {
+  veilDefs.forEach((v, vIdx) => {
+    /* resolve which chars this veil shows from URL params + defaults */
+    const chars = resolveVeilChars(vIdx);
+    /* sprite count: use ALL chars when user gave a custom string (so the
+       message reads in full), otherwise cap at maxGlyphs for visual breathing room */
+    const customText = params.get(`veil${vIdx + 1}text`);
+    const spriteCount = customText
+      ? Math.min(chars.length, 40)               /* cap to keep the ring from over-stuffing */
+      : Math.min(chars.length, v.maxGlyphs);
+
     const ringGeo = new THREE.TorusGeometry(v.radius, v.tube, 14, 256);
     const ringMat = new THREE.MeshBasicMaterial({
       color: v.color, transparent: true, opacity: v.opacity,
       blending: THREE.AdditiveBlending, depthWrite: false
     });
     const ring = new THREE.Mesh(ringGeo, ringMat);
-    /* orient the ring's normal along v.axis */
     const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), v.axis);
     ring.quaternion.copy(q);
     group.add(ring);
-    /* glitched glyphs orbiting on the ring (sprites always face the camera).
-       Each veil shares a pool of pre-rendered glitch variants; each sprite
-       picks from the pool independently and re-rolls on its own timer. */
-    const glyphPool = makeGlitchPool(v.glyph, v.cssColor, 10);
-    /* clean (legible) variant for the signature reveal on first load */
-    const cleanTex = makeCleanGlyphTexture(v.glyph, v.cssColor);
+    /* shared per-veil glitch pool — random chars from this veil's set (so the
+       glitch flicker still feels thematic). Used by all sprites in this veil. */
+    const glyphPool = makeGlitchPool(chars, v.cssColor, 10);
     const glyphSprites = [];
-    for (let i = 0; i < v.glyphCount; i++){
-      /* start with the clean texture so the page-load signature is legible */
+    for (let i = 0; i < spriteCount; i++){
+      const baseChar = chars[i % chars.length];
+      /* each sprite gets its OWN clean texture showing its assigned char.
+         That's what makes custom-text spell out readable messages around
+         the ring (sprite 0 = first char, sprite 1 = second char, ...). */
+      const cleanTex = makeCleanGlyphTexture(baseChar, v.cssColor);
       const mat = new THREE.SpriteMaterial({
         map: cleanTex, transparent: true, opacity: 0, /* fades in during reveal */
         blending: THREE.AdditiveBlending, depthWrite: false
       });
       const s = new THREE.Sprite(mat);
-      /* smaller glyphs — sized to read as ornament on the inner-network rings */
       s.scale.set(1.4, 1.4, 1);
-      const angle = (i / v.glyphCount) * Math.PI * 2;
+      const angle = (i / spriteCount) * Math.PI * 2;
       s.position.set(Math.cos(angle) * v.radius, Math.sin(angle) * v.radius, 0);
-      /* staggered glitch timer per sprite so swaps don't synchronize */
       s.userData.nextGlitch = Math.random() * 0.4;
       s.userData.glitchPhase = Math.random() * Math.PI * 2;
+      s.userData.cleanTex = cleanTex; /* per-sprite clean for reveal + legible mode */
       ring.add(s);
       glyphSprites.push(s);
     }
     group.userData.veils.push({
       ring, speed: v.speed, baseOpacity: v.opacity, mat: ringMat, glyphSprites,
-      baseGlyphOpacity: v.opacity * 1.4, glyphPool, cleanTex
+      baseGlyphOpacity: v.opacity * 1.4, glyphPool,
+      /* cleanTex retained at veil level for backwards compat with the reveal
+         loop — but each sprite now has its own s.userData.cleanTex */
+      cleanTex: glyphSprites[0]?.userData.cleanTex
     });
   });
   /* radiant central point — "Limitless Light" itself (smaller to match inner-network scale) */
@@ -1142,7 +1195,11 @@ const pulseUniforms = {
   /* how strongly shell-colour overrides the baked per-node colour. 1.0 = pure
      shell tint, 0.0 = legacy per-node palette. We keep a hint of the legacy tint
      so each node still has slight unique variation instead of flat blocks. */
-  uShellColorMix:   { value: 0.85 }
+  uShellColorMix:   { value: 0.85 },
+  /* nucleus offset — the inner-shell core drifts with head yaw/pitch so it
+     reads as "following the user's gaze". Applied per-vertex weighted by the
+     inner-shell blend, so outer layers stay put (only the nucleus moves). */
+  uNucleusOffset:   { value: new THREE.Vector3() }
 };
 
 const noiseFunctions = `
@@ -1208,6 +1265,7 @@ uniform float uFaceActive;
 uniform float uShellScaleInner;
 uniform float uShellScaleMid;
 uniform float uShellScaleOuter;
+uniform vec3  uNucleusOffset;
 varying vec3 vColor;
 varying float vNodeType;
 varying vec3 vPosition;
@@ -1269,6 +1327,11 @@ void main(){
     float noise=snoise(modifiedPosition*0.08+uTime*0.08);
     modifiedPosition+=normal*noise*0.15;
   }
+  /* NUCLEUS DRIFT: shift the inner-shell vertices by uNucleusOffset, weighted
+     by the inner-shell blend. Outer vertices (innerW≈0) stay put. The result:
+     the dense nucleus core slides with the user's head, outer cloud stays
+     anchored — feels like the core is "looking around". */
+  modifiedPosition += uNucleusOffset * vShellWeights.x;
   vec4 mvPosition=modelViewMatrix*vec4(modifiedPosition,1.0);
   gl_PointSize=pulseSize*uBaseNodeSize*(1000.0/-mvPosition.z);
   gl_Position=projectionMatrix*mvPosition;
@@ -1278,6 +1341,7 @@ uniform float uTime;
 uniform vec3 uPulseColors[3];
 uniform float uVoiceLevel;
 uniform float uVoicePitch;
+uniform float uMouthOpen;
 uniform vec3 uShellColorInner;
 uniform vec3 uShellColorMid;
 uniform vec3 uShellColorOuter;
@@ -1332,6 +1396,12 @@ void main(){
   float radialDist=length(vPosition);
   float radialBloomFade=0.18+0.82*smoothstep(30.0,2.0,radialDist);
   finalColor*=radialBloomFade;
+  /* MOUTH-DIM: dim brightness in proportion to mouth opening so the
+     scale-induced larger surface produces dimmer pixels per area, keeping
+     total bloom contribution flat. At max mouth, brightness drops to ~50%,
+     which roughly cancels the (~1.21x area) scale increase. Voice still
+     freely amplifies via the *(1+vVoice*0.8) line above this fade. */
+  finalColor*=(1.0 - uMouthOpen * 0.5);
   gl_FragColor=vec4(finalColor,alpha*distanceFade);
 }`
 };
@@ -1352,6 +1422,7 @@ uniform float uVoiceLevel;
 uniform float uShellScaleInner;
 uniform float uShellScaleMid;
 uniform float uShellScaleOuter;
+uniform vec3  uNucleusOffset;
 varying vec3 vColor;
 varying float vConnectionStrength;
 varying float vPulseIntensity;
@@ -1401,6 +1472,10 @@ void main(){
   vShellWeights = shellWeightsAt(localD);
   float shellScale = shellScaleAt(localD);
   finalPos *= shellScale;
+  /* NUCLEUS DRIFT: same as node shader — shift inner-shell points by the
+     head-tracked offset, weighted by inner-shell blend. Connections in the
+     core glide with the nucleus while outer connections stay anchored. */
+  finalPos += uNucleusOffset * vShellWeights.x;
   vec3 worldPos=(modelMatrix*vec4(finalPos,1.0)).xyz;
   float totalPulse=0.0;
   for(int i=0;i<3;i++)totalPulse+=getPulseIntensity(worldPos,uPulsePositions[i],uPulseTimes[i]);
@@ -1415,6 +1490,7 @@ void main(){
   fragmentShader: `
 uniform float uTime;
 uniform vec3 uPulseColors[3];
+uniform float uMouthOpen;
 uniform vec3 uShellColorInner;
 uniform vec3 uShellColorMid;
 uniform vec3 uShellColorOuter;
@@ -1459,6 +1535,10 @@ void main(){
      the connection from bright-inner to dim-outer naturally. */
   float radialBloomFade=0.18+0.82*smoothstep(30.0,2.0,vRadialDist);
   finalColor*=radialBloomFade;
+  /* MOUTH-DIM: matches node fragment shader — dim brightness in proportion
+     to mouth opening so the scale growth doesn't feed extra bright pixels
+     into the bloom pass. */
+  finalColor*=(1.0 - uMouthOpen * 0.5);
   gl_FragColor=vec4(finalColor,alpha*distanceFade);
 }`
 };
@@ -2933,6 +3013,11 @@ const fpsEl = document.getElementById('fps-indicator');
 /* current per-shell scale values — eased toward targets each frame with
    their own curve so each layer pulses with its own personality. */
 let shellInner = 1.0, shellMid = 1.0, shellOuter = 1.0;
+/* eased nucleus offset — drifts toward (-headYaw, -headPitch) so the core
+   appears to track the user's gaze. Negated so when user turns LEFT (head
+   yaw negative in MediaPipe), the nucleus shifts RIGHT — matches what a
+   viewer expects (the eye looking at where the user is looking). */
+let nucleusOffsetX = 0, nucleusOffsetY = 0, nucleusOffsetZ = 0;
 
 function lerp(a,b,t){ return a + (b-a)*t; }
 /* ============ EASING (cubic-bezier feel) ============
@@ -3009,22 +3094,15 @@ function animate(){
     if (AVATAR_STATE.voiceLevel > 0.15 || AVATAR_STATE.mouthOpen > 0.15) {
       AVATAR_STATE.lastVocalTime = t;
     }
-    /* voice spike pulse */
+    /* voice spike pulse — only voice triggers glow now. mouth-open and
+       blink pulses removed (they were firing bright white pulses from the
+       centre whenever you opened your mouth or blinked, regardless of
+       whether you were actually talking). */
     if(AVATAR_STATE.voiceLevel > 0.35 && t - AVATAR_STATE.lastVoicePulse > 0.4){
       AVATAR_STATE.lastVoicePulse = t;
       const angle = Math.random()*Math.PI*2;
       const r = 6 + Math.random()*8;
       triggerPulseAt(new THREE.Vector3(Math.cos(angle)*r, (Math.random()-0.5)*4, Math.sin(angle)*r));
-    }
-    /* mouth open pulse */
-    if(AVATAR_STATE.mouthOpen > 0.4 && t - AVATAR_STATE.lastMouthPulse > 0.5){
-      AVATAR_STATE.lastMouthPulse = t;
-      triggerPulseAt(new THREE.Vector3(0, 0, 0), new THREE.Color(1,1,1));
-    }
-    /* blink pulse — quick flash */
-    if(AVATAR_STATE.blink > 0.7 && t - AVATAR_STATE.lastMouthPulse > 0.3){
-      AVATAR_STATE.lastMouthPulse = t;
-      triggerPulseAt(new THREE.Vector3((Math.random()-0.5)*4, (Math.random()-0.5)*4, (Math.random()-0.5)*4));
     }
     /* ============ REVERIE STATE ============
        After ~10 seconds of silence, the network starts dreaming — gentle
@@ -3077,13 +3155,21 @@ function animate(){
 
   /* SPLIT REACTIVITY (per user): voice drives ONLY the bloom; mouth opening
      drives ONLY the network scale. This keeps the two inputs perceptually
-     independent — talking lights up, opening wide grows the net. */
-  /* Bloom: voice-only. Slightly bumped now that mouth no longer contributes. */
-  bloomPass.strength = bloomEnabled ? (BLOOM_BASE + voiceEased * 0.24) : 0;
+     independent — talking lights up, opening wide grows the net.
+     COUNTER-COMPENSATION: when mouth opens, the network mesh scales out,
+     putting more bright pixels on screen. The bloom post-pass captures that
+     extra area as apparent "glow" — even though strength is unchanged. To
+     break this indirect coupling, we DIM the bloom in proportion to mouth
+     opening, so the growth and the dimming roughly cancel out. Net effect:
+     mouth opening grows the network without firing bloom; only voice does. */
+  const mouthBloomCompensate = 1.0 - mouthEased * 0.35;
+  bloomPass.strength = bloomEnabled
+    ? (BLOOM_BASE + voiceEased * 0.24) * mouthBloomCompensate
+    : 0;
 
   /* Afterimage trails: voice-only (these read as part of the bloom/glow family). */
   if (afterimagePass.enabled && afterimagePass.uniforms?.damp) {
-    afterimagePass.uniforms.damp.value = 0.55 + voiceEased * 0.32;
+    afterimagePass.uniforms.damp.value = (0.55 + voiceEased * 0.32) * mouthBloomCompensate;
   }
 
   /* THREE-SHELL SCALING (mouth-only, tuned subtle):
@@ -3105,11 +3191,25 @@ function animate(){
   shellInner = shellInner + (targetInner - shellInner) * innerStep;
   shellMid   = shellMid   + (targetMid   - shellMid)   * midStep;
   shellOuter = shellOuter + (targetOuter - shellOuter) * outerStep;
+
+  /* NUCLEUS OFFSET: ease toward head-tracked target so the core drifts with
+     yaw/pitch. Only applies when a face is being tracked — when faceActive
+     is low, the offset eases back to zero so the nucleus re-centres. */
+  let nucTargetX = 0, nucTargetY = 0;
+  if (AVATAR_STATE.faceActive > 0.3) {
+    nucTargetX = -AVATAR_STATE.headYaw  * 1.6; /* horizontal drift */
+    nucTargetY = -AVATAR_STATE.headPitch * 1.1; /* vertical drift */
+  }
+  /* gentle damping — too fast feels twitchy, too slow feels disconnected */
+  nucleusOffsetX += (nucTargetX - nucleusOffsetX) * 0.08;
+  nucleusOffsetY += (nucTargetY - nucleusOffsetY) * 0.08;
+
   if (nodesMesh) {
     const u = nodesMesh.material.uniforms;
     u.uShellScaleInner.value = shellInner;
     u.uShellScaleMid.value   = shellMid;
     u.uShellScaleOuter.value = shellOuter;
+    u.uNucleusOffset.value.set(nucleusOffsetX, nucleusOffsetY, 0);
     /* reset any leftover uniform scale from before */
     nodesMesh.scale.setScalar(1);
   }
@@ -3118,6 +3218,7 @@ function animate(){
     u.uShellScaleInner.value = shellInner;
     u.uShellScaleMid.value   = shellMid;
     u.uShellScaleOuter.value = shellOuter;
+    u.uNucleusOffset.value.set(nucleusOffsetX, nucleusOffsetY, 0);
     connectionsMesh.scale.setScalar(1);
   }
 
@@ -3163,12 +3264,13 @@ function animate(){
       v.ring.rotateOnAxis(new THREE.Vector3(0, 0, 1), v.speed * 0.012 * (1 + voiceEased * 0.8));
       v.mat.opacity = v.baseOpacity * breathe * voiceBoost;
       v.glyphSprites.forEach(s => {
-        if (inReveal) {
-          /* pin sprite to the clean texture and fade in opacity */
-          s.material.map = v.cleanTex;
+        if (inReveal || VEILS_LEGIBLE) {
+          /* pin sprite to its OWN clean texture and fade in opacity. In
+             legible mode (?veillegible=1) this stays — sprites never
+             swap to glitch variants so ARG messages remain readable. */
+          s.material.map = s.userData.cleanTex;
           s.material.needsUpdate = true;
           s.material.opacity = v.baseGlyphOpacity * revealOpacity;
-          /* push the first glitch swap to right after the reveal ends */
           s.userData.nextGlitch = REVEAL_DURATION + Math.random() * 0.3;
         } else {
           /* glitch swap: when this sprite's timer expires, jump to a random

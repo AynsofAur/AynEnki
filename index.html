@@ -2764,6 +2764,84 @@
             </div>
           </div>
 
+          <!-- VEIL GLYPHS — ARG-friendly customization -->
+          <div style="margin-top: 1.4rem; padding-top: 1.2rem; border-top: 1px dashed var(--border);">
+            <label style="display:block; margin-bottom: 0.4rem; font-family:'Cinzel', serif; font-size: 0.7rem; letter-spacing: 0.3em; color: var(--gold-bright); text-transform: uppercase;">&#10070; Veil Glyphs (ARG)</label>
+            <p style="color: var(--vellum); font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: .85rem; margin: 0 0 1rem; opacity: 0.75;">
+              Pick a glyph set per veil, or type a custom string to bake an ARG message right into the URL. Custom text overrides set.
+            </p>
+            <div style="display:grid; grid-template-columns: 80px 130px 1fr; gap:8px; align-items:center; margin-bottom: 6px; font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color: var(--vellum);">
+              <span></span><span>Glyph set</span><span>Custom text (overrides set)</span>
+            </div>
+            <div style="display:grid; grid-template-columns: 80px 130px 1fr; gap:8px; align-items:center; margin-bottom: 6px;">
+              <span style="font-size:0.85rem; color: var(--gold-pale);">Outer (1)</span>
+              <select id="aurlVeil1" onchange="aurlBuild()">
+                <option value="">Hebrew (default)</option>
+                <option value="hebrew">Hebrew</option>
+                <option value="runes">Elder Futhark runes</option>
+                <option value="greek">Greek</option>
+                <option value="arabic">Arabic</option>
+                <option value="sanskrit">Sanskrit (Devanagari)</option>
+                <option value="alchemy">Alchemical</option>
+                <option value="astro">Astrological / Zodiac</option>
+                <option value="latin">Latin</option>
+                <option value="mixed">Mixed (occult shimmer)</option>
+              </select>
+              <input type="text" id="aurlVeil1text" placeholder="e.g. AYNENKI" oninput="aurlBuild()">
+            </div>
+            <div style="display:grid; grid-template-columns: 80px 130px 1fr; gap:8px; align-items:center; margin-bottom: 6px;">
+              <span style="font-size:0.85rem; color: var(--gold-pale);">Middle (2)</span>
+              <select id="aurlVeil2" onchange="aurlBuild()">
+                <option value="">Hebrew (default)</option>
+                <option value="hebrew">Hebrew</option>
+                <option value="runes">Elder Futhark runes</option>
+                <option value="greek">Greek</option>
+                <option value="arabic">Arabic</option>
+                <option value="sanskrit">Sanskrit (Devanagari)</option>
+                <option value="alchemy">Alchemical</option>
+                <option value="astro">Astrological / Zodiac</option>
+                <option value="latin">Latin</option>
+                <option value="mixed">Mixed (occult shimmer)</option>
+              </select>
+              <input type="text" id="aurlVeil2text" placeholder="e.g. WATCHES" oninput="aurlBuild()">
+            </div>
+            <div style="display:grid; grid-template-columns: 80px 130px 1fr; gap:8px; align-items:center; margin-bottom: 8px;">
+              <span style="font-size:0.85rem; color: var(--gold-pale);">Inner (3)</span>
+              <select id="aurlVeil3" onchange="aurlBuild()">
+                <option value="">Hebrew (default)</option>
+                <option value="hebrew">Hebrew</option>
+                <option value="runes">Elder Futhark runes</option>
+                <option value="greek">Greek</option>
+                <option value="arabic">Arabic</option>
+                <option value="sanskrit">Sanskrit (Devanagari)</option>
+                <option value="alchemy">Alchemical</option>
+                <option value="astro">Astrological / Zodiac</option>
+                <option value="latin">Latin</option>
+                <option value="mixed">Mixed (occult shimmer)</option>
+              </select>
+              <input type="text" id="aurlVeil3text" placeholder="e.g. ALWAYS" oninput="aurlBuild()">
+            </div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-top: 0.6rem;">
+              <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; color: var(--vellum);">
+                <input type="checkbox" id="aurlVeilLegible" onchange="aurlBuild()">
+                Legible mode (no glitch swap — readable ARG)
+              </label>
+              <div class="field" style="margin: 0;">
+                <select id="aurlGlitchset" onchange="aurlBuild()" style="font-size:0.85rem;">
+                  <option value="">Glitch background: Mixed (default)</option>
+                  <option value="hebrew">Glitch bg: Hebrew</option>
+                  <option value="runes">Glitch bg: Runes</option>
+                  <option value="greek">Glitch bg: Greek</option>
+                  <option value="arabic">Glitch bg: Arabic</option>
+                  <option value="sanskrit">Glitch bg: Sanskrit</option>
+                  <option value="alchemy">Glitch bg: Alchemical</option>
+                  <option value="astro">Glitch bg: Astro</option>
+                  <option value="latin">Glitch bg: Latin</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
           <!-- OUTPUT -->
           <div class="field" style="margin-top: 1.4rem;">
             <label>Generated URL <span style="color: var(--vellum); font-size: 0.8rem; opacity: 0.7;">(paste this into your OBS Browser Source)</span></label>
@@ -3778,6 +3856,15 @@
     document.getElementById('aurlAur').checked     = p.aur;
     document.getElementById('aurlEye').checked     = p.eye;
     document.getElementById('aurlStars').checked   = p.stars;
+    /* veils — presets clear them so switching scenes wipes any stale ARG text */
+    if (document.getElementById('aurlVeil1'))     document.getElementById('aurlVeil1').value = '';
+    if (document.getElementById('aurlVeil2'))     document.getElementById('aurlVeil2').value = '';
+    if (document.getElementById('aurlVeil3'))     document.getElementById('aurlVeil3').value = '';
+    if (document.getElementById('aurlVeil1text')) document.getElementById('aurlVeil1text').value = '';
+    if (document.getElementById('aurlVeil2text')) document.getElementById('aurlVeil2text').value = '';
+    if (document.getElementById('aurlVeil3text')) document.getElementById('aurlVeil3text').value = '';
+    if (document.getElementById('aurlVeilLegible')) document.getElementById('aurlVeilLegible').checked = false;
+    if (document.getElementById('aurlGlitchset')) document.getElementById('aurlGlitchset').value = '';
     aurlBuild();
     toast(`Preset loaded: ${name}`);
   }
@@ -3814,6 +3901,22 @@
     if (outer)     p.set('outer', outer);
     if (sparkle)   p.set('sparkle', sparkle);
     if (bloomtint && bloomtint !== 'ffffff') p.set('bloomtint', bloomtint);
+    /* veil glyph customization (ARG) — per-veil set + custom text */
+    const v1set = document.getElementById('aurlVeil1')?.value;
+    const v2set = document.getElementById('aurlVeil2')?.value;
+    const v3set = document.getElementById('aurlVeil3')?.value;
+    const v1txt = (document.getElementById('aurlVeil1text')?.value || '').trim();
+    const v2txt = (document.getElementById('aurlVeil2text')?.value || '').trim();
+    const v3txt = (document.getElementById('aurlVeil3text')?.value || '').trim();
+    if (v1set) p.set('veil1', v1set);
+    if (v2set) p.set('veil2', v2set);
+    if (v3set) p.set('veil3', v3set);
+    if (v1txt) p.set('veil1text', v1txt);
+    if (v2txt) p.set('veil2text', v2txt);
+    if (v3txt) p.set('veil3text', v3txt);
+    if (document.getElementById('aurlVeilLegible')?.checked) p.set('veillegible', '1');
+    const glitchset = document.getElementById('aurlGlitchset')?.value;
+    if (glitchset) p.set('glitchset', glitchset);
     const url = base + (p.toString() ? '?' + p.toString() : '');
     const out = document.getElementById('aurlOutput');
     if (out) out.value = url;
