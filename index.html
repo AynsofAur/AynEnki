@@ -890,6 +890,128 @@
     display: flex; align-items: center; justify-content: center;
     filter: drop-shadow(0 0 30px rgba(201, 160, 80, 0.55)) drop-shadow(0 0 60px rgba(201, 160, 80, 0.25));
   }
+  /* ============ NEURAL AVATAR EMBED ============
+     Single iframe instance shared across all stream-scene views. Per-scene
+     positioning via .slot / .showcase / .watermark / .corner modifier classes
+     so the iframe SLOTS INTO each scene's eye-position instead of covering
+     the entire viewport (which was clashing with titles + subtitles). */
+  #neuralAvatarFrame {
+    position: fixed;
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+    /* default 'slot' size — matches .overlay-eye-wrap (min(46vh, 480px)) */
+    width: min(46vh, 480px); height: min(46vh, 480px);
+    border: 0;
+    /* color-scheme:normal prevents browsers from giving the iframe a dark
+       system "Canvas" background when the parent has color-scheme:dark.
+       Combined with background:transparent + the iframe's own body.transparent
+       class, the network renders on whatever's behind the iframe. */
+    color-scheme: normal;
+    background: transparent !important;
+    pointer-events: none;
+    z-index: 4;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    display: none;
+  }
+  #neuralAvatarFrame.visible { opacity: 1; }
+  /* SHOWCASE — view-avatar centerpiece, large */
+  #neuralAvatarFrame.showcase {
+    width: min(85vw, 85vh); height: min(85vw, 85vh);
+  }
+  /* WATERMARK — just-chatting style, behind the title text */
+  #neuralAvatarFrame.watermark {
+    width: min(64vh, 880px); height: min(64vh, 880px);
+    z-index: 1; /* BEHIND .jc-title-block (z:9) and chrome (z:10) */
+  }
+  /* CORNER — game-scene, matches .gs-avatar-zone dims */
+  #neuralAvatarFrame.corner {
+    top: auto; left: auto; transform: none;
+    bottom: 108px; right: 24px;
+    width: 440px; height: 440px;
+    z-index: 89;
+  }
+  /* ============ AVATAR CONTROL PANEL ============
+     Floating panel that appears when the neural avatar is active. Sends
+     controlAvatar() commands to the iframe. Hidden by default (not on
+     non-scene routes) so it doesn't show to portfolio visitors. */
+  #avatarControlPanel {
+    position: fixed;
+    bottom: 24px; left: 24px;
+    z-index: 200;
+    background: linear-gradient(145deg, rgba(22,22,29,0.92), rgba(42,37,53,0.88));
+    border: 1px solid rgba(201,160,80,0.4);
+    border-radius: 12px;
+    backdrop-filter: blur(20px) saturate(140%);
+    padding: 12px 14px;
+    color: var(--gold-pale);
+    font-family: 'Cinzel', serif;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+    display: none; /* shown via body.neural-on */
+    min-width: 240px;
+    user-select: none;
+  }
+  body.neural-on #avatarControlPanel { display: block; }
+  #avatarControlPanel.collapsed .acp-body { display: none; }
+  #avatarControlPanel .acp-header {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase;
+    color: var(--gold-bright);
+    margin-bottom: 10px; padding-bottom: 6px;
+    border-bottom: 1px solid rgba(201,160,80,0.18);
+    cursor: pointer;
+  }
+  #avatarControlPanel .acp-header span.acp-toggle { font-size: 12px; opacity: 0.7; }
+  #avatarControlPanel.collapsed .acp-header { margin-bottom: 0; padding-bottom: 0; border: 0; }
+  #avatarControlPanel .acp-row {
+    display: grid; grid-template-columns: 70px 1fr; gap: 8px;
+    align-items: center; margin-bottom: 6px;
+    font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+  }
+  #avatarControlPanel .acp-row .acp-label { color: var(--vellum); }
+  #avatarControlPanel .acp-btn-row {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;
+    margin: 8px 0;
+  }
+  #avatarControlPanel button {
+    font-family: inherit; font-size: 10px;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    padding: 7px 10px; border-radius: 6px;
+    border: 1px solid rgba(201,160,80,0.35);
+    background: rgba(201,160,80,0.08); color: var(--gold-pale);
+    cursor: pointer; transition: all 0.15s ease;
+  }
+  #avatarControlPanel button:hover {
+    background: rgba(201,160,80,0.22); border-color: rgba(201,160,80,0.65);
+  }
+  #avatarControlPanel button.acp-action {
+    background: linear-gradient(135deg, rgba(201,160,80,0.32), rgba(160,96,224,0.20));
+    color: #fff;
+  }
+  #avatarControlPanel input[type=range] {
+    width: 100%; height: 4px; background: rgba(255,255,255,0.12);
+    border-radius: 4px; accent-color: var(--gold-bright);
+  }
+  #avatarControlPanel .acp-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; text-align: right; color: var(--gold-bright);
+  }
+  #avatarControlPanel .acp-morph-name {
+    font-family: 'Cormorant Garamond', serif; font-style: italic;
+    font-size: 12px; color: var(--gold-bright); text-align: center;
+    margin: 4px 0 8px; letter-spacing: 0.08em;
+  }
+  /* when the neural avatar is on, hide the SVG eye CONTENT inside the wrappers,
+     but KEEP the wrappers themselves so they preserve layout space (the title
+     stays above and the countdown/subtitle stays below where the eye used
+     to be). The neural-avatar iframe slots into the same spot. */
+  body.neural-on #view-avatar         .overlay-eye-wrap > svg,
+  body.neural-on #view-starting-soon  .overlay-eye-wrap > svg,
+  body.neural-on #view-brb            .overlay-eye-wrap > svg,
+  body.neural-on #view-ending         .overlay-eye-wrap > svg,
+  body.neural-on #view-just-chatting  .jc-watermark,
+  body.neural-on #view-game-scene     .gs-avatar-zone svg {
+    visibility: hidden !important;
+  }
   .overlay-eye-svg { width: 100%; height: 100%; animation: floaty 6s ease-in-out infinite; }
   .overlay-title-block { margin-top: 3.2vh; position: relative; z-index: 11; }
   .overlay-brand {
@@ -1241,11 +1363,13 @@
      AYN ENKI OVERLAYS — fixed 1920x1080 stage, scaled to fit
      ============================================================ */
   .ae-view { padding: 0; background: #050508; overflow: hidden; position: relative; }
+  /* use flex centering on the active AynEnki view so the stage doesn't depend on parent's explicit height */
+  .ae-view.active { display: flex !important; align-items: center; justify-content: center; min-height: 100vh; }
   .ae-stage {
-    position: absolute;
-    top: 50%; left: 50%;
+    position: relative;
     width: 1920px; height: 1080px;
-    transform: translate(-50%, -50%) scale(min(calc(100vw / 1920), calc(100vh / 1080)));
+    flex-shrink: 0;
+    transform: scale(min(calc(100vw / 1920), calc(100vh / 1080)));
     transform-origin: center center;
     font-family: 'Raleway', sans-serif;
     color: #f0e6cc;
@@ -1399,6 +1523,46 @@
   .ae-corner-game.tl { top: 16px; left: 16px; border-width: 2px 0 0 2px; animation-delay: 0s; }
   .ae-corner-game.bl { bottom: 16px; left: 16px; border-width: 0 0 2px 2px; animation-delay: 1.5s; }
   @keyframes ae-cornerGlow { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.65; box-shadow: 0 0 8px rgba(200,149,42,0.25); } }
+
+  /* ============================================================
+     AYN ENKI · CHARACTER CONCEPT (lore / between-stream display)
+     ============================================================ */
+  #view-ae-character { background: #050508; padding: 0; min-height: 100vh; overflow-y: auto; font-family: 'Raleway', sans-serif; color: #f0e6cc; --ae-c-void:#050508; --ae-c-gold-dim:#7a5c1e; --ae-c-gold:#c8952a; --ae-c-gold-bright:#e8b84b; --ae-c-ivory:#f0e6cc; --ae-c-mist:#8899aa; --ae-c-arcane:#a060e0; --ae-c-frost:#90c8e8; --ae-c-void-light:#6080a0; }
+  #view-ae-character .ae-char-scroll { min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 3rem 2rem 4rem; position: relative; overflow-x: hidden; }
+  #view-ae-character .ae-char-atmos { position: fixed; inset: 0; background: radial-gradient(ellipse 60% 50% at 50% 30%, rgba(144,200,232,0.04) 0%, transparent 60%), radial-gradient(ellipse 40% 60% at 30% 80%, rgba(200,149,42,0.03) 0%, transparent 50%), radial-gradient(ellipse 40% 40% at 70% 70%, rgba(160,96,224,0.03) 0%, transparent 50%); pointer-events: none; z-index: 0; }
+  #view-ae-character .ae-char-page-title { font-family: 'Cinzel Decorative', serif; font-size: 0.7rem; letter-spacing: 0.5em; color: var(--ae-c-gold-dim); text-transform: uppercase; margin-bottom: 0.5rem; animation: ae-char-fadeUp 1s ease both; z-index: 1; }
+  #view-ae-character .ae-char-page-name { font-family: 'Cinzel Decorative', serif; font-size: 2rem; font-weight: 900; letter-spacing: 0.2em; color: var(--ae-c-gold-bright); text-shadow: 0 0 30px rgba(232,184,75,0.4); margin-bottom: 0.4rem; animation: ae-char-fadeUp 1s ease 0.2s both; z-index: 1; }
+  #view-ae-character .ae-char-page-sub { font-family: 'Cinzel', serif; font-size: 0.6rem; letter-spacing: 0.4em; color: var(--ae-c-mist); opacity: 0.6; margin-bottom: 3rem; animation: ae-char-fadeUp 1s ease 0.3s both; z-index: 1; }
+  #view-ae-character .ae-char-layout { display: flex; gap: 3rem; align-items: flex-start; max-width: 1100px; width: 100%; animation: ae-char-fadeUp 1s ease 0.4s both; z-index: 1; position: relative; }
+  @media (max-width: 900px) { #view-ae-character .ae-char-layout { flex-direction: column; align-items: center; } }
+  #view-ae-character .ae-char-figure-wrap { flex-shrink: 0; position: relative; width: 420px; min-height: 700px; max-width: 100%; }
+  #view-ae-character .ae-char-figure-halo { position: absolute; top: 5%; left: 50%; transform: translateX(-50%); width: 380px; height: 580px; background: radial-gradient(ellipse 55% 70% at 50% 35%, rgba(144,200,232,0.08) 0%, rgba(200,149,42,0.05) 40%, transparent 70%); pointer-events: none; animation: ae-char-haloPulse 7s ease-in-out infinite; }
+  @keyframes ae-char-haloPulse { 0%, 100% { opacity: 0.6; transform: translateX(-50%) scale(1); } 50% { opacity: 1; transform: translateX(-50%) scale(1.08); } }
+  #view-ae-character .ae-char-figure-svg { width: 100%; position: relative; z-index: 2; filter: drop-shadow(0 0 25px rgba(144,200,232,0.1)) drop-shadow(0 0 40px rgba(200,149,42,0.08)); }
+  #view-ae-character .ae-char-fig-particle { position: absolute; border-radius: 50%; animation: ae-char-figFloat linear infinite; pointer-events: none; z-index: 3; }
+  @keyframes ae-char-figFloat { 0% { transform: translateY(0) translateX(0) scale(1); opacity: 0; } 8% { opacity: 1; } 92% { opacity: 0.4; } 100% { transform: translateY(-280px) translateX(var(--fdx)) scale(0.3); opacity: 0; } }
+  #view-ae-character .ae-char-info { flex: 1; display: flex; flex-direction: column; gap: 1.5rem; max-width: 100%; }
+  #view-ae-character .ae-char-concept-title { border-bottom: 1px solid rgba(144,200,232,0.12); padding-bottom: 1.2rem; }
+  #view-ae-character .ae-char-concept-title h2 { font-family: 'Cinzel Decorative', serif; font-size: 1.3rem; font-weight: 400; letter-spacing: 0.15em; color: var(--ae-c-ivory); margin-bottom: 0.5rem; }
+  #view-ae-character .ae-char-concept-title p { font-size: 0.72rem; line-height: 1.9; color: var(--ae-c-mist); opacity: 0.75; letter-spacing: 0.04em; }
+  #view-ae-character .ae-char-traits { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+  @media (max-width: 500px) { #view-ae-character .ae-char-traits { grid-template-columns: 1fr; } }
+  #view-ae-character .ae-char-trait { background: rgba(144,200,232,0.02); border: 1px solid rgba(144,200,232,0.08); border-left: 2px solid var(--accent, rgba(144,200,232,0.3)); padding: 0.9rem 1rem; transition: background 0.3s, border-color 0.3s; }
+  #view-ae-character .ae-char-trait:hover { background: rgba(144,200,232,0.05); border-color: rgba(144,200,232,0.15); }
+  #view-ae-character .ae-char-trait-label { font-family: 'Cinzel', serif; font-size: 0.45rem; letter-spacing: 0.35em; color: var(--ae-c-void-light); text-transform: uppercase; margin-bottom: 0.4rem; }
+  #view-ae-character .ae-char-trait-value { font-family: 'Cinzel', serif; font-size: 0.75rem; letter-spacing: 0.1em; color: var(--ae-c-ivory); }
+  #view-ae-character .ae-char-trait-sub { font-size: 0.6rem; font-family: 'Raleway', sans-serif; font-weight: 300; color: var(--ae-c-mist); opacity: 0.7; margin-top: 0.25rem; letter-spacing: 0.05em; }
+  #view-ae-character .ae-char-section-label { font-family: 'Cinzel', serif; font-size: 0.5rem; letter-spacing: 0.45em; color: var(--ae-c-void-light); text-transform: uppercase; margin-bottom: 0.8rem; opacity: 0.8; }
+  #view-ae-character .ae-char-palette { display: flex; gap: 0.5rem; }
+  #view-ae-character .ae-char-pal { flex: 1; height: 52px; border-radius: 3px; position: relative; cursor: default; transition: transform 0.2s; border: 1px solid rgba(255,255,255,0.04); }
+  #view-ae-character .ae-char-pal:hover { transform: translateY(-3px); }
+  #view-ae-character .ae-char-pal-label { position: absolute; bottom: 5px; left: 0; right: 0; text-align: center; font-size: 0.4rem; letter-spacing: 0.1em; font-family: 'Cinzel', serif; }
+  #view-ae-character .ae-char-note { display: flex; gap: 0.8rem; align-items: flex-start; margin-bottom: 0.8rem; }
+  #view-ae-character .ae-char-note-diamond { width: 6px; height: 6px; background: var(--ndot, var(--ae-c-frost)); transform: rotate(45deg); flex-shrink: 0; margin-top: 0.3rem; box-shadow: 0 0 6px var(--ndot, var(--ae-c-frost)); }
+  #view-ae-character .ae-char-note-text { font-size: 0.67rem; line-height: 1.75; color: var(--ae-c-mist); opacity: 0.75; }
+  #view-ae-character .ae-char-note-text strong { color: var(--ae-c-ivory); font-weight: 500; }
+  #view-ae-character .ae-char-divider { height: 1px; background: linear-gradient(to right, transparent, rgba(144,200,232,0.15), transparent); }
+  @keyframes ae-char-fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 </style>
 </head>
 <body>
@@ -1410,9 +1574,52 @@
   <video id="cam" playsinline autoplay muted></video>
   <canvas id="debugCanvas" width="160" height="120"></canvas>
 
+  <!-- shared neural-avatar iframe (per-scene src is set in JS route() handler).
+       runs ONE instance across all scenes so webcam permission only fires once. -->
+  <iframe id="neuralAvatarFrame" src="" title="Malikeye neural avatar"
+          allow="microphone; camera; autoplay"></iframe>
+
+  <!-- avatar control panel — only shown on scene routes via body.neural-on CSS -->
+  <div id="avatarControlPanel">
+    <div class="acp-header" onclick="document.getElementById('avatarControlPanel').classList.toggle('collapsed')">
+      <span>&#10070; Watcher Controls</span>
+      <span class="acp-toggle">&#9662;</span>
+    </div>
+    <div class="acp-body">
+      <div class="acp-morph-name" id="acpMorphName">Tree of Life</div>
+      <div class="acp-btn-row">
+        <button onclick="acpCycleMorph()">Morph &raquo;</button>
+        <button onclick="acpCycleTheme()">Theme &raquo;</button>
+        <button class="acp-action" onclick="controlAvatar({pulse:true})">Pulse</button>
+        <button id="acpFreezeBtn" onclick="acpToggleFreeze()">Freeze</button>
+      </div>
+      <div class="acp-row">
+        <span class="acp-label">Density</span>
+        <input type="range" id="acpDensity" min="30" max="100" value="80"
+               oninput="document.getElementById('acpDensityVal').textContent=this.value+'%'"
+               onchange="controlAvatar({density: parseInt(this.value,10)})">
+      </div>
+      <div class="acp-row"><span class="acp-label"></span><span class="acp-val" id="acpDensityVal">80%</span></div>
+      <div class="acp-row">
+        <span class="acp-label">Voice</span>
+        <input type="range" id="acpVoice" min="50" max="200" value="100"
+               oninput="document.getElementById('acpVoiceVal').textContent=(this.value/100).toFixed(2)+'x'"
+               onchange="controlAvatar({voiceGain: parseInt(this.value,10)/100})">
+      </div>
+      <div class="acp-row"><span class="acp-label"></span><span class="acp-val" id="acpVoiceVal">1.00x</span></div>
+      <div class="acp-row">
+        <span class="acp-label">Scale</span>
+        <input type="range" id="acpScale" min="0" max="200" value="100"
+               oninput="document.getElementById('acpScaleVal').textContent=(this.value/100).toFixed(2)+'x'"
+               onchange="controlAvatar({scaleSensitivity: parseInt(this.value,10)/100})">
+      </div>
+      <div class="acp-row"><span class="acp-label"></span><span class="acp-val" id="acpScaleVal">1.00x</span></div>
+    </div>
+  </div>
+
   <!-- ============ NAV ============ -->
   <nav class="nav" id="nav">
-    <div class="brand" onclick="route('home')">MALIKEYE</div>
+    <div class="brand" id="navBrand" onclick="route('home')">MALIKEYE</div>
     <div class="tabs" id="tabs">
       <button class="tab active" data-view="home">Home</button>
       <button class="tab" data-view="portfolio">Portfolio</button>
@@ -1638,7 +1845,7 @@
     <div class="overlay-content">
       <div class="overlay-eye-wrap">
         <svg class="overlay-eye-svg" viewBox="-150 -150 300 300">
-          <use href="#eyeStatic"/>
+          <use href="#eyeStatic" x="-150" y="-150" width="300" height="300"/>
         </svg>
       </div>
       <div class="overlay-title-block">
@@ -1667,7 +1874,7 @@
     <div class="overlay-content">
       <div class="overlay-eye-wrap">
         <svg class="overlay-eye-svg" viewBox="-150 -150 300 300">
-          <use href="#eyeClosed"/>
+          <use href="#eyeClosed" x="-150" y="-150" width="300" height="300"/>
         </svg>
       </div>
       <div class="overlay-big" id="brbBig">BE&nbsp;RIGHT&nbsp;BACK</div>
@@ -1778,7 +1985,7 @@
     </div>
     <div class="gs-goals-zone" id="gsGoalsZone">
       <div class="gs-head">
-        <svg width="28" height="28" viewBox="-150 -150 300 300"><use href="#eyeTiny"/></svg>
+        <svg width="28" height="28" viewBox="-150 -150 300 300"><use href="#eyeTiny" x="-150" y="-150" width="300" height="300"/></svg>
         <div class="title" id="gsPanelTitle">THE ORDER</div>
       </div>
       <div class="gs-ornate"><hr><span>&#10070;</span><hr></div>
@@ -1793,7 +2000,7 @@
     </div>
     <div class="gs-info-bar with-avatar">
       <div class="logo-mark">
-        <svg width="42" height="42" viewBox="-150 -150 300 300"><use href="#eyeTiny"/></svg>
+        <svg width="42" height="42" viewBox="-150 -150 300 300"><use href="#eyeTiny" x="-150" y="-150" width="300" height="300"/></svg>
         <div class="name" id="gsBrand">MALIKEYE</div>
       </div>
       <div class="divider" id="gsDiv1" style="display:none;"></div>
@@ -1814,7 +2021,7 @@
   <section class="view" id="view-game-goals">
     <div class="gs-goals-zone" style="top:5vh;bottom:5vh;width:300px;">
       <div class="gs-head">
-        <svg width="30" height="30" viewBox="-150 -150 300 300"><use href="#eyeTiny"/></svg>
+        <svg width="30" height="30" viewBox="-150 -150 300 300"><use href="#eyeTiny" x="-150" y="-150" width="300" height="300"/></svg>
         <div class="title" id="ggPanelTitle">THE ORDER</div>
       </div>
       <div class="gs-ornate"><hr><span>&#10070;</span><hr></div>
@@ -1834,7 +2041,7 @@
   <section class="view" id="view-game-info-bar">
     <div class="gs-info-bar">
       <div class="logo-mark">
-        <svg width="42" height="42" viewBox="-150 -150 300 300"><use href="#eyeTiny"/></svg>
+        <svg width="42" height="42" viewBox="-150 -150 300 300"><use href="#eyeTiny" x="-150" y="-150" width="300" height="300"/></svg>
         <div class="name" id="gibBrand">MALIKEYE</div>
       </div>
       <div class="divider" id="gibDiv1" style="display:none;"></div>
@@ -1854,7 +2061,7 @@
   <section class="view" id="view-just-chatting">
     <div class="overlay-bg-radial"></div>
     <svg class="jc-watermark" viewBox="-150 -150 300 300">
-      <use href="#eyeStatic"/>
+      <use href="#eyeStatic" x="-150" y="-150" width="300" height="300"/>
     </svg>
     <canvas class="overlay-embers" data-embers="jc"></canvas>
     <div class="overlay-vignette"></div>
@@ -1864,7 +2071,7 @@
     <div class="corner-orn bl"><svg viewBox="0 0 100 100"><path d="M5 40 V5 H40 M5 5 L25 25 M15 5 H35 M5 15 V35"/><circle cx="5" cy="5" r="2.5" fill="#C9A050"/></svg></div>
     <div class="corner-orn br"><svg viewBox="0 0 100 100"><path d="M5 40 V5 H40 M5 5 L25 25 M15 5 H35 M5 15 V35"/><circle cx="5" cy="5" r="2.5" fill="#C9A050"/></svg></div>
     <div class="jc-header">
-      <svg viewBox="-150 -150 300 300"><use href="#eyeTiny"/></svg>
+      <svg viewBox="-150 -150 300 300"><use href="#eyeTiny" x="-150" y="-150" width="300" height="300"/></svg>
       <div class="jc-header-text">
         <div class="b" id="jcBrand">MALIKEYE</div>
         <div class="s">Talking with the Order</div>
@@ -2070,6 +2277,8 @@
       </div>
     </div>
   </section>
+
+  <!-- (AYN ENKI · CHARACTER CONCEPT removed per user request) -->
 
   <!-- ============ QUOTE SHEET (admin tool) ============ -->
   <section class="view" id="view-quote">
@@ -2440,6 +2649,134 @@
               <button class="btn small ghost" onclick="copyOverlayUrl('ae-overlay')">Copy URL</button>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- ============ NEURAL AVATAR URL BUILDER ============
+           One-stop scene-URL generator for OBS Browser Sources. Pick the
+           knobs, copy the URL, paste into OBS. Avoids ever having to type
+           query strings by hand. -->
+      <div class="admin-section">
+        <h3>&#10070; NEURAL AVATAR &middot; OBS URL BUILDER</h3>
+        <div class="panel" id="aurlPanel">
+          <p style="color: var(--vellum); font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: .95rem; margin: 0 0 1.2rem;">
+            Build a complete neural-avatar scene URL for OBS. Click a preset to fill the form, tweak as needed, then copy. Paste into a Browser Source.
+          </p>
+
+          <!-- preset row -->
+          <div class="field" style="margin-bottom: 1rem;">
+            <label>Scene Preset</label>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <button class="btn small ghost" onclick="aurlPreset('starting-soon')">Starting Soon</button>
+              <button class="btn small ghost" onclick="aurlPreset('just-chatting')">Just Chatting</button>
+              <button class="btn small ghost" onclick="aurlPreset('gaming')">Gaming (corner)</button>
+              <button class="btn small ghost" onclick="aurlPreset('brb')">BRB</button>
+              <button class="btn small ghost" onclick="aurlPreset('ending')">Ending</button>
+              <button class="btn small ghost" onclick="aurlPreset('clean')">Clean Sphere</button>
+            </div>
+          </div>
+
+          <div class="admin-grid" style="grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <!-- LEFT COLUMN — geometry -->
+            <div>
+              <div class="field">
+                <label>Formation (morph)</label>
+                <select id="aurlMorph" onchange="aurlBuild()">
+                  <option value="0">Sphere</option>
+                  <option value="1">Helix</option>
+                  <option value="2">Fractal</option>
+                  <option value="3">Torus</option>
+                  <option value="4">Lattice</option>
+                  <option value="5">Bicone</option>
+                  <option value="6" selected>Tree of Life</option>
+                  <option value="7">Eye</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Theme (color palette)</label>
+                <select id="aurlTheme" onchange="aurlBuild()">
+                  <option value="0">Purple Nebula</option>
+                  <option value="1">Sunset Fire</option>
+                  <option value="2">Ocean Aurora</option>
+                  <option value="3" selected>Malikeye</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Density: <span id="aurlDensityVal">80</span>%</label>
+                <input type="range" id="aurlDensity" min="30" max="100" value="80"
+                       oninput="document.getElementById('aurlDensityVal').textContent=this.value; aurlBuild()">
+              </div>
+              <div class="field">
+                <label>Intensity preset</label>
+                <select id="aurlIntensity" onchange="aurlBuild()">
+                  <option value="">Balanced (default)</option>
+                  <option value="low">Low (lean / for gaming)</option>
+                  <option value="high">High (showcase / starting soon)</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Background</label>
+                <select id="aurlBg" onchange="aurlBuild()">
+                  <option value="">Transparent (default — best for OBS)</option>
+                  <option value="dark">Dark (#050508)</option>
+                  <option value="green">Green chroma key</option>
+                  <option value="blue">Blue chroma key</option>
+                  <option value="magenta">Magenta chroma key</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- RIGHT COLUMN — colors + toggles -->
+            <div>
+              <div class="field">
+                <label>Shell colors (inner / middle / outer)</label>
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px;">
+                  <input type="color" id="aurlInner" value="#e8b84b" onchange="aurlBuild()">
+                  <input type="color" id="aurlMid"   value="#a060e0" onchange="aurlBuild()">
+                  <input type="color" id="aurlOuter" value="#6080a0" onchange="aurlBuild()">
+                </div>
+              </div>
+              <div class="field">
+                <label>Sparkle (pulse colour)</label>
+                <input type="color" id="aurlSparkle" value="#f5d07a" onchange="aurlBuild()">
+              </div>
+              <div class="field">
+                <label>Bloom tint</label>
+                <input type="color" id="aurlBloomtint" value="#ffffff" onchange="aurlBuild()">
+              </div>
+              <div class="field">
+                <label>Toggles</label>
+                <div style="display:flex; flex-direction:column; gap:4px;">
+                  <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem;">
+                    <input type="checkbox" id="aurlObs" checked onchange="aurlBuild()"> OBS clean mode (hide panels)
+                  </label>
+                  <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem;">
+                    <input type="checkbox" id="aurlAur" checked onchange="aurlBuild()"> AinSophAur veils
+                  </label>
+                  <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem;">
+                    <input type="checkbox" id="aurlEye" onchange="aurlBuild()"> Center Eye (currently disabled)
+                  </label>
+                  <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem;">
+                    <input type="checkbox" id="aurlStars" checked onchange="aurlBuild()"> Starfield
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- OUTPUT -->
+          <div class="field" style="margin-top: 1.4rem;">
+            <label>Generated URL <span style="color: var(--vellum); font-size: 0.8rem; opacity: 0.7;">(paste this into your OBS Browser Source)</span></label>
+            <textarea id="aurlOutput" readonly rows="3" style="width:100%; font-family:'JetBrains Mono', monospace; font-size: 11px; padding: 10px; background: rgba(0,0,0,0.35); border: 1px solid var(--border); border-radius: 6px; color: var(--gold-pale); resize: vertical;"></textarea>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top: 0.8rem;">
+            <button class="btn primary" onclick="aurlCopy()">Copy URL</button>
+            <button class="btn ghost" onclick="aurlOpen()">Open in new tab</button>
+            <button class="btn ghost" onclick="aurlReset()">Reset to defaults</button>
+          </div>
+          <p style="color: var(--vellum); font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: .85rem; margin-top: 1rem; opacity: 0.7;">
+            <strong>OBS workflow:</strong> Copy URL → in OBS, add Browser Source → paste URL → set Width/Height (1080×1080 for full frame, 360×360 for corner) → right-click source → Interact → grant webcam/mic on first load.
+          </p>
         </div>
       </div>
 
@@ -3241,6 +3578,93 @@
     'ae-overlay':     { init: () => initAeOverlay(), cleanup: () => cleanupAeOverlay() }
   };
 
+  /* ============ NEURAL AVATAR PER-SCENE WIRING ============
+     One iframe lives at #neuralAvatarFrame. We swap its src to a scene-tuned
+     preset URL when entering a stream-scene view, and hide it otherwise. */
+  /* Neural avatar only where the iframe works without breaking scene layouts.
+     Right now that's the dedicated #avatar showcase view + the corner overlay
+     on #game-scene. starting-soon / brb / ending / just-chatting keep their
+     original SVG eye design — the iframe's opaque-rectangle behaviour was
+     cutting through their title / social-link / countdown chrome. */
+  const NEURAL_SCENE_MAP = {
+    'avatar':     { mode: 'showcase', params: '?obs=1&morph=6&theme=3&density=100&intensity=high' },
+    'game-scene': { mode: 'corner',   params: '?obs=1&morph=6&theme=3&density=60&intensity=low' }
+  };
+  /* PUBLIC API — drive the avatar live from the master site or console.
+     Examples:
+       controlAvatar({ morph: 6 })                    // switch to Tree of Life
+       controlAvatar({ density: 80, theme: 3 })       // 80% density, Malikeye theme
+       controlAvatar({ pulse: true })                 // trigger a pulse
+       controlAvatar({ paused: true })                // freeze
+       controlAvatar({ colors: { inner: 'e8b84b', sparkle: 'a060e0' } })
+       controlAvatar({ aur: false, eye: true })       // toggle features
+       controlAvatar({ voiceGain: 1.2, scaleSensitivity: 0.6 })
+     All voice + mouth + face tracking inside the iframe stays untouched. */
+  window.controlAvatar = function(cmd){
+    const frame = document.getElementById('neuralAvatarFrame');
+    if (!frame || !frame.contentWindow) {
+      console.warn('controlAvatar: iframe not ready');
+      return;
+    }
+    frame.contentWindow.postMessage(Object.assign({ type: 'malikeye-control' }, cmd || {}), '*');
+  };
+
+  /* CONTROL PANEL HELPERS — wire the buttons in #avatarControlPanel */
+  const MORPH_NAMES = ['Sphere','Helix','Fractal','Torus','Lattice','Bicone','Tree of Life','Eye'];
+  const THEME_NAMES = ['Purple Nebula','Sunset Fire','Ocean Aurora','Malikeye'];
+  let _acpMorph = 6; /* matches the default in NEURAL_SCENE_MAP (Tree) */
+  let _acpTheme = 3;
+  let _acpFrozen = false;
+  window.acpCycleMorph = function(){
+    _acpMorph = (_acpMorph + 1) % MORPH_NAMES.length;
+    controlAvatar({ morph: _acpMorph });
+    const el = document.getElementById('acpMorphName');
+    if (el) el.textContent = MORPH_NAMES[_acpMorph];
+  };
+  window.acpCycleTheme = function(){
+    _acpTheme = (_acpTheme + 1) % THEME_NAMES.length;
+    controlAvatar({ theme: _acpTheme });
+  };
+  window.acpToggleFreeze = function(){
+    _acpFrozen = !_acpFrozen;
+    controlAvatar({ paused: _acpFrozen });
+    const btn = document.getElementById('acpFreezeBtn');
+    if (btn) btn.textContent = _acpFrozen ? 'Resume' : 'Freeze';
+  };
+
+  let _neuralHideTimer = null;
+  function updateNeuralAvatar(routeName){
+    const frame = document.getElementById('neuralAvatarFrame');
+    if (!frame) return;
+    const scene = NEURAL_SCENE_MAP[routeName];
+    if (scene) {
+      if (_neuralHideTimer) { clearTimeout(_neuralHideTimer); _neuralHideTimer = null; }
+      frame.style.display = 'block';
+      /* clear all mode classes then apply the one we want */
+      frame.classList.remove('slot', 'showcase', 'watermark', 'corner');
+      frame.classList.add(scene.mode);
+      const targetSrc = 'neural-avatar.html' + scene.params;
+      /* only reload if params actually changed — avoids re-prompting webcam */
+      if (!frame.src || !frame.src.endsWith(scene.params)) {
+        frame.src = targetSrc;
+      }
+      requestAnimationFrame(() => frame.classList.add('visible'));
+      /* hide the legacy SVG eyes — see body.neural-on CSS rules */
+      document.body.classList.add('neural-on');
+    } else {
+      frame.classList.remove('visible');
+      document.body.classList.remove('neural-on');
+      /* leave iframe alive briefly so quick re-entries don't reload+reprompt;
+         after 4s of being out-of-scene, clear src to free GPU/mic. */
+      if (_neuralHideTimer) clearTimeout(_neuralHideTimer);
+      _neuralHideTimer = setTimeout(() => {
+        frame.style.display = 'none';
+        frame.src = '';
+        _neuralHideTimer = null;
+      }, 4000);
+    }
+  }
+
   let currentRoute = null;
   function route(name, opts = {}) {
     if (name === 'admin' && !isAdmin) { openLogin(); return; }
@@ -3271,8 +3695,10 @@
         history.replaceState(null, '', newHash || window.location.pathname);
       }
     }
-    /* init the new route */
+    /* init the new route — neural avatar FIRST so its iframe wins the
+       camera/mic permission grab over the master site's face-tracking. */
     currentRoute = name;
+    updateNeuralAvatar(name);
     if (ROUTE_HOOKS[name] && ROUTE_HOOKS[name].init) ROUTE_HOOKS[name].init();
     window.scrollTo({ top: 0, behavior: 'auto' });
   }
@@ -3296,6 +3722,7 @@
     document.body.classList.add('overlay-active');
     currentRoute = name;
     if (ROUTE_HOOKS[name] && ROUTE_HOOKS[name].init) ROUTE_HOOKS[name].init();
+    updateNeuralAvatar(name);
   }
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
@@ -3320,6 +3747,99 @@
     document.body.removeChild(ta);
   }
 
+  /* ============ NEURAL AVATAR URL BUILDER ============
+     Reads the form fields in #aurlPanel and constructs a neural-avatar.html
+     URL with the chosen scene-preset params. The base URL points at this
+     site's neural-avatar.html — when deployed to GitHub Pages, it'll point
+     at the live HTTPS URL automatically (window.location resolves correctly). */
+  const AURL_PRESETS = {
+    'starting-soon': { morph: 6, theme: 3, density: 100, intensity: 'high', bg: '', inner: '#e8b84b', mid: '#a060e0', outer: '#6080a0', sparkle: '#f5d07a', bloomtint: '#ffffff', obs: true, aur: true, eye: false, stars: true },
+    'just-chatting': { morph: 6, theme: 3, density: 80,  intensity: '',     bg: '', inner: '#e8b84b', mid: '#a060e0', outer: '#6080a0', sparkle: '#f5d07a', bloomtint: '#ffffff', obs: true, aur: true, eye: false, stars: true },
+    'gaming':        { morph: 6, theme: 3, density: 50,  intensity: 'low',  bg: '', inner: '#e8b84b', mid: '#a060e0', outer: '#6080a0', sparkle: '#f5d07a', bloomtint: '#ffffff', obs: true, aur: false, eye: false, stars: false },
+    'brb':           { morph: 2, theme: 3, density: 70,  intensity: '',     bg: '', inner: '#e8b84b', mid: '#a060e0', outer: '#6080a0', sparkle: '#f5d07a', bloomtint: '#ffffff', obs: true, aur: true, eye: false, stars: true },
+    'ending':        { morph: 6, theme: 3, density: 90,  intensity: 'high', bg: '', inner: '#e8b84b', mid: '#a060e0', outer: '#6080a0', sparkle: '#f5d07a', bloomtint: '#ffffff', obs: true, aur: true, eye: false, stars: true },
+    'clean':         { morph: 0, theme: 0, density: 80,  intensity: '',     bg: '', inner: '#a78bfa', mid: '#f093fb', outer: '#6e48aa', sparkle: '#a78bfa', bloomtint: '#ffffff', obs: true, aur: false, eye: false, stars: true }
+  };
+  function aurlPreset(name){
+    const p = AURL_PRESETS[name];
+    if (!p) return;
+    document.getElementById('aurlMorph').value     = p.morph;
+    document.getElementById('aurlTheme').value     = p.theme;
+    document.getElementById('aurlDensity').value   = p.density;
+    document.getElementById('aurlDensityVal').textContent = p.density;
+    document.getElementById('aurlIntensity').value = p.intensity;
+    document.getElementById('aurlBg').value        = p.bg;
+    document.getElementById('aurlInner').value     = p.inner;
+    document.getElementById('aurlMid').value       = p.mid;
+    document.getElementById('aurlOuter').value     = p.outer;
+    document.getElementById('aurlSparkle').value   = p.sparkle;
+    document.getElementById('aurlBloomtint').value = p.bloomtint;
+    document.getElementById('aurlObs').checked     = p.obs;
+    document.getElementById('aurlAur').checked     = p.aur;
+    document.getElementById('aurlEye').checked     = p.eye;
+    document.getElementById('aurlStars').checked   = p.stars;
+    aurlBuild();
+    toast(`Preset loaded: ${name}`);
+  }
+  /* Build the URL from the current form state. Resolves the base URL from
+     window.location so it works on file://, localhost, and GitHub Pages. */
+  function aurlBuild(){
+    const base = new URL('neural-avatar.html', window.location.href).href;
+    const p = new URLSearchParams();
+    /* booleans first — only emit non-default values so URLs stay short */
+    if (document.getElementById('aurlObs').checked) p.set('obs', '1');
+    if (!document.getElementById('aurlAur').checked) p.set('aur', '0');
+    if (document.getElementById('aurlEye').checked) p.set('eye', '1');
+    if (!document.getElementById('aurlStars').checked) p.set('stars', '0');
+    /* selects + sliders */
+    const m = document.getElementById('aurlMorph').value;
+    const th = document.getElementById('aurlTheme').value;
+    const d = document.getElementById('aurlDensity').value;
+    const inten = document.getElementById('aurlIntensity').value;
+    const bg = document.getElementById('aurlBg').value;
+    if (m && m !== '0') p.set('morph', m);
+    if (th && th !== '0') p.set('theme', th);
+    if (d && d !== '100') p.set('density', d);
+    if (inten) p.set('intensity', inten);
+    if (bg) p.set('bg', bg);
+    /* colours — drop the # for URL friendliness; only emit if non-default */
+    const hexNoHash = el => (el.value || '').replace('#','').toLowerCase();
+    const inner = hexNoHash(document.getElementById('aurlInner'));
+    const mid   = hexNoHash(document.getElementById('aurlMid'));
+    const outer = hexNoHash(document.getElementById('aurlOuter'));
+    const sparkle = hexNoHash(document.getElementById('aurlSparkle'));
+    const bloomtint = hexNoHash(document.getElementById('aurlBloomtint'));
+    if (inner)     p.set('inner', inner);
+    if (mid)       p.set('mid', mid);
+    if (outer)     p.set('outer', outer);
+    if (sparkle)   p.set('sparkle', sparkle);
+    if (bloomtint && bloomtint !== 'ffffff') p.set('bloomtint', bloomtint);
+    const url = base + (p.toString() ? '?' + p.toString() : '');
+    const out = document.getElementById('aurlOutput');
+    if (out) out.value = url;
+    return url;
+  }
+  function aurlCopy(){
+    const out = document.getElementById('aurlOutput');
+    if (!out || !out.value) { aurlBuild(); }
+    const url = out.value;
+    const done = () => toast('OBS URL copied — paste into a Browser Source');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(done).catch(() => fallbackCopy(url, done));
+    } else { fallbackCopy(url, done); }
+  }
+  function aurlOpen(){
+    const url = aurlBuild();
+    window.open(url, '_blank', 'noopener');
+  }
+  function aurlReset(){
+    aurlPreset('just-chatting');
+  }
+  /* run initial build when admin is loaded so the textarea is populated */
+  document.addEventListener('DOMContentLoaded', () => {
+    if (document.getElementById('aurlOutput')) aurlBuild();
+  });
+
   /* ============ META TAGS ============ */
   function applyMeta() {
     document.getElementById('metaTitle').textContent = state.siteTitle || DEFAULTS.siteTitle;
@@ -3332,6 +3852,9 @@
   /* ============ HOME RENDER (hero eye + featured + schedule + socials) ============ */
   function renderHero() {
     document.getElementById('heroBrand').textContent = state.brand;
+    /* nav brand also pulls from state.brand */
+    const navBrand = document.getElementById('navBrand');
+    if (navBrand) navBrand.textContent = state.brand;
     document.getElementById('heroTagline').innerHTML = (state.tagline || '').replace(/—/g, '&mdash;');
     /* Watch Live button -> primary handle */
     const watchBtn = document.getElementById('heroWatchBtn');
@@ -3672,6 +4195,22 @@
   }
 
   /* ============ OVERLAY: FACE TRACKING (lazy MediaPipe) ============ */
+  /* MediaPipe's Camera.start() pops a window.alert() on getUserMedia failure
+     that user code can't catch. Patch alert() once to swallow those so denied
+     cameras don't pop an OS dialog. Same patch lives in neural-avatar.html. */
+  (function patchAlertForMediaPipe(){
+    if (window._alertPatchedForMP) return;
+    window._alertPatchedForMP = true;
+    const origAlert = window.alert.bind(window);
+    window.alert = function(msg){
+      const s = String(msg || '');
+      if (/acquire camera feed|NotAllowedError|Permission denied|getUserMedia/i.test(s)) {
+        console.warn('[master site] suppressed MediaPipe alert:', s);
+        return;
+      }
+      return origAlert(msg);
+    };
+  })();
   let mediaPipeLoading = null;
   function loadMediaPipe() {
     if (window.FaceMesh && window.Camera) return Promise.resolve();
@@ -3745,6 +4284,14 @@
     faceRAF = requestAnimationFrame(faceRender);
   }
   async function startFaceTracking(targets, statusEls) {
+    /* skip when the neural-avatar iframe is active — it owns the camera now,
+       and two getUserMedia calls would race + one would error out. */
+    if (document.body.classList.contains('neural-on')) {
+      if (statusEls && statusEls.tag) { statusEls.tag.textContent = 'NEURAL'; statusEls.tag.style.background = 'rgba(212,175,55,.25)'; }
+      if (statusEls && statusEls.msg) statusEls.msg.innerHTML = 'Neural avatar handles tracking.';
+      if (statusEls && statusEls.panel) setTimeout(() => statusEls.panel.classList.add('hidden'), 2500);
+      return;
+    }
     faceTargets = targets;
     try {
       if (statusEls && statusEls.msg) statusEls.msg.textContent = 'Loading face mesh…';
@@ -4702,6 +5249,31 @@
     if (aeTimers.ovTimer) { clearInterval(aeTimers.ovTimer); aeTimers.ovTimer = null; }
   }
 
+  /* --- CHARACTER CONCEPT --- */
+  function initAeCharacter() {
+    const wrap = document.getElementById('aeCharFigWrap');
+    if (!wrap) return;
+    /* clear any prior particles to avoid stacking on revisits */
+    wrap.querySelectorAll('.ae-char-fig-particle').forEach(p => p.remove());
+    const colors = [
+      'rgba(144,200,232,0.8)','rgba(192,232,255,0.6)','rgba(200,149,42,0.5)',
+      'rgba(232,184,75,0.4)','rgba(255,255,255,0.3)'
+    ];
+    for (let i = 0; i < 22; i++) {
+      const p = document.createElement('div');
+      p.className = 'ae-char-fig-particle';
+      const size  = Math.random() * 2.5 + 0.5;
+      const left  = Math.random() * 100;
+      const bot   = Math.random() * 80 + 20;
+      const dx    = (Math.random() - 0.5) * 100 + 'px';
+      const dur   = Math.random() * 10 + 6;
+      const delay = Math.random() * 12;
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      p.style.cssText = `width:${size}px;height:${size}px;left:${left}%;bottom:${bot}px;background:${color};--fdx:${dx};animation-duration:${dur}s;animation-delay:-${delay}s;box-shadow:0 0 ${size*3}px ${color};`;
+      wrap.appendChild(p);
+    }
+  }
+
   /* ============ QUOTE SHEET (vanilla port of freelance-quote.jsx) ============ */
   const QS_DEFAULT_ITEMS = [
     { id: 'qi1', description: 'Pre-Production / Discovery', qty: 1, unit: 'flat', rate: 500 },
@@ -4859,6 +5431,27 @@
     qsState = JSON.parse(JSON.stringify(QS_DEFAULTS));
     qsSave(); initQuoteSheet(); toast('Quote sheet reset');
   }
+
+  /* ============ MOBILE-FRIENDLY ADMIN TRIGGER (5 taps on the nav brand) ============ */
+  let brandTapCount = 0;
+  let brandTapTimer = null;
+  (function setupBrandAdminTap() {
+    const brand = document.getElementById('navBrand');
+    if (!brand) return;
+    brand.addEventListener('click', () => {
+      brandTapCount++;
+      clearTimeout(brandTapTimer);
+      brandTapTimer = setTimeout(() => { brandTapCount = 0; }, 3000);
+      if (brandTapCount >= 5) {
+        brandTapCount = 0;
+        if (typeof isAdmin !== 'undefined' && isAdmin) {
+          route('admin');
+        } else {
+          openLogin();
+        }
+      }
+    });
+  })();
 
   /* ============ SECRET 7-CLICK GLYPH ============ */
   let glyphClickCount = 0;

@@ -1,0 +1,3327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neural Avatar — Reactive</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-highlight: rgba(255, 255, 255, 0.2);
+  --neon-accent: #667eea;
+  --text-main: rgba(255, 255, 255, 0.9);
+  --text-muted: rgba(255, 255, 255, 0.6);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+html, body { width: 100%; height: 100%; }
+body {
+  overflow: hidden;
+  background: #050508;
+  font-family: 'Outfit', sans-serif;
+  color: var(--text-main);
+}
+/* full transparency chain — html AND body need to be transparent for the
+   iframe-embedded case where the parent shows through. !important guards
+   against any inline style override from past bg-mode toggles. */
+html.transparent, body.transparent { background: transparent !important; }
+body.transparent { color-scheme: normal; }
+canvas#neural-canvas {
+  display: block;
+  width: 100%; height: 100%;
+  cursor: crosshair;
+  position: absolute; top: 0; left: 0; z-index: 1;
+}
+.glass-panel {
+  backdrop-filter: blur(24px) saturate(120%);
+  -webkit-backdrop-filter: blur(24px) saturate(120%);
+  background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
+  border: 1px solid var(--glass-border);
+  border-top: 1px solid var(--glass-highlight);
+  border-left: 1px solid var(--glass-highlight);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.4), inset 0 0 20px rgba(255,255,255,0.02);
+  border-radius: 24px;
+  color: var(--text-main);
+  position: absolute;
+  z-index: 10;
+  overflow: hidden;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+body.obs-clean .glass-panel,
+body.obs-clean #control-buttons,
+body.obs-clean #fps-indicator { opacity: 0; pointer-events: none; }
+
+/* hidden camera for MediaPipe */
+video#cam { position: fixed; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+body.debug video#cam { width: 160px; height: 120px; opacity: 1; top: 8px; right: 8px; border: 1px solid #fff; z-index: 60; }
+
+#setup-panel {
+  top: 32px; left: 32px;
+  width: 340px; padding: 24px;
+  z-index: 12;
+}
+#setup-title {
+  font-weight: 500; font-size: 18px;
+  margin-bottom: 8px; letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #fff 30%, #a5b4fc 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.setup-row {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 12px; letter-spacing: 0.05em;
+  color: var(--text-muted); padding: 5px 0;
+}
+.setup-row .tag {
+  font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 100px;
+  background: rgba(255,255,255,0.06);
+  color: var(--text-muted);
+}
+.setup-row .tag.ok { background: rgba(100,200,140,0.18); color: #b8e8c8; }
+.setup-row .tag.err { background: rgba(220,80,80,0.22); color: #f0a8a8; }
+.setup-row .tag.live { background: rgba(120,140,255,0.2); color: #c8d0ff; }
+.meter {
+  position: relative;
+  flex: 1; margin-left: 12px;
+  height: 6px; background: rgba(255,255,255,0.08);
+  border-radius: 100px; overflow: hidden;
+}
+.meter-fill {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: linear-gradient(90deg, #667eea, #a5b4fc);
+  width: 0%; border-radius: 100px;
+  transition: width 0.08s linear;
+}
+.setup-hint {
+  font-size: 11px; line-height: 1.6;
+  color: var(--text-muted); opacity: 0.75;
+  margin-top: 10px;
+}
+.setup-hint kbd {
+  background: rgba(255,255,255,0.08);
+  padding: 1px 6px; border-radius: 4px;
+  font-family: inherit; font-size: 10px;
+  color: #fff;
+}
+#start-btn {
+  margin-top: 14px; width: 100%;
+  padding: 10px 14px; border-radius: 100px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff; border: none; cursor: pointer;
+  font-family: inherit; font-size: 13px; font-weight: 500;
+  letter-spacing: 0.04em;
+  box-shadow: 0 8px 20px rgba(102,126,234,0.3);
+  transition: all 0.3s;
+}
+#start-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(102,126,234,0.45); }
+#start-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+/* ============ STREAMER SLIDERS (gain + frame) ============ */
+#stream-sliders {
+  margin-top: 12px;
+  display: flex; flex-direction: column;
+  gap: 8px;
+}
+.slider-row {
+  display: grid;
+  grid-template-columns: 60px 1fr 50px;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.slider-row .slider-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 9px;
+}
+.slider-row .slider-value {
+  font-family: 'JetBrains Mono', monospace;
+  text-align: right;
+  color: var(--text-main);
+  opacity: 0.7;
+  font-size: 10px;
+}
+.slider-row input[type=range] {
+  grid-column: 2 / 3;
+  grid-row: 1;
+}
+.slider-row .slider-value {
+  grid-column: 3 / 4;
+}
+
+/* ============ SHELL COLOR PICKERS ============ */
+#shell-colors {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+#glow-colors {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.shell-color-pick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.shell-color-pick input[type=color] {
+  -webkit-appearance: none;
+  appearance: none;
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 8px;
+  width: 100%;
+  height: 32px;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.12);
+  transition: transform 0.18s ease, border-color 0.18s ease;
+}
+.shell-color-pick input[type=color]:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255,255,255,0.35);
+}
+.shell-color-pick input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
+.shell-color-pick input[type=color]::-webkit-color-swatch { border: none; border-radius: 6px; }
+.shell-color-pick input[type=color]::-moz-color-swatch { border: none; border-radius: 6px; }
+
+/* ============ STREAMER TOGGLE PILLS ============ */
+#stream-toggles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 12px;
+}
+.toggle-pill {
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 7px 4px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.03);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+.toggle-pill:hover {
+  background: rgba(255,255,255,0.08);
+  color: var(--text-main);
+  border-color: rgba(255,255,255,0.22);
+}
+.toggle-pill.on {
+  background: linear-gradient(135deg, rgba(120,140,255,0.28), rgba(167,139,250,0.22));
+  border-color: rgba(167,139,250,0.55);
+  color: #e8e4ff;
+  box-shadow: 0 0 12px rgba(120,140,255,0.18) inset, 0 2px 8px rgba(120,140,255,0.18);
+}
+.toggle-pill .pill-state {
+  display: block;
+  font-size: 9px;
+  opacity: 0.55;
+  margin-top: 2px;
+  letter-spacing: 0.12em;
+}
+.toggle-pill.on .pill-state { opacity: 0.85; }
+.toggle-pill.action {
+  background: linear-gradient(135deg, rgba(245,87,108,0.25), rgba(240,147,251,0.18));
+  border-color: rgba(245,87,108,0.45);
+  color: #ffd1d8;
+}
+.toggle-pill.action:hover {
+  background: linear-gradient(135deg, rgba(245,87,108,0.45), rgba(240,147,251,0.32));
+  transform: translateY(-1px);
+}
+
+#theme-selector {
+  top: 32px; right: 32px;
+  padding: 24px; display: flex; flex-direction: column;
+  gap: 16px; width: 220px;
+}
+#theme-selector-title {
+  font-size: 12px; text-transform: uppercase;
+  letter-spacing: 2px; color: var(--text-muted);
+  font-weight: 600; margin-bottom: 4px;
+}
+.theme-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; justify-items: center; }
+.theme-button {
+  width: 44px; height: 44px; border-radius: 50%;
+  border: none; cursor: pointer; position: relative;
+  transition: all 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3), inset 0 2px 4px rgba(255,255,255,0.4), inset 0 -2px 4px rgba(0,0,0,0.2);
+}
+#theme-1 { background: radial-gradient(circle at 30% 30%, #a78bfa, #4c1d95); }
+#theme-2 { background: radial-gradient(circle at 30% 30%, #fb7185, #9f1239); }
+#theme-3 { background: radial-gradient(circle at 30% 30%, #38bdf8, #0c4a6e); }
+/* Malikeye brand: gold center, violet edge, deep void */
+#theme-4 { background: radial-gradient(circle at 30% 30%, #f5d07a 0%, #c8952a 40%, #6e4ba0 80%, #1a0c2a 100%); }
+.theme-button::after {
+  content: ''; position: absolute; top: -4px; left: -4px; right: -4px; bottom: -4px;
+  border-radius: 50%; border: 2px solid rgba(255,255,255,0.8);
+  opacity: 0; transform: scale(1.1); transition: all 0.3s ease;
+}
+.theme-button:hover { transform: scale(1.15) translateY(-2px); }
+.theme-button.active::after { opacity: 1; transform: scale(1); }
+
+#density-controls { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+.density-label { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-muted); font-weight: 300; }
+.density-slider {
+  -webkit-appearance: none; width: 100%; height: 6px;
+  background: rgba(255,255,255,0.1); border-radius: 10px; outline: none;
+}
+.density-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 18px; height: 18px;
+  border-radius: 50%; background: #fff; cursor: pointer;
+  box-shadow: 0 0 15px rgba(255,255,255,0.8), 0 2px 5px rgba(0,0,0,0.3);
+  margin-top: -6px;
+}
+
+#control-buttons {
+  position: absolute; bottom: 40px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; gap: 12px; z-index: 11;
+  transition: opacity 0.4s;
+}
+.control-button {
+  backdrop-filter: blur(20px) saturate(140%);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-top: 1px solid rgba(255,255,255,0.25);
+  color: var(--text-main);
+  padding: 10px 22px; border-radius: 50px;
+  cursor: pointer; font-family: 'Outfit', sans-serif;
+  font-size: 12px; font-weight: 500;
+  letter-spacing: 0.5px; text-transform: uppercase;
+  transition: all 0.3s ease;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+  min-width: 100px;
+}
+.control-button:hover {
+  background: rgba(255,255,255,0.1);
+  transform: translateY(-2px);
+  border-color: rgba(255,255,255,0.4);
+}
+
+#fps-indicator {
+  position: absolute; bottom: 8px; right: 8px;
+  font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  color: var(--text-muted); opacity: 0.5;
+  z-index: 11; pointer-events: none;
+  letter-spacing: 0.1em;
+}
+
+@media (max-width: 700px) {
+  #setup-panel { top: 12px; left: 12px; right: 12px; width: auto; }
+  #theme-selector { display: none; }
+  #control-buttons { bottom: 16px; gap: 8px; }
+  .control-button { padding: 8px 14px; font-size: 10px; min-width: auto; }
+}
+</style>
+</head>
+<body>
+
+<!-- hidden webcam -->
+<video id="cam" playsinline autoplay muted></video>
+
+<!-- canvas -->
+<canvas id="neural-canvas"></canvas>
+
+<!-- setup / status panel -->
+<div id="setup-panel" class="glass-panel">
+  <div id="setup-title">Neural Avatar</div>
+  <div class="setup-row"><span>Camera</span><span class="tag" id="camTag">idle</span></div>
+  <div class="setup-row"><span>Microphone</span><span class="tag" id="micTag">idle</span></div>
+  <div class="setup-row"><span>Voice level</span><div class="meter"><div class="meter-fill" id="voiceMeter"></div></div></div>
+  <div class="setup-row"><span>Mouth open</span><div class="meter"><div class="meter-fill" id="mouthMeter" style="background:linear-gradient(90deg,#f093fb,#f5576c);"></div></div></div>
+  <button id="start-btn">Awaken the Network</button>
+
+  <!-- streamer sliders: gain + frame position + zoom. all persist to localStorage. -->
+  <div id="stream-sliders">
+    <div class="slider-row">
+      <span class="slider-label">Voice Gain</span>
+      <span class="slider-value" id="voice-gain-val">1.0x</span>
+      <input type="range" min="50" max="200" value="100" class="density-slider" id="voice-gain-slider">
+    </div>
+    <div class="slider-row">
+      <span class="slider-label">Scale</span>
+      <span class="slider-value" id="scale-sens-val">1.0x</span>
+      <input type="range" min="0" max="200" value="100" class="density-slider" id="scale-sens-slider">
+    </div>
+    <div class="slider-row">
+      <span class="slider-label">Frame X</span>
+      <span class="slider-value" id="frame-x-val">0</span>
+      <input type="range" min="-400" max="400" value="0" class="density-slider" id="frame-x-slider">
+    </div>
+    <div class="slider-row">
+      <span class="slider-label">Frame Y</span>
+      <span class="slider-value" id="frame-y-val">0</span>
+      <input type="range" min="-400" max="400" value="0" class="density-slider" id="frame-y-slider">
+    </div>
+    <div class="slider-row">
+      <span class="slider-label">Zoom</span>
+      <span class="slider-value" id="frame-zoom-val">1.00x</span>
+      <input type="range" min="40" max="200" value="100" class="density-slider" id="frame-zoom-slider">
+    </div>
+  </div>
+
+  <!-- shell colour pickers — independent control of inner / middle / outer.
+       Picking a theme presets these; live changes override and persist. -->
+  <div id="shell-colors">
+    <label class="shell-color-pick">
+      <input type="color" id="shell-color-inner" value="#e8b84b">
+      <span>Inner</span>
+    </label>
+    <label class="shell-color-pick">
+      <input type="color" id="shell-color-mid" value="#a060e0">
+      <span>Middle</span>
+    </label>
+    <label class="shell-color-pick">
+      <input type="color" id="shell-color-outer" value="#6080a0">
+      <span>Outer</span>
+    </label>
+  </div>
+
+  <!-- glow controls: bloom tint (post-process halo) + sparkle (pulse colour).
+       White bloom = neutral (no tint). Sparkle = base colour for fired pulses. -->
+  <div id="glow-colors">
+    <label class="shell-color-pick">
+      <input type="color" id="glow-color-bloom" value="#ffffff">
+      <span>Bloom</span>
+    </label>
+    <label class="shell-color-pick">
+      <input type="color" id="glow-color-sparkle" value="#f5d07a">
+      <span>Sparkle</span>
+    </label>
+  </div>
+
+  <!-- streamer toggles: click equivalents of the M/F/T/B hotkeys + chroma bg cycle.
+       handy when you can't remember the keys or you're remoting in. -->
+  <div id="stream-toggles">
+    <button class="toggle-pill" id="pill-test" type="button" title="Simulate voice + face without webcam (T)">
+      Test Mode <span class="pill-state" id="pill-test-state">off</span>
+    </button>
+    <button class="toggle-pill on" id="pill-bloom" type="button" title="Toggle bloom glow (B)">
+      Bloom <span class="pill-state" id="pill-bloom-state">on</span>
+    </button>
+    <button class="toggle-pill on" id="pill-aur" type="button" title="Show/hide the AinSophAur veils">
+      Veils <span class="pill-state" id="pill-aur-state">on</span>
+    </button>
+    <button class="toggle-pill" id="pill-eye" type="button" title="Show/hide the reactive Eye of Horus centerpiece">
+      Eye <span class="pill-state" id="pill-eye-state">off</span>
+    </button>
+    <button class="toggle-pill" id="pill-bg" type="button" title="Cycle background: clean / dark / green / blue">
+      Background <span class="pill-state" id="pill-bg-state">clean</span>
+    </button>
+    <button class="toggle-pill" id="pill-freeze" type="button" title="Freeze the avatar (F)">
+      Freeze <span class="pill-state" id="pill-freeze-state">off</span>
+    </button>
+    <button class="toggle-pill action" id="pill-pulse" type="button" title="Trigger a manual pulse (M)">
+      Pulse <span class="pill-state">now</span>
+    </button>
+  </div>
+
+  <div class="setup-hint">
+    First time: grant camera + mic permission. In OBS: load with <kbd>?obs=1</kbd> for clean output. Add <kbd>?aur=0</kbd> to hide veils, <kbd>?eye=1</kbd> to show the (hidden-by-default) center eye, <kbd>?intensity=low</kbd> for older hardware, <kbd>?bg=green</kbd> for chroma key, <kbd>?test=1</kbd> to preview without webcam.<br>
+    Scene presets: <kbd>?morph=N</kbd> formation (0-7), <kbd>?density=N</kbd> density % (30-100), <kbd>?inner=hex</kbd> <kbd>?mid=hex</kbd> <kbd>?outer=hex</kbd> shell colours, <kbd>?sparkle=hex</kbd>, <kbd>?bloomtint=hex</kbd>.<br>
+    <strong>Hotkeys:</strong> <kbd>H</kbd> hide panels · <kbd>M</kbd> pulse · <kbd>F</kbd> freeze · <kbd>T</kbd> cycle theme · <kbd>B</kbd> toggle bloom · <kbd>D</kbd> debug
+  </div>
+</div>
+
+<!-- theme + density -->
+<div id="theme-selector" class="glass-panel">
+  <div style="flex:1;">
+    <div id="theme-selector-title">Crystal Theme</div>
+    <div class="theme-grid">
+      <button class="theme-button active" id="theme-1" data-theme="0" aria-label="Purple Nebula" title="Purple Nebula"></button>
+      <button class="theme-button" id="theme-2" data-theme="1" aria-label="Sunset Fire" title="Sunset Fire"></button>
+      <button class="theme-button" id="theme-3" data-theme="2" aria-label="Ocean Aurora" title="Ocean Aurora"></button>
+      <button class="theme-button" id="theme-4" data-theme="3" aria-label="Malikeye Brand" title="Malikeye"></button>
+    </div>
+  </div>
+  <div id="density-controls" style="flex:1;">
+    <div class="density-label"><span>Density</span><span id="density-value">100%</span></div>
+    <input type="range" min="30" max="100" value="100" class="density-slider" id="density-slider">
+  </div>
+</div>
+
+<div id="control-buttons">
+  <button id="change-formation-btn" class="control-button">Morph</button>
+  <button id="pause-play-btn" class="control-button">Freeze</button>
+  <button id="reset-camera-btn" class="control-button">Reset</button>
+</div>
+
+<div id="fps-indicator">FPS: --</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"
+  }
+}
+</script>
+<script>
+  /* MediaPipe's Camera.start() calls window.alert() directly on getUserMedia
+     failures — bypassing any try/catch we wrap around it. Swap alert() for a
+     console.warn so denied-permission scenarios don't pop a system dialog
+     (especially noisy when this page is loaded in an iframe). */
+  (function suppressMediaPipeAlerts(){
+    const origAlert = window.alert.bind(window);
+    window.alert = function(msg){
+      const s = String(msg || '');
+      if (/acquire camera feed|NotAllowedError|Permission denied|getUserMedia/i.test(s)) {
+        console.warn('[neural-avatar] suppressed alert:', s);
+        const camTag = document.getElementById('camTag');
+        if (camTag) { camTag.textContent = 'BLOCKED'; camTag.className = 'tag err'; }
+        return;
+      }
+      return origAlert(msg);
+    };
+  })();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { AfterimagePass } from 'three/addons/postprocessing/AfterimagePass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* ============ URL PARAMS ============ */
+const params = new URLSearchParams(location.search);
+const OBS_MODE = params.get('obs') === '1';
+const TRANSPARENT = OBS_MODE || params.get('transparent') === '1';
+const NO_STARS = params.get('stars') === '0';
+const NO_AUR = params.get('aur') === '0';
+/* eye defaults HIDDEN now — user opted out of it visually but kept the wiring.
+   ?eye=1 opts in; toggle pill flips it live; localStorage persists either way. */
+const SHOW_EYE = params.get('eye') === '1';
+const STARTING_THEME = parseInt(params.get('theme'), 10) || 0;
+/* intensity preset: 'low' (lean for streaming on older hardware) | 'high' (full effects) | default = balanced */
+const INTENSITY = (params.get('intensity') || 'med').toLowerCase();
+const INTENSITY_LOW = INTENSITY === 'low';
+const INTENSITY_HIGH = INTENSITY === 'high';
+/* bg: 'green' / 'blue' / '#hex' — overrides transparent/dark for chroma-key workflows */
+const BG_PARAM = params.get('bg');
+const CHROMA_BG = (() => {
+  if (!BG_PARAM) return null;
+  const named = { green: '#00ff00', blue: '#0000fe', magenta: '#ff00ff', black: '#000000', white: '#ffffff' };
+  return named[BG_PARAM.toLowerCase()] || (BG_PARAM.startsWith('#') ? BG_PARAM : `#${BG_PARAM}`);
+})();
+/* ============ SCENE-PRESET URL PARAMS ============
+   These let you bake a complete look into a URL — one bookmark per stream scene.
+   URL params take precedence over both defaults and localStorage saves.
+   `?morph=N`          start on formation N (0=sphere, 1=helix, 2=fractal, 3=torus,
+                        4=lattice, 5=bicone, 6=tree, 7=eye)
+   `?density=N`        start at N% density (30-100)
+   `?inner=hex&mid=hex&outer=hex`  shell colours (hex without #, e.g. e8b84b)
+   `?sparkle=hex`      sparkle / pulse colour
+   `?bloomtint=hex`    bloom tint (use ffffff for neutral) */
+function _parseHexParam(name){
+  const v = params.get(name);
+  if (!v) return null;
+  /* accept with or without leading # */
+  const clean = v.startsWith('#') ? v.slice(1) : v;
+  return /^[0-9a-f]{6}$/i.test(clean) ? '#' + clean : null;
+}
+const URL_MORPH = (()=>{ const v = parseInt(params.get('morph'),10); return (!isNaN(v) && v>=0 && v<=7) ? v : null; })();
+const URL_DENSITY = (()=>{ const v = parseInt(params.get('density'),10); return (!isNaN(v) && v>=30 && v<=100) ? v/100 : null; })();
+const URL_INNER     = _parseHexParam('inner');
+const URL_MID       = _parseHexParam('mid');
+const URL_OUTER     = _parseHexParam('outer');
+const URL_SPARKLE   = _parseHexParam('sparkle');
+const URL_BLOOMTINT = _parseHexParam('bloomtint');
+
+/* test mode: simulate audio + face input without real webcam/mic — for previewing
+   on stream-setup nights. Mutable so the in-app Test toggle can flip it at runtime. */
+let testMode = params.get('test') === '1';
+/* aurVisible mutable for in-app toggle as well */
+let aurVisible = !NO_AUR;
+let eyeVisible = SHOW_EYE;
+/* persistence marker — old saves had eyeVisible:true from when the eye defaulted on.
+   We only restore eyeVisible from storage if THIS flag is set, meaning the user has
+   explicitly clicked the toggle pill since the default flipped to off. */
+let eyeUserToggled = false;
+/* voice sensitivity multiplier — applied to raw RMS before voice-level shaping.
+   different mics have wildly different gain; this lets users tune without code. */
+let voiceGain = 1.0;
+/* stream framing offsets — applied as CSS transform on the canvas */
+let frameOffsetX = 0; /* px */
+let frameOffsetY = 0; /* px */
+let frameZoom = 1.0;
+/* scale sensitivity multiplier applied to mouth-driven shell scale targets in
+   animate(). 1.0 = the tuned-subtle default; 0 = no scale movement at all;
+   2.0 = double the punch. Lets the user dial scale response without code. */
+let scaleSensitivity = 1.0;
+
+/* ============ SHELL COLOURS ============
+   User-pickable colour per radial shell. Stored as hex strings for easy
+   localStorage round-tripping; converted to THREE.Color when pushed to uniforms.
+   `userShellColors` flag tracks whether the user has manually overridden — if
+   true, switching themes leaves the colours alone (user pick wins). */
+const SHELL_DEFAULTS_PER_PALETTE = [
+  /* palette 0 — Purple Nebula */   { inner: '#a78bfa', mid: '#f093fb', outer: '#6e48aa' },
+  /* palette 1 — Sunset Fire */     { inner: '#feca57', mid: '#f857a6', outer: '#ff5858' },
+  /* palette 2 — Ocean Aurora */    { inner: '#43e97b', mid: '#4facfe', outer: '#4484ce' },
+  /* palette 3 — Malikeye Brand */  { inner: '#e8b84b', mid: '#a060e0', outer: '#6080a0' }
+];
+let shellColorInner = SHELL_DEFAULTS_PER_PALETTE[3].inner;
+let shellColorMid   = SHELL_DEFAULTS_PER_PALETTE[3].mid;
+let shellColorOuter = SHELL_DEFAULTS_PER_PALETTE[3].outer;
+let userShellColors = false; /* flips true once the user picks any colour */
+
+/* ============ GLOW COLOURS ============
+   bloomTintColor: multiplies the post-process bloom output. Default white = neutral.
+   sparkleColor: base colour for fired pulses (triggerPulseAt random hue varies around it).
+   userBloomTint / userSparkleColor: stick across theme switches once picked. */
+const GLOW_DEFAULTS_PER_PALETTE = [
+  /* palette 0 — Purple Nebula */   { bloom: '#ffffff', sparkle: '#a78bfa' },
+  /* palette 1 — Sunset Fire */     { bloom: '#ffffff', sparkle: '#feca57' },
+  /* palette 2 — Ocean Aurora */    { bloom: '#ffffff', sparkle: '#43e97b' },
+  /* palette 3 — Malikeye Brand */  { bloom: '#ffffff', sparkle: '#f5d07a' }
+];
+let bloomTintColor = '#ffffff';
+let sparkleColor   = GLOW_DEFAULTS_PER_PALETTE[3].sparkle;
+let userBloomTint = false;
+let userSparkleColor = false;
+
+if (OBS_MODE) document.body.classList.add('obs-clean');
+if (TRANSPARENT) {
+  document.body.classList.add('transparent');
+  document.documentElement.classList.add('transparent');
+}
+
+/* ============ CONFIG + STATE ============ */
+const config = {
+  paused: false,
+  activePaletteIndex: STARTING_THEME,
+  currentFormation: 0,
+  numFormations: 8,
+  densityFactor: 1
+};
+
+/* Reactive avatar state — driven by audio + face tracking */
+const AVATAR_STATE = {
+  voiceLevel: 0, targetVoiceLevel: 0,
+  voicePitch: 0.3, targetVoicePitch: 0.3,
+  mouthOpen: 0, targetMouthOpen: 0,
+  blink: 0, targetBlink: 0,
+  headYaw: 0, targetHeadYaw: 0,
+  headPitch: 0, targetHeadPitch: 0,
+  faceActive: 0, targetFaceActive: 0,
+  lastFaceTime: 0,
+  lastVoicePulse: 0,
+  lastMouthPulse: 0,
+  /* reverie tracking: timestamp of last vocal/mouth activity,
+     and the last autonomous reverie pulse */
+  lastVocalTime: 0,
+  lastReveriePulse: 0
+};
+
+const colorPalettes = [
+  [
+    new THREE.Color(0x667eea), new THREE.Color(0x764ba2), new THREE.Color(0xf093fb),
+    new THREE.Color(0x9d50bb), new THREE.Color(0x6e48aa)
+  ],
+  [
+    new THREE.Color(0xf857a6), new THREE.Color(0xff5858), new THREE.Color(0xfeca57),
+    new THREE.Color(0xff6348), new THREE.Color(0xff9068)
+  ],
+  [
+    new THREE.Color(0x4facfe), new THREE.Color(0x00f2fe), new THREE.Color(0x43e97b),
+    new THREE.Color(0x38f9d7), new THREE.Color(0x4484ce)
+  ],
+  /* Malikeye brand: gold core, violet arcane, frost cool, ivory highlights, void edge */
+  [
+    new THREE.Color(0xe8b84b), /* gold-bright */
+    new THREE.Color(0xc8952a), /* gold */
+    new THREE.Color(0xa060e0), /* arcane violet */
+    new THREE.Color(0xf0e6cc), /* ivory */
+    new THREE.Color(0x6080a0)  /* void-light */
+  ]
+];
+
+/* ============ THREE.JS SETUP ============ */
+const scene = new THREE.Scene();
+if (!TRANSPARENT) scene.fog = new THREE.FogExp2(0x000000, 0.002);
+
+const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.set(0, 8, 28);
+const cameraBaseTarget = new THREE.Vector3(0, 0, 0);
+
+const canvasElement = document.getElementById('neural-canvas');
+/* alpha always on so the Background pill can switch to transparent at runtime
+   even if the page didn't start in transparent mode. minor perf cost, big UX win. */
+const renderer = new THREE.WebGLRenderer({
+  canvas: canvasElement,
+  antialias: true,
+  powerPreference: "high-performance",
+  alpha: true
+});
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+/* chroma-key bg overrides everything else; otherwise transparent or default dark */
+if (CHROMA_BG) {
+  renderer.setClearColor(new THREE.Color(CHROMA_BG), 1);
+  document.body.style.background = CHROMA_BG;
+  document.body.classList.remove('transparent');
+} else {
+  renderer.setClearColor(TRANSPARENT ? 0x000000 : 0x050508, TRANSPARENT ? 0 : 1);
+}
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+/* ============ STARFIELD (skip in transparent mode) ============ */
+let starField = null;
+if (!NO_STARS && !TRANSPARENT) {
+  starField = createStarfield();
+  scene.add(starField);
+}
+function createStarfield() {
+  const count = INTENSITY_LOW ? 1200 : INTENSITY_HIGH ? 6000 : 4000;
+  const positions = [], colors = [], sizes = [];
+  for (let i = 0; i < count; i++) {
+    const r = THREE.MathUtils.randFloat(50, 150);
+    const phi = Math.acos(THREE.MathUtils.randFloatSpread(2));
+    const theta = THREE.MathUtils.randFloat(0, Math.PI * 2);
+    positions.push(r * Math.sin(phi) * Math.cos(theta), r * Math.sin(phi) * Math.sin(theta), r * Math.cos(phi));
+    const c = Math.random();
+    if (c < 0.7) colors.push(1,1,1); else if (c < 0.85) colors.push(0.7,0.8,1); else colors.push(1,0.9,0.8);
+    sizes.push(THREE.MathUtils.randFloat(0.1, 0.3));
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geo.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 } },
+    vertexShader: `attribute float size;attribute vec3 color;varying vec3 vColor;uniform float uTime;void main(){vColor=color;vec4 mv=modelViewMatrix*vec4(position,1.0);float t=sin(uTime*2.0+position.x*100.0)*0.3+0.7;gl_PointSize=size*t*(300.0/-mv.z);gl_Position=projectionMatrix*mv;}`,
+    fragmentShader: `varying vec3 vColor;void main(){vec2 c=gl_PointCoord-0.5;float d=length(c);if(d>0.5)discard;float a=1.0-smoothstep(0.0,0.5,d);gl_FragColor=vec4(vColor,a*0.8);}`,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+  });
+  return new THREE.Points(geo, mat);
+}
+
+/* ============ AIN SOPH AUR — Three Veils + Hebrew glyphs ============
+   Kabbalistic symbology: three concentric rings encode the Three Veils of
+   Negative Existence — Ain (Nothingness, outermost / faintest), Ain Soph
+   (Limitlessness, mid / gold), Ain Soph Aur (Limitless Light, innermost /
+   brightest). Each ring carries its Hebrew name as orbiting glyphs and
+   spins on its own axis. A radiant core sits at the centre as the source
+   of the limitless light. The whole group breathes with voice/mouth. */
+let aurGroup = null;
+/* Pool of glitched glyph variants. The text is *meant* to be unreadable —
+   a shimmer of broken sacred-looking characters rather than legible
+   religious script. Each variant has RGB channel split, horizontal slice
+   displacement, noise specks, and may show the "true" base character or
+   a random alternate from a mixed Hebrew / rune / esoteric symbol set. */
+const GLITCH_ALPHABET = [
+  /* Hebrew letters */
+  'א','ב','ג','ד','ה','ו','ז','ח','ט','י','כ','ל','מ','נ','ס','ע','פ','צ','ק','ר','ש','ת',
+  /* Hebrew vowel points */
+  'ֵ','ֶ','ַ','ָ','ֹ','ִ','ֻ','ְ','ֲ','ֱ',
+  /* Elder Futhark runes — feels related, breaks legibility */
+  'ᚠ','ᚢ','ᚦ','ᚨ','ᚱ','ᚲ','ᚷ','ᚹ','ᚺ','ᚾ','ᛁ','ᛃ','ᛇ','ᛈ','ᛉ','ᛊ','ᛏ','ᛒ','ᛖ','ᛗ','ᛚ','ᛜ','ᛞ','ᛟ',
+  /* esoteric geometry / typography */
+  '◊','◈','◇','◆','✦','✧','⟁','⌬','◯','◐','◑','☉','☽','✺','⟐','⟡'
+];
+/* Clean (un-glitched) texture for the signature reveal moment on page load.
+   Same draw as a glitch frame but with no character substitution, no slice
+   displacement, no noise — just the base glyph rendered cleanly. */
+function makeCleanGlyphTexture(baseChar, cssColor){
+  const size = 192;
+  const c = document.createElement('canvas');
+  c.width = size; c.height = size;
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, size, size);
+  ctx.font = '700 140px "Times New Roman", "Noto Serif Hebrew", serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = cssColor;
+  ctx.shadowBlur = 32;
+  ctx.fillStyle = cssColor;
+  ctx.fillText(baseChar, size / 2, size / 2 + 6);
+  const tex = new THREE.CanvasTexture(c);
+  tex.minFilter = THREE.LinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.needsUpdate = true;
+  return tex;
+}
+function makeGlitchPool(baseChar, cssColor, poolSize){
+  const size = 192;
+  const pool = [];
+  for (let f = 0; f < poolSize; f++){
+    const c = document.createElement('canvas');
+    c.width = size; c.height = size;
+    const ctx = c.getContext('2d');
+    ctx.clearRect(0, 0, size, size);
+    /* pick the character to draw — 25% chance of true base, else alphabet draw */
+    const showsBase = Math.random() < 0.25;
+    const text = showsBase ? baseChar : GLITCH_ALPHABET[Math.floor(Math.random() * GLITCH_ALPHABET.length)];
+    /* random font weight + slight size variation per frame */
+    const fontPx = 110 + Math.floor(Math.random() * 30);
+    const weight = Math.random() < 0.5 ? 400 : 700;
+    ctx.font = `${weight} ${fontPx}px "Times New Roman", "Noto Serif Hebrew", serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    /* RGB channel split — three slightly-offset draws in red/blue/main */
+    const splitX = (Math.random() - 0.5) * 10;
+    const splitY = (Math.random() - 0.5) * 6;
+    ctx.shadowColor = cssColor;
+    ctx.shadowBlur = 14 + Math.random() * 22;
+    /* red ghost */
+    ctx.fillStyle = 'rgba(255, 80, 100, 0.55)';
+    ctx.fillText(text, size / 2 + splitX, size / 2 + 6 + splitY);
+    /* blue ghost */
+    ctx.fillStyle = 'rgba(80, 160, 255, 0.55)';
+    ctx.fillText(text, size / 2 - splitX, size / 2 + 6 - splitY);
+    /* main fill */
+    ctx.shadowBlur = 26 + Math.random() * 16;
+    ctx.fillStyle = cssColor;
+    ctx.fillText(text, size / 2, size / 2 + 6);
+    /* horizontal slice displacement — rip a few rows and slide them sideways */
+    const sliceCount = 3 + Math.floor(Math.random() * 4);
+    for (let i = 0; i < sliceCount; i++){
+      const y = Math.floor(Math.random() * (size - 4));
+      const h = 3 + Math.floor(Math.random() * 10);
+      const safeH = Math.min(h, size - y);
+      const ox = Math.floor((Math.random() - 0.5) * 30);
+      try {
+        const slice = ctx.getImageData(0, y, size, safeH);
+        ctx.clearRect(0, y, size, safeH);
+        ctx.putImageData(slice, ox, y);
+      } catch(e) { /* taint check noise; ignore */ }
+    }
+    /* speckle noise */
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = cssColor;
+    for (let i = 0; i < 18; i++){
+      ctx.globalAlpha = 0.25 + Math.random() * 0.5;
+      ctx.fillRect(Math.random() * size, Math.random() * size, 1 + Math.random() * 2, 1 + Math.random() * 2);
+    }
+    /* occasional thin scanline */
+    if (Math.random() < 0.4){
+      ctx.globalAlpha = 0.35;
+      ctx.fillRect(0, Math.random() * size, size, 1);
+    }
+    ctx.globalAlpha = 1;
+    const tex = new THREE.CanvasTexture(c);
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    tex.needsUpdate = true;
+    pool.push(tex);
+  }
+  return pool;
+}
+function createAurOverlay(){
+  const group = new THREE.Group();
+  /* veils sit INSIDE the neural network (outer layer ~radius 20) so they
+     orbit through the lattice rather than around the whole composition. */
+  const veilDefs = [
+    /* outermost: Ain — nothingness, cool void-violet, faintest */
+    { radius: 17, tube: 0.035, color: 0x7a8cff, cssColor: '#a8b4ff', opacity: 0.18,
+      axis: new THREE.Vector3(1, 0.18, 0.06).normalize(), glyph: 'אֵין', glyphCount: 5, speed: -0.04 },
+    /* middle: Ain Soph — limitlessness, gold */
+    { radius: 12, tube: 0.040, color: 0xc8952a, cssColor: '#e8b84b', opacity: 0.30,
+      axis: new THREE.Vector3(0.1, 1, 0.22).normalize(), glyph: 'סוֹף', glyphCount: 6, speed: 0.06 },
+    /* innermost: Ain Soph Aur — limitless light, bright gold-ivory, brightest */
+    { radius: 7, tube: 0.045, color: 0xf5d07a, cssColor: '#fff4d0', opacity: 0.46,
+      axis: new THREE.Vector3(0.22, 0.1, 1).normalize(), glyph: 'אוֹר', glyphCount: 7, speed: -0.09 }
+  ];
+  group.userData.veils = [];
+  veilDefs.forEach(v => {
+    const ringGeo = new THREE.TorusGeometry(v.radius, v.tube, 14, 256);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: v.color, transparent: true, opacity: v.opacity,
+      blending: THREE.AdditiveBlending, depthWrite: false
+    });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    /* orient the ring's normal along v.axis */
+    const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), v.axis);
+    ring.quaternion.copy(q);
+    group.add(ring);
+    /* glitched glyphs orbiting on the ring (sprites always face the camera).
+       Each veil shares a pool of pre-rendered glitch variants; each sprite
+       picks from the pool independently and re-rolls on its own timer. */
+    const glyphPool = makeGlitchPool(v.glyph, v.cssColor, 10);
+    /* clean (legible) variant for the signature reveal on first load */
+    const cleanTex = makeCleanGlyphTexture(v.glyph, v.cssColor);
+    const glyphSprites = [];
+    for (let i = 0; i < v.glyphCount; i++){
+      /* start with the clean texture so the page-load signature is legible */
+      const mat = new THREE.SpriteMaterial({
+        map: cleanTex, transparent: true, opacity: 0, /* fades in during reveal */
+        blending: THREE.AdditiveBlending, depthWrite: false
+      });
+      const s = new THREE.Sprite(mat);
+      /* smaller glyphs — sized to read as ornament on the inner-network rings */
+      s.scale.set(1.4, 1.4, 1);
+      const angle = (i / v.glyphCount) * Math.PI * 2;
+      s.position.set(Math.cos(angle) * v.radius, Math.sin(angle) * v.radius, 0);
+      /* staggered glitch timer per sprite so swaps don't synchronize */
+      s.userData.nextGlitch = Math.random() * 0.4;
+      s.userData.glitchPhase = Math.random() * Math.PI * 2;
+      ring.add(s);
+      glyphSprites.push(s);
+    }
+    group.userData.veils.push({
+      ring, speed: v.speed, baseOpacity: v.opacity, mat: ringMat, glyphSprites,
+      baseGlyphOpacity: v.opacity * 1.4, glyphPool, cleanTex
+    });
+  });
+  /* radiant central point — "Limitless Light" itself (smaller to match inner-network scale) */
+  const coreGeo = new THREE.SphereGeometry(0.45, 24, 24);
+  const coreMat = new THREE.MeshBasicMaterial({
+    color: 0xfff4d0, transparent: true, opacity: 0.55,
+    blending: THREE.AdditiveBlending, depthWrite: false
+  });
+  group.userData.core = new THREE.Mesh(coreGeo, coreMat);
+  group.add(group.userData.core);
+  /* soft halo around the core */
+  const haloGeo = new THREE.SphereGeometry(1.4, 24, 24);
+  const haloMat = new THREE.MeshBasicMaterial({
+    color: 0xc8952a, transparent: true, opacity: 0.08,
+    blending: THREE.AdditiveBlending, depthWrite: false
+  });
+  group.userData.halo = new THREE.Mesh(haloGeo, haloMat);
+  group.add(group.userData.halo);
+  return group;
+}
+/* always build the aurGroup so the runtime toggle can show/hide it; URL
+   ?aur=0 just sets initial visibility off (it can still be re-enabled live). */
+aurGroup = createAurOverlay();
+aurGroup.visible = aurVisible;
+scene.add(aurGroup);
+
+/* ============ MALIKEYE — REACTIVE EYE OF HORUS ============
+   Procedural SDF eye on a billboarded plane at the network origin. Replaces
+   what would otherwise be a static logo. Reactive uniforms:
+     uBlink (0=open, 1=closed) — driven by MediaPipe eye-aspect-ratio
+     uGaze (x,y) — driven by head yaw/pitch so the pupil tracks your head
+     uVoice — iris brightens + pupil dilates when speaking
+     uMouthOpen — eye widens slightly (surprise)
+   Rendered with depthTest=false + high renderOrder so it always anchors
+   the composition regardless of orbit angle or nodes in front of it. */
+let centerEyeGroup = null;
+function createCenterEye(){
+  const group = new THREE.Group();
+  /* plane is wider than tall — almond aspect (6 × 3) */
+  const geo = new THREE.PlaneGeometry(6, 3);
+  const mat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime:       { value: 0 },
+      uBlink:      { value: 0 },
+      uGaze:       { value: new THREE.Vector2(0, 0) },
+      uVoice:      { value: 0 },
+      uMouthOpen:  { value: 0 },
+      uFaceActive: { value: 0 },
+      /* brand-default colours; can be wired to pickers later if desired */
+      uRimColor:   { value: new THREE.Color(0xe8b84b) }, /* gold rim */
+      uIrisColor:  { value: new THREE.Color(0xa060e0) }, /* arcane violet */
+      uPupilColor: { value: new THREE.Color(0x080010) }, /* near-black void */
+      uHighlight:  { value: new THREE.Color(0xfff4d0) }, /* ivory glint */
+      uIntensity:  { value: 1.0 }
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      void main(){
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform float uTime;
+      uniform float uBlink;
+      uniform vec2  uGaze;
+      uniform float uVoice;
+      uniform float uMouthOpen;
+      uniform float uFaceActive;
+      uniform vec3  uRimColor;
+      uniform vec3  uIrisColor;
+      uniform vec3  uPupilColor;
+      uniform vec3  uHighlight;
+      uniform float uIntensity;
+      varying vec2 vUv;
+      /* almond SDF: intersection of two circles offset vertically.
+         radius + halfHeight together define width vs lenticularity. */
+      float sdAlmond(vec2 p, float r, float h){
+        float topD = length(p - vec2(0.0, -r + h)) - r;
+        float botD = length(p - vec2(0.0,  r - h)) - r;
+        return max(topD, botD); /* negative inside */
+      }
+      void main(){
+        /* map UV [0,1] → plane-local space matching the 6×3 plane size */
+        vec2 p = vec2((vUv.x - 0.5) * 6.0, (vUv.y - 0.5) * 3.0);
+
+        /* eye open factor: 1 = fully open, ~0.05 = nearly closed.
+           mouth-open widens slightly (surprise gesture). guard divide-by-zero. */
+        float openFactor = max(0.05, 1.0 - uBlink * 0.95 + uMouthOpen * 0.10);
+        /* simulate blink by stretching y-axis lookup so the almond compresses vertically */
+        vec2 pBlink = vec2(p.x, p.y / openFactor);
+        float almondB = sdAlmond(pBlink, 3.5, 1.5);
+        float almondFull = sdAlmond(p, 3.5, 1.5); /* unaffected by blink — used for rim baseline */
+
+        /* gold rim — a hairline outline tracing the open almond boundary */
+        float rimW = 0.10;
+        float rim = abs(almondB + rimW * 0.5);
+        float rimMask = 1.0 - smoothstep(0.0, rimW, rim);
+
+        /* "inside the eye" mask (post-blink) */
+        float inside = 1.0 - smoothstep(-0.02, 0.02, almondB);
+
+        /* iris — circle inside the eye, offset by gaze.
+           gaze x has more travel than y because the eye is wider. */
+        vec2 irisCenter = vec2(uGaze.x * 1.2, uGaze.y * 0.4);
+        float irisR = 0.85;
+        float irisD = length(p - irisCenter);
+        float irisMask = (1.0 - smoothstep(irisR - 0.03, irisR + 0.03, irisD)) * inside;
+        /* radial gradient inside iris — darker edges, brighter middle */
+        float irisGrad = pow(1.0 - clamp(irisD / irisR, 0.0, 1.0), 1.2);
+
+        /* pupil — small dark disc, dilates with voice */
+        float pupilR = 0.26 + uVoice * 0.10;
+        float pupilD = length(p - irisCenter);
+        float pupilMask = (1.0 - smoothstep(pupilR - 0.02, pupilR + 0.02, pupilD)) * inside;
+
+        /* specular highlight — small bright crescent off-center */
+        vec2 hOff = vec2(-0.10, 0.12) + uGaze * vec2(-0.15, -0.05);
+        float hD = length(p - (irisCenter + hOff));
+        float hR = 0.07;
+        float highlightMask = (1.0 - smoothstep(hR - 0.01, hR + 0.01, hD)) * inside;
+
+        /* horus tail — long horizontal stroke extending from inner corner outward */
+        float tailY = -0.55;
+        float tailCurve = (p.x - 2.4) * 0.03; /* gentle downward arc */
+        float tailDist = abs(p.y - tailY - tailCurve);
+        float tailMask = (1.0 - smoothstep(0.06, 0.12, tailDist))
+                       * smoothstep(1.55, 1.85, p.x)
+                       * (1.0 - smoothstep(3.20, 3.55, p.x));
+
+        /* horus teardrop — vertical curving stroke below outer (left) corner */
+        float teardropTop = -0.45;
+        float teardropBot = -1.10;
+        float tearXCenter = -1.65 + (p.y - teardropTop) * 0.25; /* angled outward */
+        float tearDist = abs(p.x - tearXCenter);
+        float tearMask = (1.0 - smoothstep(0.06, 0.12, tearDist))
+                       * smoothstep(teardropTop, teardropTop - 0.05, p.y)
+                       * (1.0 - smoothstep(teardropBot + 0.05, teardropBot, p.y));
+
+        /* compose front to back */
+        vec3 col = vec3(0.0);
+        float a  = 0.0;
+
+        /* iris fill (with voice brightness boost) */
+        vec3 irisCol = mix(uIrisColor * 0.4, uIrisColor * (1.0 + uVoice * 0.7), irisGrad);
+        col = mix(col, irisCol, irisMask);
+        a   = max(a, irisMask * 0.95);
+
+        /* pupil overlay */
+        col = mix(col, uPupilColor, pupilMask * 0.98);
+        a   = max(a, pupilMask * 0.98);
+
+        /* specular highlight overlay (bright, only inside iris) */
+        col = mix(col, uHighlight, highlightMask);
+        a   = max(a, highlightMask);
+
+        /* gold rim, tail and teardrop — all stroke ornament */
+        vec3 rimCol = uRimColor * (1.0 + uVoice * 0.35);
+        col = mix(col, rimCol, rimMask);
+        a   = max(a, rimMask);
+        col = mix(col, uRimColor, tailMask);
+        a   = max(a, tailMask * 0.92);
+        col = mix(col, uRimColor, tearMask);
+        a   = max(a, tearMask * 0.92);
+
+        /* when fully blinked, fade alpha so the eye disappears cleanly */
+        float blinkFade = 1.0 - smoothstep(0.85, 1.0, uBlink);
+        a *= blinkFade;
+
+        /* gentle ambient breathing pulse */
+        float pulse = 0.94 + 0.06 * sin(uTime * 0.6);
+        col *= pulse * uIntensity;
+
+        if (a < 0.01) discard;
+        gl_FragColor = vec4(col, a);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    depthTest: false,
+    blending: THREE.NormalBlending
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  /* high renderOrder ensures eye draws AFTER neural network + aur, so it
+     visually anchors the composition without being occluded. */
+  mesh.renderOrder = 1000;
+  group.add(mesh);
+  group.userData.mat = mat;
+  group.userData.mesh = mesh;
+  return group;
+}
+centerEyeGroup = createCenterEye();
+centerEyeGroup.visible = eyeVisible;
+scene.add(centerEyeGroup);
+
+/* ============ ORBIT CONTROLS + POST ============ */
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+controls.rotateSpeed = 0.6;
+controls.minDistance = 8;
+controls.maxDistance = 80;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.2;
+controls.enablePan = false;
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+/* softer bloom: lower strength, tighter radius, slightly higher threshold so only highlights blow out.
+   intensity preset scales base strength: low cuts it almost off, high boosts modestly. */
+const BLOOM_BASE = INTENSITY_LOW ? 0.12 : INTENSITY_HIGH ? 0.48 : 0.32;
+const BLOOM_RADIUS = INTENSITY_LOW ? 0.30 : 0.42;
+const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), BLOOM_BASE, BLOOM_RADIUS, 0.86);
+let bloomEnabled = !INTENSITY_LOW; /* low intensity defaults bloom off, can re-enable with B */
+composer.addPass(bloomPass);
+/* AfterimagePass: cheap motion-trail effect. damp closer to 1.0 = longer trails.
+   we modulate damp by voice/mouth each frame so at rest there's barely any
+   trail, and during animated speech the outer shell leaves faint ghosts.
+   disabled entirely on the low-intensity preset. */
+const afterimagePass = new AfterimagePass(0.80);
+afterimagePass.enabled = !INTENSITY_LOW;
+composer.addPass(afterimagePass);
+composer.addPass(new OutputPass());
+
+/* ============ SHADER UNIFORMS (with reactive additions) ============ */
+const pulseUniforms = {
+  uTime: { value: 0.0 },
+  uPulsePositions: { value: [
+    new THREE.Vector3(1e3, 1e3, 1e3),
+    new THREE.Vector3(1e3, 1e3, 1e3),
+    new THREE.Vector3(1e3, 1e3, 1e3)
+  ]},
+  uPulseTimes: { value: [-1e3, -1e3, -1e3] },
+  uPulseColors: { value: [
+    new THREE.Color(1,1,1), new THREE.Color(1,1,1), new THREE.Color(1,1,1)
+  ]},
+  uPulseSpeed: { value: 18.0 },
+  uBaseNodeSize: { value: 0.6 },
+  /* reactive uniforms */
+  uVoiceLevel: { value: 0.0 },
+  uVoicePitch: { value: 0.3 },
+  uMouthOpen: { value: 0.0 },
+  uFaceActive: { value: 0.0 },
+  /* per-shell scale uniforms: inner stays near 1.0 (nucleus), middle and
+     outer scale more. Vertex shaders blend by distanceFromRoot via smoothstep. */
+  uShellScaleInner: { value: 1.0 },
+  uShellScaleMid:   { value: 1.0 },
+  uShellScaleOuter: { value: 1.0 },
+  /* per-shell colour uniforms: the user-pickable colour for each radial layer.
+     Defaults are populated from the active palette in createNetworkVisualization
+     (so picking a theme presets them) and overridden live by the colour pickers. */
+  uShellColorInner: { value: new THREE.Color(0xe8b84b) },
+  uShellColorMid:   { value: new THREE.Color(0xa060e0) },
+  uShellColorOuter: { value: new THREE.Color(0x6080a0) },
+  /* how strongly shell-colour overrides the baked per-node colour. 1.0 = pure
+     shell tint, 0.0 = legacy per-node palette. We keep a hint of the legacy tint
+     so each node still has slight unique variation instead of flat blocks. */
+  uShellColorMix:   { value: 0.85 }
+};
+
+const noiseFunctions = `
+vec3 mod289(vec3 x){return x-floor(x*(1.0/289.0))*289.0;}
+vec4 mod289(vec4 x){return x-floor(x*(1.0/289.0))*289.0;}
+vec4 permute(vec4 x){return mod289(((x*34.0)+1.0)*x);}
+vec4 taylorInvSqrt(vec4 r){return 1.79284291400159-0.85373472095314*r;}
+float snoise(vec3 v){
+  const vec2 C=vec2(1.0/6.0,1.0/3.0);
+  const vec4 D=vec4(0.0,0.5,1.0,2.0);
+  vec3 i=floor(v+dot(v,C.yyy));
+  vec3 x0=v-i+dot(i,C.xxx);
+  vec3 g=step(x0.yzx,x0.xyz);
+  vec3 l=1.0-g;
+  vec3 i1=min(g.xyz,l.zxy);
+  vec3 i2=max(g.xyz,l.zxy);
+  vec3 x1=x0-i1+C.xxx;
+  vec3 x2=x0-i2+C.yyy;
+  vec3 x3=x0-D.yyy;
+  i=mod289(i);
+  vec4 p=permute(permute(permute(i.z+vec4(0.0,i1.z,i2.z,1.0))+i.y+vec4(0.0,i1.y,i2.y,1.0))+i.x+vec4(0.0,i1.x,i2.x,1.0));
+  float n_=0.142857142857;
+  vec3 ns=n_*D.wyz-D.xzx;
+  vec4 j=p-49.0*floor(p*ns.z*ns.z);
+  vec4 x_=floor(j*ns.z);
+  vec4 y_=floor(j-7.0*x_);
+  vec4 x=x_*ns.x+ns.yyyy;
+  vec4 y=y_*ns.x+ns.yyyy;
+  vec4 h=1.0-abs(x)-abs(y);
+  vec4 b0=vec4(x.xy,y.xy);
+  vec4 b1=vec4(x.zw,y.zw);
+  vec4 s0=floor(b0)*2.0+1.0;
+  vec4 s1=floor(b1)*2.0+1.0;
+  vec4 sh=-step(h,vec4(0.0));
+  vec4 a0=b0.xzyw+s0.xzyw*sh.xxyy;
+  vec4 a1=b1.xzyw+s1.xzyw*sh.zzww;
+  vec3 p0=vec3(a0.xy,h.x);
+  vec3 p1=vec3(a0.zw,h.y);
+  vec3 p2=vec3(a1.xy,h.z);
+  vec3 p3=vec3(a1.zw,h.w);
+  vec4 norm=taylorInvSqrt(vec4(dot(p0,p0),dot(p1,p1),dot(p2,p2),dot(p3,p3)));
+  p0*=norm.x;p1*=norm.y;p2*=norm.z;p3*=norm.w;
+  vec4 m=max(0.6-vec4(dot(x0,x0),dot(x1,x1),dot(x2,x2),dot(x3,x3)),0.0);
+  m=m*m;
+  return 42.0*dot(m*m,vec4(dot(p0,x0),dot(p1,x1),dot(p2,x2),dot(p3,x3)));
+}`;
+
+/* Node shader with voice/mouth reactivity */
+const nodeShader = {
+  vertexShader: `${noiseFunctions}
+attribute float nodeSize;
+attribute float nodeType;
+attribute vec3 nodeColor;
+attribute float distanceFromRoot;
+uniform float uTime;
+uniform vec3 uPulsePositions[3];
+uniform float uPulseTimes[3];
+uniform float uPulseSpeed;
+uniform float uBaseNodeSize;
+uniform float uVoiceLevel;
+uniform float uMouthOpen;
+uniform float uFaceActive;
+uniform float uShellScaleInner;
+uniform float uShellScaleMid;
+uniform float uShellScaleOuter;
+varying vec3 vColor;
+varying float vNodeType;
+varying vec3 vPosition;
+varying float vPulseIntensity;
+varying float vDistanceFromRoot;
+varying float vGlow;
+varying float vVoice;
+varying vec3 vShellWeights; /* (inner, mid, outer) blend weights for fragment shader */
+/* shell blend: ~7 = inner/middle boundary, ~14 = middle/outer boundary,
+   smoothstep so transitions are gradient rather than stepped. */
+vec3 shellWeightsAt(float d){
+  float innerW = 1.0 - smoothstep(0.0, 7.0, d);
+  float outerW = smoothstep(7.0, 14.0, d);
+  float midW   = 1.0 - innerW - outerW;
+  return vec3(innerW, midW, outerW);
+}
+float shellScaleAt(float d){
+  vec3 w = shellWeightsAt(d);
+  return uShellScaleInner * w.x + uShellScaleMid * w.y + uShellScaleOuter * w.z;
+}
+float getPulseIntensity(vec3 worldPos,vec3 pulsePos,float pulseTime){
+  if(pulseTime<0.0)return 0.0;
+  float t=uTime-pulseTime;
+  if(t<0.0||t>4.0)return 0.0;
+  float r=t*uPulseSpeed;
+  float d=distance(worldPos,pulsePos);
+  return smoothstep(3.0,0.0,abs(d-r))*smoothstep(4.0,0.0,t);
+}
+void main(){
+  vNodeType=nodeType;
+  vColor=nodeColor;
+  vDistanceFromRoot=distanceFromRoot;
+  vShellWeights = shellWeightsAt(distanceFromRoot);
+  /* compute scaled position first so the pulse hit-test happens in the same
+     space the node is rendered in — keeps pulse rings aligned with nodes
+     even when outer shell scales out. */
+  float shellScalePre = shellScaleAt(distanceFromRoot);
+  vec3 worldPos=(modelMatrix*vec4(position*shellScalePre,1.0)).xyz;
+  vPosition=worldPos;
+  float totalPulse=0.0;
+  for(int i=0;i<3;i++)totalPulse+=getPulseIntensity(worldPos,uPulsePositions[i],uPulseTimes[i]);
+  vPulseIntensity=min(totalPulse,1.0);
+  /* SIZE: now fully independent of voice AND mouth. Bigger point sprites
+     would feed more bright pixels to the bloom pass, so mouth-open was
+     bleeding into the bloom response. Network growth on mouth-open is
+     still handled by the shell-scale uniforms (positions spread apart);
+     point sprites themselves stay constant size. */
+  float breathe=sin(uTime*0.7+distanceFromRoot*0.15)*0.15+0.85;
+  float baseSize=nodeSize*breathe;
+  float pulseSize=baseSize*(1.0+vPulseIntensity*2.5);
+  vGlow=0.5+0.5*sin(uTime*0.5+distanceFromRoot*0.2);
+  vVoice=uVoiceLevel;
+  /* per-shell scale: scales position outward by a factor that depends on
+     which radial shell the node lives in (inner barely moves, outer most).
+     reuses shellScalePre computed above. */
+  vec3 modifiedPosition = position * shellScalePre;
+  if(nodeType>0.5){
+    /* gentle ambient noise — no longer multiplied by voice (voice is bloom-only). */
+    float noise=snoise(modifiedPosition*0.08+uTime*0.08);
+    modifiedPosition+=normal*noise*0.15;
+  }
+  vec4 mvPosition=modelViewMatrix*vec4(modifiedPosition,1.0);
+  gl_PointSize=pulseSize*uBaseNodeSize*(1000.0/-mvPosition.z);
+  gl_Position=projectionMatrix*mvPosition;
+}`,
+  fragmentShader: `
+uniform float uTime;
+uniform vec3 uPulseColors[3];
+uniform float uVoiceLevel;
+uniform float uVoicePitch;
+uniform vec3 uShellColorInner;
+uniform vec3 uShellColorMid;
+uniform vec3 uShellColorOuter;
+uniform float uShellColorMix;
+varying vec3 vColor;
+varying float vNodeType;
+varying vec3 vPosition;
+varying float vPulseIntensity;
+varying float vDistanceFromRoot;
+varying float vGlow;
+varying float vVoice;
+varying vec3 vShellWeights;
+void main(){
+  vec2 center=2.0*gl_PointCoord-1.0;
+  float dist=length(center);
+  if(dist>1.0)discard;
+  float glow1=1.0-smoothstep(0.0,0.5,dist);
+  float glow2=1.0-smoothstep(0.0,1.0,dist);
+  float glowStrength=pow(glow1,1.2)+glow2*0.3;
+  float breatheColor=0.9+0.1*sin(uTime*0.6+vDistanceFromRoot*0.25);
+  /* SHELL COLOR: blend the three user-picked shell tints by the radial
+     weights computed in the vertex stage. Mix back with the baked nodeColor
+     by uShellColorMix so a little per-node hue variance survives. */
+  vec3 shellColor = uShellColorInner * vShellWeights.x
+                  + uShellColorMid   * vShellWeights.y
+                  + uShellColorOuter * vShellWeights.z;
+  vec3 tinted = mix(vColor, shellColor, uShellColorMix);
+  /* pitch shifts hue subtly */
+  vec3 baseColor=tinted*breatheColor;
+  baseColor.r+=uVoicePitch*0.1;
+  baseColor.b+=(1.0-uVoicePitch)*0.05;
+  vec3 finalColor=baseColor;
+  if(vPulseIntensity>0.0){
+    vec3 pulseColor=mix(vec3(1.0),uPulseColors[0],0.4);
+    finalColor=mix(baseColor,pulseColor,vPulseIntensity*0.8);
+    finalColor*=(1.0+vPulseIntensity*1.2);
+    glowStrength*=(1.0+vPulseIntensity);
+  }
+  /* voice level brightens overall */
+  finalColor*=(1.0+vVoice*0.8);
+  glowStrength*=(1.0+vVoice*0.5);
+  float coreBrightness=smoothstep(0.4,0.0,dist);
+  finalColor+=vec3(1.0)*coreBrightness*0.3;
+  float alpha=glowStrength*(0.95-0.3*dist);
+  float camDistance=length(vPosition-cameraPosition);
+  float distanceFade=smoothstep(100.0,15.0,camDistance);
+  if(vNodeType>0.5){finalColor*=1.1;alpha*=0.9;}
+  finalColor*=(1.0+vGlow*0.1);
+  /* radial bloom fade: dim colour as distance from origin grows so the bloom
+     post-pass naturally captures less glow on outer shells. 1.0 at center,
+     ~0.45 at radius 20, ~0.22 at radius 30. floor at 0.18 keeps nodes visible. */
+  float radialDist=length(vPosition);
+  float radialBloomFade=0.18+0.82*smoothstep(30.0,2.0,radialDist);
+  finalColor*=radialBloomFade;
+  gl_FragColor=vec4(finalColor,alpha*distanceFade);
+}`
+};
+
+/* Connection shader with voice reactivity */
+const connectionShader = {
+  vertexShader: `${noiseFunctions}
+attribute vec3 startPoint;
+attribute vec3 endPoint;
+attribute float connectionStrength;
+attribute float pathIndex;
+attribute vec3 connectionColor;
+uniform float uTime;
+uniform vec3 uPulsePositions[3];
+uniform float uPulseTimes[3];
+uniform float uPulseSpeed;
+uniform float uVoiceLevel;
+uniform float uShellScaleInner;
+uniform float uShellScaleMid;
+uniform float uShellScaleOuter;
+varying vec3 vColor;
+varying float vConnectionStrength;
+varying float vPulseIntensity;
+varying float vPathPosition;
+varying float vDistanceFromCamera;
+varying float vVoice;
+varying float vRadialDist; /* distance from origin in object space, for bloom fade */
+varying vec3 vShellWeights; /* matches the node shader so colour blends in lockstep */
+/* identical shell-blend helper as the node shader — keeps the two meshes in lockstep */
+vec3 shellWeightsAt(float d){
+  float innerW = 1.0 - smoothstep(0.0, 7.0, d);
+  float outerW = smoothstep(7.0, 14.0, d);
+  float midW   = 1.0 - innerW - outerW;
+  return vec3(innerW, midW, outerW);
+}
+float shellScaleAt(float d){
+  vec3 w = shellWeightsAt(d);
+  return uShellScaleInner * w.x + uShellScaleMid * w.y + uShellScaleOuter * w.z;
+}
+float getPulseIntensity(vec3 worldPos,vec3 pulsePos,float pulseTime){
+  if(pulseTime<0.0)return 0.0;
+  float t=uTime-pulseTime;
+  if(t<0.0||t>4.0)return 0.0;
+  float r=t*uPulseSpeed;
+  float d=distance(worldPos,pulsePos);
+  return smoothstep(3.0,0.0,abs(d-r))*smoothstep(4.0,0.0,t);
+}
+void main(){
+  float t=position.x;
+  vPathPosition=t;
+  vec3 midPoint=mix(startPoint,endPoint,0.5);
+  float pathOffset=sin(t*3.14159)*0.15;
+  vec3 perpendicular=normalize(cross(normalize(endPoint-startPoint),vec3(0.0,1.0,0.0)));
+  if(length(perpendicular)<0.1)perpendicular=vec3(1.0,0.0,0.0);
+  midPoint+=perpendicular*pathOffset;
+  vec3 p0=mix(startPoint,midPoint,t);
+  vec3 p1=mix(midPoint,endPoint,t);
+  vec3 finalPos=mix(p0,p1,t);
+  /* ambient sway on each connection — no longer multiplied by voice, since voice
+     is bloom-only now. */
+  float noise=snoise(vec3(pathIndex*0.08,t*0.6,uTime*0.15));
+  finalPos+=perpendicular*noise*0.12;
+  /* per-shell scale: each interpolated point along the segment picks up the
+     shell scale appropriate to its local radius — connections naturally stretch
+     from the stable inner core out to the more reactive outer nodes. */
+  float localD = length(finalPos);
+  vShellWeights = shellWeightsAt(localD);
+  float shellScale = shellScaleAt(localD);
+  finalPos *= shellScale;
+  vec3 worldPos=(modelMatrix*vec4(finalPos,1.0)).xyz;
+  float totalPulse=0.0;
+  for(int i=0;i<3;i++)totalPulse+=getPulseIntensity(worldPos,uPulsePositions[i],uPulseTimes[i]);
+  vPulseIntensity=min(totalPulse,1.0);
+  vColor=connectionColor;
+  vConnectionStrength=connectionStrength;
+  vDistanceFromCamera=length(worldPos-cameraPosition);
+  vVoice=uVoiceLevel;
+  vRadialDist=length(finalPos); /* radial distance from network origin */
+  gl_Position=projectionMatrix*modelViewMatrix*vec4(finalPos,1.0);
+}`,
+  fragmentShader: `
+uniform float uTime;
+uniform vec3 uPulseColors[3];
+uniform vec3 uShellColorInner;
+uniform vec3 uShellColorMid;
+uniform vec3 uShellColorOuter;
+uniform float uShellColorMix;
+varying vec3 vColor;
+varying float vConnectionStrength;
+varying float vPulseIntensity;
+varying float vPathPosition;
+varying float vDistanceFromCamera;
+varying float vVoice;
+varying float vRadialDist;
+varying vec3 vShellWeights;
+void main(){
+  float flow1=sin(vPathPosition*25.0-uTime*4.0)*0.5+0.5;
+  float flow2=sin(vPathPosition*15.0-uTime*2.5+1.57)*0.5+0.5;
+  float combinedFlow=(flow1+flow2*0.5)/1.5;
+  /* SHELL COLOR: same blend logic as the node fragment, keeps node + connection
+     tints lockstep so the network reads as one coloured organism. */
+  vec3 shellColor = uShellColorInner * vShellWeights.x
+                  + uShellColorMid   * vShellWeights.y
+                  + uShellColorOuter * vShellWeights.z;
+  vec3 tinted = mix(vColor, shellColor, uShellColorMix);
+  vec3 baseColor=tinted*(0.8+0.2*sin(uTime*0.6+vPathPosition*12.0));
+  float flowIntensity=0.4*combinedFlow*vConnectionStrength;
+  vec3 finalColor=baseColor;
+  if(vPulseIntensity>0.0){
+    vec3 pulseColor=mix(vec3(1.0),uPulseColors[0],0.3);
+    finalColor=mix(baseColor,pulseColor*1.2,vPulseIntensity*0.7);
+    flowIntensity+=vPulseIntensity*0.8;
+  }
+  /* voice brightens connections */
+  finalColor*=(1.0+vVoice*0.6);
+  finalColor*=(0.7+flowIntensity+vConnectionStrength*0.5);
+  float baseAlpha=0.7*vConnectionStrength;
+  float flowAlpha=combinedFlow*0.3;
+  float alpha=baseAlpha+flowAlpha+vVoice*0.2;
+  alpha=mix(alpha,min(1.0,alpha*2.5),vPulseIntensity);
+  float distanceFade=smoothstep(100.0,15.0,vDistanceFromCamera);
+  /* radial bloom fade: matches node-shader formula so connections dim in
+     lockstep with the nodes they attach to. since each vertex along a
+     segment computes its own vRadialDist, the fade gradient travels along
+     the connection from bright-inner to dim-outer naturally. */
+  float radialBloomFade=0.18+0.82*smoothstep(30.0,2.0,vRadialDist);
+  finalColor*=radialBloomFade;
+  gl_FragColor=vec4(finalColor,alpha*distanceFade);
+}`
+};
+
+/* ============ NETWORK GENERATION (same as CodePen, condensed) ============ */
+class Node {
+  constructor(position, level=0, type=0){
+    this.position=position; this.connections=[];
+    this.level=level; this.type=type;
+    this.size=type===0?THREE.MathUtils.randFloat(0.8,1.4):THREE.MathUtils.randFloat(0.5,1.0);
+    this.distanceFromRoot=0;
+  }
+  addConnection(node,strength=1.0){
+    if(!this.isConnectedTo(node)){
+      this.connections.push({node,strength});
+      node.connections.push({node:this,strength});
+    }
+  }
+  isConnectedTo(node){ return this.connections.some(c=>c.node===node); }
+}
+
+function generateNeuralNetwork(formationIndex, densityFactor=1.0){
+  let nodes=[], rootNode;
+  function sphere(){
+    rootNode=new Node(new THREE.Vector3(0,0,0),0,0); rootNode.size=2.0; nodes.push(rootNode);
+    const layers=5, golden=(1+Math.sqrt(5))/2;
+    for(let layer=1; layer<=layers; layer++){
+      const radius=layer*4, num=Math.floor(layer*12*densityFactor);
+      for(let i=0;i<num;i++){
+        const phi=Math.acos(1-2*(i+0.5)/num);
+        const theta=2*Math.PI*i/golden;
+        const pos=new THREE.Vector3(radius*Math.sin(phi)*Math.cos(theta),radius*Math.sin(phi)*Math.sin(theta),radius*Math.cos(phi));
+        const isLeaf=layer===layers||Math.random()<0.3;
+        const node=new Node(pos,layer,isLeaf?1:0); node.distanceFromRoot=radius; nodes.push(node);
+        if(layer>1){
+          const prev=nodes.filter(n=>n.level===layer-1&&n!==rootNode)
+            .sort((a,b)=>pos.distanceTo(a.position)-pos.distanceTo(b.position));
+          for(let j=0;j<Math.min(3,prev.length);j++){
+            const d=pos.distanceTo(prev[j].position);
+            node.addConnection(prev[j],Math.max(0.3,1.0-(d/(radius*2))));
+          }
+        } else rootNode.addConnection(node,0.9);
+      }
+      const layerN=nodes.filter(n=>n.level===layer&&n!==rootNode);
+      for(const node of layerN){
+        const nearby=layerN.filter(n=>n!==node)
+          .sort((a,b)=>node.position.distanceTo(a.position)-node.position.distanceTo(b.position)).slice(0,5);
+        for(const n of nearby){
+          if(node.position.distanceTo(n.position)<radius*0.8 && !node.isConnectedTo(n))
+            node.addConnection(n,0.6);
+        }
+      }
+    }
+    const outer=nodes.filter(n=>n.level>=3);
+    for(let i=0;i<Math.min(20,outer.length);i++){
+      const n1=outer[Math.floor(Math.random()*outer.length)];
+      const n2=outer[Math.floor(Math.random()*outer.length)];
+      if(n1!==n2&&!n1.isConnectedTo(n2)&&Math.abs(n1.level-n2.level)>1) n1.addConnection(n2,0.4);
+    }
+  }
+  function helix(){
+    rootNode=new Node(new THREE.Vector3(0,0,0),0,0); rootNode.size=1.8; nodes.push(rootNode);
+    const numH=4, height=30, maxR=12, perH=Math.floor(50*densityFactor);
+    const arrays=[];
+    for(let h=0;h<numH;h++){
+      const phase=(h/numH)*Math.PI*2, hn=[];
+      for(let i=0;i<perH;i++){
+        const t=i/(perH-1), y=(t-0.5)*height;
+        const r=maxR*(Math.sin(t*Math.PI)*0.7+0.3);
+        const a=phase+t*Math.PI*6;
+        const pos=new THREE.Vector3(r*Math.cos(a),y,r*Math.sin(a));
+        const level=Math.ceil(t*5);
+        const isLeaf=i>perH-5||Math.random()<0.25;
+        const node=new Node(pos,level,isLeaf?1:0);
+        node.distanceFromRoot=Math.sqrt(r*r+y*y); node.helixT=t;
+        nodes.push(node); hn.push(node);
+      }
+      arrays.push(hn);
+      rootNode.addConnection(hn[0],1.0);
+      for(let i=0;i<hn.length-1;i++) hn[i].addConnection(hn[i+1],0.85);
+    }
+    for(let h=0;h<numH;h++){
+      const cur=arrays[h], next=arrays[(h+1)%numH];
+      for(let i=0;i<cur.length;i+=5){
+        const t=cur[i].helixT, idx=Math.round(t*(next.length-1));
+        if(idx<next.length) cur[i].addConnection(next[idx],0.7);
+      }
+    }
+  }
+  function fractal(){
+    rootNode=new Node(new THREE.Vector3(0,0,0),0,0); rootNode.size=1.6; nodes.push(rootNode);
+    const branches=6, maxDepth=4;
+    function branch(start,dir,depth,strength,scale){
+      if(depth>maxDepth)return;
+      const len=5*scale;
+      const end=new THREE.Vector3().copy(start.position).add(dir.clone().multiplyScalar(len));
+      const isLeaf=depth===maxDepth||Math.random()<0.3;
+      const node=new Node(end,depth,isLeaf?1:0);
+      node.distanceFromRoot=rootNode.position.distanceTo(end); nodes.push(node);
+      start.addConnection(node,strength);
+      if(depth<maxDepth){
+        const sub=3;
+        for(let i=0;i<sub;i++){
+          const a=(i/sub)*Math.PI*2;
+          const p1=new THREE.Vector3(-dir.y,dir.x,0).normalize();
+          const p2=dir.clone().cross(p1).normalize();
+          const newDir=new THREE.Vector3().copy(dir)
+            .add(p1.clone().multiplyScalar(Math.cos(a)*0.7))
+            .add(p2.clone().multiplyScalar(Math.sin(a)*0.7)).normalize();
+          branch(node,newDir,depth+1,strength*0.7,scale*0.75);
+        }
+      }
+    }
+    for(let i=0;i<branches;i++){
+      const phi=Math.acos(1-2*(i+0.5)/branches);
+      const theta=Math.PI*(1+Math.sqrt(5))*i;
+      const dir=new THREE.Vector3(Math.sin(phi)*Math.cos(theta),Math.sin(phi)*Math.sin(theta),Math.cos(phi)).normalize();
+      branch(rootNode,dir,1,0.9,1.0);
+    }
+  }
+  /* ============ TORUS ============
+     Nodes on a donut surface (major R=11, minor r=3.5). Each node connects to its
+     wrap-around neighbours on both axes giving a tight ring lattice. The empty
+     hole at centre gets filled by the nucleus density boost so the overall
+     silhouette reads as "ring with a glowing core". */
+  function torus(){
+    rootNode=new Node(new THREE.Vector3(0,0,0),0,0); rootNode.size=1.4; nodes.push(rootNode);
+    const R=11, r=3.5;
+    const segU=Math.max(8, Math.floor(36*densityFactor));
+    const segV=Math.max(4, Math.floor(8*densityFactor));
+    const grid=[];
+    for(let i=0;i<segU;i++){
+      const u=(i/segU)*Math.PI*2;
+      const row=[];
+      for(let j=0;j<segV;j++){
+        const v=(j/segV)*Math.PI*2;
+        const x=(R+r*Math.cos(v))*Math.cos(u);
+        const y=r*Math.sin(v);
+        const z=(R+r*Math.cos(v))*Math.sin(u);
+        const pos=new THREE.Vector3(x,y,z);
+        const level=Math.floor((j/segV)*5);
+        const isLeaf=Math.random()<0.15;
+        const node=new Node(pos,level,isLeaf?1:0);
+        node.distanceFromRoot=pos.length();
+        nodes.push(node); row.push(node);
+      }
+      grid.push(row);
+    }
+    /* nearest-neighbour wrap connections */
+    for(let i=0;i<segU;i++){
+      for(let j=0;j<segV;j++){
+        const cur=grid[i][j];
+        cur.addConnection(grid[(i+1)%segU][j], 0.85);
+        cur.addConnection(grid[i][(j+1)%segV], 0.7);
+        /* sparse diagonals for visual texture */
+        if(i%3===0 && j%2===0){
+          cur.addConnection(grid[(i+1)%segU][(j+1)%segV], 0.35);
+        }
+      }
+    }
+    /* a few struts from root into the closest torus nodes so the core links to the ring */
+    const closest=nodes.filter(n=>n!==rootNode)
+      .sort((a,b)=>a.position.length()-b.position.length())
+      .slice(0, 10);
+    closest.forEach(n=>rootNode.addConnection(n, 0.45));
+  }
+  /* ============ LATTICE ============
+     3D cubic grid centred on the origin. Each occupied cell connects to its 6
+     orthogonal neighbours. ~15% of cells are randomly omitted so the lattice
+     reads as organic rather than computer-perfect. */
+  function lattice(){
+    rootNode=new Node(new THREE.Vector3(0,0,0),0,0); rootNode.size=1.6; nodes.push(rootNode);
+    const dimX=7, dimY=5, dimZ=7;
+    const spacing=3.0;
+    const ox=-(dimX-1)/2*spacing, oy=-(dimY-1)/2*spacing, oz=-(dimZ-1)/2*spacing;
+    const grid=[];
+    for(let x=0;x<dimX;x++){ grid[x]=[]; for(let y=0;y<dimY;y++){ grid[x][y]=[]; for(let z=0;z<dimZ;z++){
+      const pos=new THREE.Vector3(ox+x*spacing, oy+y*spacing, oz+z*spacing);
+      /* origin cell already owned by rootNode */
+      if(pos.length()<0.1){ grid[x][y][z]=rootNode; continue; }
+      /* random sparsity */
+      if(Math.random() < (1 - densityFactor)*0.5 + 0.12){ grid[x][y][z]=null; continue; }
+      const level=Math.min(Math.floor(pos.length()/4), 4);
+      const onEdge=(x===0||x===dimX-1||y===0||y===dimY-1||z===0||z===dimZ-1);
+      const isLeaf=onEdge && Math.random()<0.55;
+      const node=new Node(pos,level,isLeaf?1:0);
+      node.distanceFromRoot=pos.length();
+      nodes.push(node);
+      grid[x][y][z]=node;
+    }}}
+    /* 6-way orthogonal connections (only forward to avoid duplicates) */
+    for(let x=0;x<dimX;x++) for(let y=0;y<dimY;y++) for(let z=0;z<dimZ;z++){
+      const cur=grid[x][y][z]; if(!cur) continue;
+      const nbrs=[];
+      if(x+1<dimX) nbrs.push(grid[x+1][y][z]);
+      if(y+1<dimY) nbrs.push(grid[x][y+1][z]);
+      if(z+1<dimZ) nbrs.push(grid[x][y][z+1]);
+      nbrs.forEach(n=>{ if(n && !cur.isConnectedTo(n)) cur.addConnection(n, 0.7); });
+    }
+  }
+  /* ============ BICONE (hourglass) ============
+     Two cones meeting at origin — wide at the tips (top + bottom), narrow at
+     the pinch. Layers spiral out on the golden angle. Vertical chains link
+     each layer to the previous so the structure reads as flowing through the
+     centre rather than as two disconnected fans. */
+  function bicone(){
+    rootNode=new Node(new THREE.Vector3(0,0,0),0,0); rootNode.size=1.6; nodes.push(rootNode);
+    const halfHeight=14, maxR=10, layers=6;
+    const golden=Math.PI*(3-Math.sqrt(5));
+    for(const side of [+1, -1]){
+      for(let layer=1; layer<=layers; layer++){
+        const tNorm=layer/layers;
+        const y=side*halfHeight*tNorm;
+        const r=maxR*tNorm;
+        const ringCount=Math.max(3, Math.floor(layer*5*densityFactor));
+        const ring=[];
+        for(let i=0;i<ringCount;i++){
+          const angle=i*golden;
+          const pos=new THREE.Vector3(r*Math.cos(angle), y, r*Math.sin(angle));
+          const isLeaf=layer===layers||Math.random()<0.3;
+          const node=new Node(pos,layer,isLeaf?1:0);
+          node.distanceFromRoot=pos.length();
+          nodes.push(node); ring.push(node);
+        }
+        /* close the ring into a chain */
+        for(let i=0;i<ring.length;i++) ring[i].addConnection(ring[(i+1)%ring.length], 0.55);
+        /* link to previous layer (or to root for layer 1) */
+        if(layer===1){
+          ring.forEach(n=>rootNode.addConnection(n, 0.8));
+        } else {
+          const prev=nodes.filter(n=>n!==rootNode && Math.sign(n.position.y)===side && n.level===layer-1);
+          ring.forEach(node=>{
+            let best=prev[0], bd=Infinity;
+            for(const p of prev){ const d=node.position.distanceTo(p.position); if(d<bd){bd=d; best=p;} }
+            if(best) node.addConnection(best, 0.7);
+          });
+        }
+      }
+    }
+  }
+  /* ============ TREE OF LIFE ============
+     Kabbalistic arrangement of 10 sephirot in three pillars, connected by the
+     22 traditional paths. Each sephirah gets a small halo of ambient nodes for
+     visual richness. Tiphareth (centre) anchors the root. Pure on-brand for
+     the Malikeye / Ain Soph Aur mythology already present in the avatar. */
+  function treeOfLife(){
+    rootNode=new Node(new THREE.Vector3(0,0,0),0,0); rootNode.size=1.2; nodes.push(rootNode);
+    /* CONDENSED inside the network's middle shell (r ≤ ~12).
+       Canonical sephirot positions scaled by 0.55× so the whole composition
+       fits within radius ~9, with the outer aura at radius 12 sitting on the
+       middle/outer shell boundary. The same diagram, just tighter — and the
+       higher node count packed into less volume makes it read as denser. */
+    const TREE_SCALE = 0.55;
+    const sephirot=[
+      { pos:new THREE.Vector3(0,  14, 0).multiplyScalar(TREE_SCALE), level:0, size:1.8 }, /* 0 Keter */
+      { pos:new THREE.Vector3(7,   9, 0).multiplyScalar(TREE_SCALE), level:1, size:1.5 }, /* 1 Chokmah */
+      { pos:new THREE.Vector3(-7,  9, 0).multiplyScalar(TREE_SCALE), level:1, size:1.5 }, /* 2 Binah */
+      { pos:new THREE.Vector3(7,   2, 0).multiplyScalar(TREE_SCALE), level:2, size:1.4 }, /* 3 Chesed */
+      { pos:new THREE.Vector3(-7,  2, 0).multiplyScalar(TREE_SCALE), level:2, size:1.4 }, /* 4 Geburah */
+      { pos:new THREE.Vector3(0,  -1, 0).multiplyScalar(TREE_SCALE), level:0, size:1.7 }, /* 5 Tiphareth */
+      { pos:new THREE.Vector3(7,  -7, 0).multiplyScalar(TREE_SCALE), level:3, size:1.3 }, /* 6 Netzach */
+      { pos:new THREE.Vector3(-7, -7, 0).multiplyScalar(TREE_SCALE), level:3, size:1.3 }, /* 7 Hod */
+      { pos:new THREE.Vector3(0, -11, 0).multiplyScalar(TREE_SCALE), level:2, size:1.4 }, /* 8 Yesod */
+      { pos:new THREE.Vector3(0, -14, 0).multiplyScalar(TREE_SCALE), level:4, size:1.6 }  /* 9 Malkuth */
+    ];
+    const seph = sephirot.map(s=>{
+      const n=new Node(s.pos, s.level, 0);
+      n.distanceFromRoot=s.pos.length();
+      n.size=s.size;
+      nodes.push(n); return n;
+    });
+    /* root anchors to Tiphareth at the heart of the tree */
+    rootNode.addConnection(seph[5], 0.95);
+    /* 22 paths of wisdom */
+    const paths=[
+      [0,1],[0,2],[0,5],
+      [1,2],[1,3],[1,5],
+      [2,4],[2,5],
+      [3,4],[3,5],[3,6],
+      [4,5],[4,7],
+      [5,6],[5,7],[5,8],
+      [6,7],[6,8],[6,9],
+      [7,8],[7,9],
+      [8,9]
+    ];
+    paths.forEach(([a,b])=>seph[a].addConnection(seph[b], 0.9));
+    /* ============ 3D DENSITY ADDITIONS ============
+       The 10 sephirot stay on z=0 so the canonical Tree silhouette still
+       reads head-on. Everything around them is now distributed in full 3D —
+       fibonacci spheres for halos/satellites, helical wraps for paths, a
+       spheroidal shell for the aura. Orbit the camera and the tree turns
+       into a living 3D structure instead of a flat diagram. */
+    const GOLDEN_A = Math.PI * (3 - Math.sqrt(5)); /* golden-angle for fibonacci spheres */
+
+    /* fibonacci sphere helper — returns a unit-vector roughly evenly spaced
+       across the sphere for index i out of n total. */
+    function fibSphere(i, n){
+      const phi = Math.acos(1 - 2 * (i + 0.5) / n);
+      const theta = i * GOLDEN_A;
+      return new THREE.Vector3(
+        Math.sin(phi) * Math.cos(theta),
+        Math.sin(phi) * Math.sin(theta),
+        Math.cos(phi)
+      );
+    }
+
+    /* 1. SATELLITES — 3 close brighter nodes distributed on a small sphere
+       around each sephirah. Reduced from 5 since the saved budget goes
+       into the outer neural-sphere wrapper at the end. */
+    seph.forEach((s, idx)=>{
+      const sats = 3;
+      for(let i=0;i<sats;i++){
+        const dir = fibSphere(i, sats);
+        const r = 0.32 + Math.random()*0.18;
+        const pos = s.position.clone().add(dir.multiplyScalar(r));
+        const n = new Node(pos, s.level, 0);
+        n.distanceFromRoot = pos.length();
+        n.size = sephirot[idx].size * 0.55;
+        nodes.push(n);
+        s.addConnection(n, 0.85);
+      }
+    });
+
+    /* 2. PATH BEADS — helical wrap, with helix radius shrunk to keep
+       proportions correct against the shorter (scaled-down) paths. */
+    const beadsPerPath = Math.max(3, Math.floor(4*densityFactor));
+    paths.forEach(([aIdx, bIdx], pIdx)=>{
+      const start = sephirot[aIdx].pos;
+      const end   = sephirot[bIdx].pos;
+      const dir = new THREE.Vector3().subVectors(end, start).normalize();
+      /* build two perpendicular axes for the rotation plane */
+      let up = new THREE.Vector3(0, 1, 0);
+      if (Math.abs(dir.dot(up)) > 0.95) up = new THREE.Vector3(1, 0, 0);
+      const perp1 = new THREE.Vector3().crossVectors(dir, up).normalize();
+      const perp2 = new THREE.Vector3().crossVectors(dir, perp1).normalize();
+      const turns = 1.25;
+      const helixR = 0.32; /* shrunk from 0.55 to match condensed tree */
+      const phase = pIdx * 0.5;
+      const beadNodes = [];
+      for(let i=1; i<=beadsPerPath; i++){
+        const t = i/(beadsPerPath+1);
+        const along = start.clone().lerp(end, t);
+        const angle = t * Math.PI * 2 * turns + phase;
+        /* radius tapers off at the endpoints so beads merge cleanly into the sephirot */
+        const taper = Math.sin(t * Math.PI);
+        const off = perp1.clone().multiplyScalar(Math.cos(angle) * helixR * taper)
+          .add(perp2.clone().multiplyScalar(Math.sin(angle) * helixR * taper));
+        along.add(off);
+        const beadLevel = Math.floor((sephirot[aIdx].level + sephirot[bIdx].level)/2);
+        const n = new Node(along, beadLevel, 1);
+        n.distanceFromRoot = along.length();
+        n.size = THREE.MathUtils.randFloat(0.30, 0.48);
+        nodes.push(n);
+        beadNodes.push(n);
+      }
+      /* chain beads sephirah → bead → bead → ... → sephirah */
+      let prev = seph[aIdx];
+      for(const b of beadNodes){
+        b.addConnection(prev, 0.55);
+        prev = b;
+      }
+      prev.addConnection(seph[bIdx], 0.55);
+    });
+
+    /* 3. HALOS — 14-20 per sephirah on a tight fibonacci sphere. */
+    seph.forEach(s=>{
+      const halo = Math.max(14, Math.floor(20*densityFactor));
+      for(let i=0;i<halo;i++){
+        const dir = fibSphere(i, halo);
+        const r = 0.78 + Math.random()*0.48;
+        const pos = s.position.clone().add(dir.multiplyScalar(r));
+        const n = new Node(pos, s.level, 1);
+        n.distanceFromRoot = pos.length();
+        n.size = THREE.MathUtils.randFloat(0.28, 0.50);
+        nodes.push(n);
+        s.addConnection(n, 0.45);
+      }
+    });
+
+    /* 4. OUTER AURA — true sphere, pulled in to r=11 for tighter square-frame
+       composition. Bumped to 90-130 nodes for denser woven dome. */
+    const auraCount = Math.max(90, Math.floor(130*densityFactor));
+    const auraR = 11;
+    const auraNodes = [];
+    for(let i=0;i<auraCount;i++){
+      const dir = fibSphere(i, auraCount);
+      const rr = auraR + (Math.random()-0.5)*1.6;
+      const pos = new THREE.Vector3(dir.x * rr, dir.y * rr, dir.z * rr);
+      const n = new Node(pos, 3, 1);
+      n.distanceFromRoot = pos.length();
+      n.size = THREE.MathUtils.randFloat(0.32, 0.50);
+      nodes.push(n);
+      auraNodes.push(n);
+    }
+    /* nearest-neighbour mesh (geodesic-like) — each aura node connects to its
+       3 nearest peers, giving the shell a woven lattice look. */
+    auraNodes.forEach(n => {
+      const nearest = auraNodes
+        .filter(o => o !== n)
+        .map(o => ({ o, d: n.position.distanceTo(o.position) }))
+        .sort((a, b) => a.d - b.d)
+        .slice(0, 3);
+      nearest.forEach(({ o }) => {
+        if (!n.isConnectedTo(o)) n.addConnection(o, 0.40);
+      });
+    });
+    /* tether ~1/4 of the aura nodes back to the nearest outer sephirah so
+       the shell is wired into the tree rather than floating disconnected */
+    const outerSeph = [seph[1], seph[2], seph[3], seph[4], seph[6], seph[7], seph[9], seph[0]];
+    auraNodes.forEach((a, i)=>{
+      if(i % 4 !== 0) return;
+      let best = outerSeph[0], bd = Infinity;
+      for(const o of outerSeph){
+        const d = a.position.distanceTo(o.position);
+        if(d < bd){ bd = d; best = o; }
+      }
+      a.addConnection(best, 0.35);
+    });
+
+    /* 4b. INNER VOLUMETRIC CORE — fills the empty 3D space between the tree
+       structures and the aura with ~60-90 small nodes distributed uniformly
+       in a spherical shell (r=4 to r=10). Cube-root sampling gives even 3D
+       density rather than clumping on the inner surface. Each connects to
+       its 2 nearest existing nodes so it weaves into the tree. */
+    const coreCount = Math.max(60, Math.floor(90*densityFactor));
+    const coreNodes = [];
+    const innerAnchors = nodes.slice(); /* snapshot before adding core */
+    for(let i = 0; i < coreCount; i++){
+      const dir = fibSphere(i, coreCount);
+      /* cube-root for uniform 3D volume density between r=4 and r=10 */
+      const tR = Math.pow(Math.random(), 1/3);
+      const rr = 4 + tR * 6;
+      const pos = new THREE.Vector3(dir.x * rr, dir.y * rr, dir.z * rr);
+      const isLeaf = Math.random() < 0.4;
+      const n = new Node(pos, 1, isLeaf ? 1 : 0);
+      n.distanceFromRoot = pos.length();
+      n.size = THREE.MathUtils.randFloat(0.30, 0.55);
+      nodes.push(n);
+      coreNodes.push(n);
+    }
+    /* wire each core node into the tree (2 nearest existing) */
+    coreNodes.forEach(c => {
+      const nearest = innerAnchors
+        .map(p => ({ p, d: c.position.distanceTo(p.position) }))
+        .sort((a, b) => a.d - b.d)
+        .slice(0, 2);
+      nearest.forEach(({ p }) => c.addConnection(p, 0.40));
+    });
+
+    /* 5. NEURAL SHELL WRAPPER — three TRUE-sphere fibonacci layers, radii
+       pulled in (was 14/17/20 → now 13/15/17.5) so the whole composition's
+       max bounding radius drops to ~18.5 and fits cleanly inside a square
+       stream layout with margin. Counts bumped substantially — slide the
+       Density slider down if your GPU complains. */
+    const wrapLayers = [
+      { r: 13,   count: Math.max(55, Math.floor(80*densityFactor)),  level: 2 },
+      { r: 15,   count: Math.max(75, Math.floor(115*densityFactor)), level: 3 },
+      { r: 17.5, count: Math.max(95, Math.floor(150*densityFactor)), level: 4 }
+    ];
+    let prevWrap = auraNodes; /* first wrap layer hooks to the aura sphere */
+    wrapLayers.forEach(layer => {
+      const layerNodes = [];
+      for(let i = 0; i < layer.count; i++){
+        const dir = fibSphere(i, layer.count);
+        const rJitter = layer.r + (Math.random() - 0.5) * 1.2;
+        const pos = new THREE.Vector3(dir.x * rJitter, dir.y * rJitter, dir.z * rJitter);
+        const isLeaf = Math.random() < 0.30;
+        const n = new Node(pos, layer.level, isLeaf ? 1 : 0);
+        n.distanceFromRoot = pos.length();
+        n.size = THREE.MathUtils.randFloat(0.40, 0.70);
+        nodes.push(n);
+        layerNodes.push(n);
+      }
+      /* connect each new node to its 2 nearest in the previous layer */
+      layerNodes.forEach(ln => {
+        const nearest = prevWrap
+          .map(p => ({ p, d: ln.position.distanceTo(p.position) }))
+          .sort((a, b) => a.d - b.d)
+          .slice(0, 2);
+        nearest.forEach(({ p }) => ln.addConnection(p, 0.45));
+      });
+      /* light intra-layer connections — each node to its 2 nearest peers
+         in the same layer for the neural-net-fabric feel */
+      layerNodes.forEach(ln => {
+        const nearest = layerNodes
+          .filter(o => o !== ln)
+          .map(o => ({ o, d: ln.position.distanceTo(o.position) }))
+          .sort((a, b) => a.d - b.d)
+          .slice(0, 2);
+        nearest.forEach(({ o }) => { if (!ln.isConnectedTo(o)) ln.addConnection(o, 0.35); });
+      });
+      prevWrap = layerNodes;
+    });
+  }
+  /* ============ EYE OF HORUS (as a network) ============
+     The avatar's brand mark, rendered as connected light: an almond outline
+     of nodes, an iris ring inside, a dense pupil cluster at centre, plus the
+     Horus tail (long chain trailing right) and teardrop (chain falling from
+     outer corner). Lies on the xy plane so it reads as an icon when viewed
+     head-on, but still occupies 3D space so orbit reveals depth. */
+  function eyeMorph(){
+    rootNode=new Node(new THREE.Vector3(0,0,0),0,0); rootNode.size=0.8; nodes.push(rootNode);
+    const eyeW=12, eyeH=4.5;
+    /* OUTLINE — parametric ellipse pinched at the corners gives an almond feel */
+    const outlineCount=Math.max(40, Math.floor(80*densityFactor));
+    const outlineNodes=[];
+    for(let i=0;i<outlineCount;i++){
+      const a=(i/outlineCount)*Math.PI*2;
+      /* pinch y at corners (|cos a| → 1) so the ellipse comes to almond points */
+      const pinch=1 - 0.35*Math.abs(Math.cos(a));
+      const x=Math.cos(a)*eyeW;
+      const y=Math.sin(a)*eyeH*pinch;
+      const z=(Math.random()-0.5)*0.4;
+      const pos=new THREE.Vector3(x,y,z);
+      const n=new Node(pos, 0, 0); /* inner-tier colour */
+      n.distanceFromRoot=pos.length();
+      n.size=THREE.MathUtils.randFloat(0.75,1.05);
+      nodes.push(n); outlineNodes.push(n);
+    }
+    /* chain the outline */
+    for(let i=0;i<outlineNodes.length;i++){
+      outlineNodes[i].addConnection(outlineNodes[(i+1)%outlineNodes.length], 0.85);
+    }
+    /* IRIS ring */
+    const irisR=3.0;
+    const irisCount=Math.max(12, Math.floor(20*densityFactor));
+    const irisNodes=[];
+    for(let i=0;i<irisCount;i++){
+      const a=(i/irisCount)*Math.PI*2;
+      const pos=new THREE.Vector3(Math.cos(a)*irisR, Math.sin(a)*irisR, (Math.random()-0.5)*0.3);
+      const n=new Node(pos, 1, 0); /* middle-tier colour */
+      n.distanceFromRoot=pos.length();
+      n.size=THREE.MathUtils.randFloat(0.55,0.85);
+      nodes.push(n); irisNodes.push(n);
+    }
+    for(let i=0;i<irisNodes.length;i++){
+      irisNodes[i].addConnection(irisNodes[(i+1)%irisNodes.length], 0.7);
+    }
+    /* spokes from iris to outline */
+    irisNodes.forEach((iris,idx)=>{
+      if(idx%2!==0) return;
+      let best=outlineNodes[0], bd=Infinity;
+      for(const o of outlineNodes){
+        const d=iris.position.distanceTo(o.position);
+        if(d<bd){bd=d; best=o;}
+      }
+      iris.addConnection(best, 0.4);
+    });
+    /* PUPIL cluster */
+    const pupilCount=Math.max(6, Math.floor(12*densityFactor));
+    const pupilNodes=[];
+    for(let i=0;i<pupilCount;i++){
+      const r=Math.random()*0.9;
+      const a=Math.random()*Math.PI*2;
+      const pos=new THREE.Vector3(Math.cos(a)*r, Math.sin(a)*r, (Math.random()-0.5)*0.4);
+      const n=new Node(pos, 2, 1); /* outer-tier colour, leaf type */
+      n.distanceFromRoot=pos.length();
+      n.size=THREE.MathUtils.randFloat(0.40,0.65);
+      nodes.push(n); pupilNodes.push(n);
+      rootNode.addConnection(n, 0.6);
+    }
+    /* pupil ↔ iris spokes for cohesion */
+    pupilNodes.forEach((p,i)=>{
+      if(i%2!==0) return;
+      const target=irisNodes[Math.floor(Math.random()*irisNodes.length)];
+      p.addConnection(target, 0.45);
+    });
+    /* HORUS TAIL — node chain extending right from inner corner */
+    const tailCount=Math.max(6, Math.floor(10*densityFactor));
+    let lastTail=null;
+    for(let i=0;i<tailCount;i++){
+      const t=i/(tailCount-1);
+      const x=eyeW + 0.8 + t*8.5;
+      const y=-1.0 - t*1.4;
+      const pos=new THREE.Vector3(x, y, 0);
+      const n=new Node(pos, 0, 0);
+      n.distanceFromRoot=pos.length();
+      n.size=THREE.MathUtils.randFloat(0.5,0.8);
+      nodes.push(n);
+      if(lastTail) n.addConnection(lastTail, 0.65);
+      else {
+        /* hook the first tail node to the nearest outline node (right corner) */
+        let best=outlineNodes[0], bd=Infinity;
+        for(const o of outlineNodes){
+          const d=n.position.distanceTo(o.position);
+          if(d<bd){bd=d; best=o;}
+        }
+        n.addConnection(best, 0.55);
+      }
+      lastTail=n;
+    }
+    /* TEARDROP — chain falling from below outer corner */
+    const tearCount=Math.max(5, Math.floor(8*densityFactor));
+    let lastTear=null;
+    for(let i=0;i<tearCount;i++){
+      const t=i/(tearCount-1);
+      const x=-eyeW + 0.3 - t*1.4;
+      const y=-1.2 - t*4.5;
+      const pos=new THREE.Vector3(x, y, 0);
+      const n=new Node(pos, 0, 0);
+      n.distanceFromRoot=pos.length();
+      n.size=THREE.MathUtils.randFloat(0.5,0.8);
+      nodes.push(n);
+      if(lastTear) n.addConnection(lastTear, 0.65);
+      else {
+        let best=outlineNodes[0], bd=Infinity;
+        for(const o of outlineNodes){
+          const d=n.position.distanceTo(o.position);
+          if(d<bd){bd=d; best=o;}
+        }
+        n.addConnection(best, 0.55);
+      }
+      lastTear=n;
+    }
+  }
+  switch(formationIndex%config.numFormations){
+    case 0: sphere(); break;
+    case 1: helix(); break;
+    case 2: fractal(); break;
+    case 3: torus(); break;
+    case 4: lattice(); break;
+    case 5: bicone(); break;
+    case 6: treeOfLife(); break;
+    case 7: eyeMorph(); break;
+  }
+  if(densityFactor<1.0){
+    const target=Math.ceil(nodes.length*Math.max(0.3,densityFactor));
+    const keep=new Set([rootNode]);
+    nodes.filter(n=>n!==rootNode).sort((a,b)=>(b.connections.length/(b.distanceFromRoot+1))-(a.connections.length/(a.distanceFromRoot+1)))
+      .slice(0,target-1).forEach(n=>keep.add(n));
+    nodes=nodes.filter(n=>keep.has(n));
+    nodes.forEach(n=>n.connections=n.connections.filter(c=>keep.has(c.node)));
+  }
+  /* ============ NUCLEUS DENSITY BOOST ============
+     Sprinkle extra small nodes inside the inner-shell radius (~1.5 to 6.5).
+     Because the inner shell barely scales, this concentration reads as a
+     stable, denser "nucleus" — visually distinguishing the centre as a core
+     of activity rather than just a sparse origin point.
+     Added AFTER pruning so the density slider doesn't kill the nucleus.
+     Skipped for formations 6 (Tree of Life) and 7 (Eye) — those have their
+     own deliberately-placed inner content that the random nucleus would clutter. */
+  const skipsNucleus = (formationIndex % config.numFormations === 6) ||
+                       (formationIndex % config.numFormations === 7);
+  if (rootNode && !skipsNucleus) {
+    const nucleusCount = Math.max(18, Math.floor(48 * densityFactor));
+    const nucleusNodes = [];
+    for (let i = 0; i < nucleusCount; i++) {
+      /* cube-root distributes uniformly in 3D volume rather than clumping at the surface */
+      const r = 1.5 + Math.pow(Math.random(), 1/3) * 5.0; /* radius in [1.5, 6.5] */
+      const phi = Math.acos(THREE.MathUtils.randFloatSpread(2));
+      const theta = THREE.MathUtils.randFloat(0, Math.PI * 2);
+      const pos = new THREE.Vector3(
+        r * Math.sin(phi) * Math.cos(theta),
+        r * Math.sin(phi) * Math.sin(theta),
+        r * Math.cos(phi)
+      );
+      /* type 1 ("leaf") more often than not, since these are tiny detail nodes */
+      const isLeaf = Math.random() < 0.55;
+      const n = new Node(pos, 1, isLeaf ? 1 : 0);
+      n.distanceFromRoot = r;
+      n.size = THREE.MathUtils.randFloat(0.35, 0.75);
+      nucleusNodes.push(n);
+      nodes.push(n);
+      /* every nucleus node hooks to the root so the core looks webbed, not loose */
+      rootNode.addConnection(n, 0.65);
+    }
+    /* light cross-linking inside the nucleus so it reads as a tangled core */
+    nucleusNodes.forEach(n => {
+      const nearest = nucleusNodes
+        .filter(o => o !== n)
+        .map(o => ({ o, d: n.position.distanceTo(o.position) }))
+        .sort((a, b) => a.d - b.d)
+        .slice(0, 2);
+      nearest.forEach(({ o }) => {
+        if (!n.isConnectedTo(o)) n.addConnection(o, 0.45);
+      });
+    });
+    /* a few bridges from nucleus to surrounding (non-root) nodes so it sits
+       inside the rest of the network instead of floating as a separate mesh */
+    const surroundings = nodes.filter(n => !nucleusNodes.includes(n) && n !== rootNode);
+    nucleusNodes.forEach((n, i) => {
+      if (i % 4 !== 0 || !surroundings.length) return;
+      let closest = surroundings[0], best = Infinity;
+      for (const s of surroundings) {
+        const d = n.position.distanceTo(s.position);
+        if (d < best) { best = d; closest = s; }
+      }
+      if (closest && !n.isConnectedTo(closest)) n.addConnection(closest, 0.4);
+    });
+  }
+  return { nodes, rootNode };
+}
+
+let neuralNetwork=null, nodesMesh=null, connectionsMesh=null;
+
+function createNetworkVisualization(formationIndex, densityFactor=1.0){
+  if(nodesMesh){scene.remove(nodesMesh); nodesMesh.geometry.dispose(); nodesMesh.material.dispose();}
+  if(connectionsMesh){scene.remove(connectionsMesh); connectionsMesh.geometry.dispose(); connectionsMesh.material.dispose();}
+  neuralNetwork=generateNeuralNetwork(formationIndex, densityFactor);
+  if(!neuralNetwork||!neuralNetwork.nodes.length) return;
+  /* nodes geometry */
+  const ng=new THREE.BufferGeometry();
+  const pos=[], types=[], sizes=[], cols=[], dists=[];
+  const palette=colorPalettes[config.activePaletteIndex];
+  neuralNetwork.nodes.forEach(n=>{
+    pos.push(n.position.x,n.position.y,n.position.z); types.push(n.type); sizes.push(n.size); dists.push(n.distanceFromRoot);
+    const ci=Math.min(n.level,palette.length-1);
+    const c=palette[ci%palette.length].clone();
+    c.offsetHSL(THREE.MathUtils.randFloatSpread(0.03),THREE.MathUtils.randFloatSpread(0.08),THREE.MathUtils.randFloatSpread(0.08));
+    cols.push(c.r,c.g,c.b);
+  });
+  ng.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  ng.setAttribute('nodeType',new THREE.Float32BufferAttribute(types,1));
+  ng.setAttribute('nodeSize',new THREE.Float32BufferAttribute(sizes,1));
+  ng.setAttribute('nodeColor',new THREE.Float32BufferAttribute(cols,3));
+  ng.setAttribute('distanceFromRoot',new THREE.Float32BufferAttribute(dists,1));
+  const nm=new THREE.ShaderMaterial({
+    uniforms: THREE.UniformsUtils.clone(pulseUniforms),
+    vertexShader: nodeShader.vertexShader,
+    fragmentShader: nodeShader.fragmentShader,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+  });
+  nodesMesh=new THREE.Points(ng,nm); scene.add(nodesMesh);
+  /* connections geometry */
+  const cg=new THREE.BufferGeometry();
+  const cPos=[], cStart=[], cEnd=[], cStr=[], cCol=[], cIdx=[];
+  const done=new Set(); let pi=0;
+  neuralNetwork.nodes.forEach((node,ni)=>{
+    node.connections.forEach(conn=>{
+      const cni=neuralNetwork.nodes.indexOf(conn.node);
+      if(cni===-1) return;
+      const k=[Math.min(ni,cni),Math.max(ni,cni)].join('-');
+      if(!done.has(k)){
+        done.add(k);
+        const seg=20;
+        for(let i=0;i<seg;i++){
+          cPos.push(i/(seg-1),0,0);
+          cStart.push(node.position.x,node.position.y,node.position.z);
+          cEnd.push(conn.node.position.x,conn.node.position.y,conn.node.position.z);
+          cIdx.push(pi); cStr.push(conn.strength);
+          const al=Math.min(Math.floor((node.level+conn.node.level)/2),palette.length-1);
+          const c=palette[al%palette.length].clone();
+          c.offsetHSL(THREE.MathUtils.randFloatSpread(0.03),THREE.MathUtils.randFloatSpread(0.08),THREE.MathUtils.randFloatSpread(0.08));
+          cCol.push(c.r,c.g,c.b);
+        }
+        pi++;
+      }
+    });
+  });
+  cg.setAttribute('position',new THREE.Float32BufferAttribute(cPos,3));
+  cg.setAttribute('startPoint',new THREE.Float32BufferAttribute(cStart,3));
+  cg.setAttribute('endPoint',new THREE.Float32BufferAttribute(cEnd,3));
+  cg.setAttribute('connectionStrength',new THREE.Float32BufferAttribute(cStr,1));
+  cg.setAttribute('connectionColor',new THREE.Float32BufferAttribute(cCol,3));
+  cg.setAttribute('pathIndex',new THREE.Float32BufferAttribute(cIdx,1));
+  const cm=new THREE.ShaderMaterial({
+    uniforms: THREE.UniformsUtils.clone(pulseUniforms),
+    vertexShader: connectionShader.vertexShader,
+    fragmentShader: connectionShader.fragmentShader,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+  });
+  connectionsMesh=new THREE.LineSegments(cg,cm); scene.add(connectionsMesh);
+  palette.forEach((c,i)=>{
+    if(i<3){ nm.uniforms.uPulseColors.value[i].copy(c); cm.uniforms.uPulseColors.value[i].copy(c); }
+  });
+  /* push current shell colours into the freshly-built shader uniforms */
+  applyShellColors(false);
+}
+
+function updateTheme(idx){
+  config.activePaletteIndex=idx;
+  /* if the user hasn't manually overridden any shell colour, swap the swatches
+     to this palette's defaults so theme switching feels cohesive. once a user
+     picks a colour, their choice sticks across theme switches. */
+  if (!userShellColors) {
+    const d = SHELL_DEFAULTS_PER_PALETTE[idx % SHELL_DEFAULTS_PER_PALETTE.length];
+    if (d) {
+      shellColorInner = d.inner;
+      shellColorMid   = d.mid;
+      shellColorOuter = d.outer;
+      applyShellColors(true); /* updates both uniforms and the picker swatches */
+    }
+  }
+  /* same idea for the glow colours — theme switch refreshes them unless the
+     user has manually picked. bloom default is always white (neutral) and only
+     changes if user picks; sparkle adopts the palette's accent hue. */
+  const g = GLOW_DEFAULTS_PER_PALETTE[idx % GLOW_DEFAULTS_PER_PALETTE.length];
+  if (g) {
+    if (!userBloomTint) { bloomTintColor = g.bloom; applyBloomTint(true); }
+    if (!userSparkleColor) { sparkleColor = g.sparkle; applySparkleColor(true); }
+  }
+  if(!nodesMesh||!connectionsMesh||!neuralNetwork) return;
+  const palette=colorPalettes[idx];
+  const nc=nodesMesh.geometry.attributes.nodeColor;
+  for(let i=0;i<nc.count;i++){
+    const n=neuralNetwork.nodes[i]; if(!n) continue;
+    const ci=Math.min(n.level,palette.length-1);
+    const c=palette[ci%palette.length].clone();
+    c.offsetHSL(THREE.MathUtils.randFloatSpread(0.03),THREE.MathUtils.randFloatSpread(0.08),THREE.MathUtils.randFloatSpread(0.08));
+    nc.setXYZ(i,c.r,c.g,c.b);
+  }
+  nc.needsUpdate=true;
+  /* update connection colors */
+  const cc=[], done=new Set();
+  neuralNetwork.nodes.forEach((node,ni)=>{
+    node.connections.forEach(conn=>{
+      const cni=neuralNetwork.nodes.indexOf(conn.node); if(cni===-1) return;
+      const k=[Math.min(ni,cni),Math.max(ni,cni)].join('-');
+      if(!done.has(k)){
+        done.add(k);
+        for(let i=0;i<20;i++){
+          const al=Math.min(Math.floor((node.level+conn.node.level)/2),palette.length-1);
+          const c=palette[al%palette.length].clone();
+          c.offsetHSL(THREE.MathUtils.randFloatSpread(0.03),THREE.MathUtils.randFloatSpread(0.08),THREE.MathUtils.randFloatSpread(0.08));
+          cc.push(c.r,c.g,c.b);
+        }
+      }
+    });
+  });
+  connectionsMesh.geometry.setAttribute('connectionColor', new THREE.Float32BufferAttribute(cc,3));
+  connectionsMesh.geometry.attributes.connectionColor.needsUpdate=true;
+  palette.forEach((c,i)=>{
+    if(i<3){
+      nodesMesh.material.uniforms.uPulseColors.value[i].copy(c);
+      connectionsMesh.material.uniforms.uPulseColors.value[i].copy(c);
+    }
+  });
+}
+
+/* ============ AUTO-PULSE (driven by voice/mouth) ============ */
+let lastPulseIndex=0;
+function triggerPulseAt(pos, color){
+  const time = clock.getElapsedTime();
+  if(!nodesMesh||!connectionsMesh) return;
+  lastPulseIndex=(lastPulseIndex+1)%3;
+  nodesMesh.material.uniforms.uPulsePositions.value[lastPulseIndex].copy(pos);
+  nodesMesh.material.uniforms.uPulseTimes.value[lastPulseIndex]=time;
+  connectionsMesh.material.uniforms.uPulsePositions.value[lastPulseIndex].copy(pos);
+  connectionsMesh.material.uniforms.uPulseTimes.value[lastPulseIndex]=time;
+  if(color){
+    nodesMesh.material.uniforms.uPulseColors.value[lastPulseIndex].copy(color);
+    connectionsMesh.material.uniforms.uPulseColors.value[lastPulseIndex].copy(color);
+  } else {
+    /* base pulse colour comes from the user-pickable sparkleColor.
+       small HSL jitter so consecutive pulses don't read as identical flashes. */
+    const c = new THREE.Color(sparkleColor);
+    c.offsetHSL(
+      THREE.MathUtils.randFloatSpread(0.04), /* +-2% hue */
+      THREE.MathUtils.randFloatSpread(0.08), /* +-4% saturation */
+      THREE.MathUtils.randFloatSpread(0.12)  /* +-6% lightness */
+    );
+    nodesMesh.material.uniforms.uPulseColors.value[lastPulseIndex].copy(c);
+    connectionsMesh.material.uniforms.uPulseColors.value[lastPulseIndex].copy(c);
+  }
+}
+
+/* ============ AUDIO REACTIVE ============ */
+let audioCtx=null, audioAnalyser=null, audioTimeData=null, audioFreqData=null;
+async function startAudio(){
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    const source = audioCtx.createMediaStreamSource(stream);
+    audioAnalyser = audioCtx.createAnalyser();
+    audioAnalyser.fftSize = 2048;
+    audioAnalyser.smoothingTimeConstant = 0.6;
+    source.connect(audioAnalyser);
+    audioTimeData = new Uint8Array(audioAnalyser.fftSize);
+    audioFreqData = new Uint8Array(audioAnalyser.frequencyBinCount);
+    document.getElementById('micTag').textContent = 'LIVE';
+    document.getElementById('micTag').className = 'tag live';
+    return true;
+  } catch(err){
+    console.warn('Audio init failed', err);
+    document.getElementById('micTag').textContent = 'BLOCKED';
+    document.getElementById('micTag').className = 'tag err';
+    return false;
+  }
+}
+function sampleAudio(){
+  if(!audioAnalyser) return;
+  audioAnalyser.getByteTimeDomainData(audioTimeData);
+  let sumSq = 0;
+  for(let i=0;i<audioTimeData.length;i++){
+    const v = (audioTimeData[i]-128)/128;
+    sumSq += v*v;
+  }
+  const rms = Math.sqrt(sumSq/audioTimeData.length);
+  /* shape the curve so quiet speech is visible but loud doesn't blow out.
+     voiceGain scales raw RMS so different mics calibrate without code edits. */
+  AVATAR_STATE.targetVoiceLevel = Math.pow(Math.min((rms * voiceGain) / 0.25, 1), 0.65);
+  audioAnalyser.getByteFrequencyData(audioFreqData);
+  let weighted = 0, magSum = 0;
+  for(let i=0;i<audioFreqData.length;i++){
+    weighted += i*audioFreqData[i];
+    magSum += audioFreqData[i];
+  }
+  const centroid = magSum > 0 ? (weighted/magSum)/audioFreqData.length : 0;
+  AVATAR_STATE.targetVoicePitch = Math.min(centroid*3, 1); /* normalize voice band roughly */
+}
+
+/* ============ FACE TRACKING (MediaPipe) ============ */
+let faceMesh=null, mpCam=null;
+async function startFaceTracking(){
+  try {
+    if(typeof FaceMesh==='undefined'||typeof Camera==='undefined') throw new Error('MediaPipe failed to load');
+    document.getElementById('camTag').textContent = 'LOADING';
+    faceMesh = new FaceMesh({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}` });
+    faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+    faceMesh.onResults(onFaceResults);
+    const camEl = document.getElementById('cam');
+    mpCam = new Camera(camEl, { onFrame: async () => { await faceMesh.send({ image: camEl }); }, width: 480, height: 360 });
+    await mpCam.start();
+    document.getElementById('camTag').textContent = 'LIVE';
+    document.getElementById('camTag').className = 'tag live';
+    return true;
+  } catch(err){
+    console.warn('Face tracking init failed', err);
+    document.getElementById('camTag').textContent = 'BLOCKED';
+    document.getElementById('camTag').className = 'tag err';
+    return false;
+  }
+}
+function ear(lm, oI, iI, tI, bI){
+  const o=lm[oI], i=lm[iI], t=lm[tI], b=lm[bI];
+  const v=Math.hypot(t.x-b.x, t.y-b.y);
+  const h=Math.hypot(o.x-i.x, o.y-i.y);
+  return v/Math.max(h,1e-4);
+}
+function onFaceResults(results){
+  if(!results.multiFaceLandmarks?.[0]) return;
+  const lm = results.multiFaceLandmarks[0];
+  const nose=lm[1];
+  AVATAR_STATE.targetHeadYaw = (nose.x-0.5)*2;
+  AVATAR_STATE.targetHeadPitch = (nose.y-0.5)*2;
+  const lE = ear(lm,33,133,159,145), rE = ear(lm,263,362,386,374);
+  AVATAR_STATE.targetBlink = Math.max(0, Math.min(1, (0.26-(lE+rE)/2)/0.16));
+  const upper=lm[13], lower=lm[14];
+  const m = Math.abs(upper.y-lower.y);
+  AVATAR_STATE.targetMouthOpen = Math.min(m*15, 1);
+  AVATAR_STATE.targetFaceActive = 1;
+  AVATAR_STATE.lastFaceTime = Date.now();
+}
+
+/* ============ LOCALSTORAGE PERSISTENCE ============
+   Versioned key so future schema changes don't crash on old saves.
+   URL params still take precedence over saved values — bookmarks win. */
+const SETTINGS_KEY = 'malikeye-avatar-v3';
+function saveSettings(){
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+      theme: config.activePaletteIndex,
+      density: config.densityFactor,
+      formation: config.currentFormation,
+      bloom: bloomEnabled,
+      voiceGain: voiceGain,
+      scaleSensitivity: scaleSensitivity,
+      frameOffsetX: frameOffsetX,
+      frameOffsetY: frameOffsetY,
+      frameZoom: frameZoom,
+      shellColorInner: shellColorInner,
+      shellColorMid: shellColorMid,
+      shellColorOuter: shellColorOuter,
+      userShellColors: userShellColors,
+      bloomTintColor: bloomTintColor,
+      sparkleColor: sparkleColor,
+      userBloomTint: userBloomTint,
+      userSparkleColor: userSparkleColor,
+      eyeVisible: eyeVisible,
+      eyeUserToggled: eyeUserToggled
+    }));
+  } catch(e) { /* private mode / quota — silently ignore */ }
+}
+function loadSettings(){
+  try {
+    /* v3 is current; fall back to v2 if a returning user still has the older blob.
+       v2 lacked shellColor fields, so userShellColors stays false → theme defaults apply. */
+    let raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) raw = localStorage.getItem('malikeye-avatar-v2');
+    if (!raw) return null;
+    const s = JSON.parse(raw);
+    /* URL ?theme= overrides saved theme; otherwise use saved */
+    if (!params.has('theme') && typeof s.theme === 'number' && s.theme >= 0 && s.theme < colorPalettes.length) {
+      config.activePaletteIndex = s.theme;
+    }
+    if (typeof s.density === 'number' && s.density >= 0.3 && s.density <= 1) {
+      config.densityFactor = s.density;
+    }
+    if (typeof s.formation === 'number' && s.formation >= 0 && s.formation < config.numFormations) {
+      config.currentFormation = s.formation;
+    }
+    /* intensity URL flag wins on bloom; otherwise use saved */
+    if (!INTENSITY_LOW && !INTENSITY_HIGH && typeof s.bloom === 'boolean') {
+      bloomEnabled = s.bloom;
+    }
+    if (typeof s.voiceGain === 'number' && s.voiceGain >= 0.5 && s.voiceGain <= 2.0) {
+      voiceGain = s.voiceGain;
+    }
+    if (typeof s.scaleSensitivity === 'number' && s.scaleSensitivity >= 0 && s.scaleSensitivity <= 2.0) {
+      scaleSensitivity = s.scaleSensitivity;
+    }
+    if (typeof s.frameOffsetX === 'number') frameOffsetX = s.frameOffsetX;
+    if (typeof s.frameOffsetY === 'number') frameOffsetY = s.frameOffsetY;
+    if (typeof s.frameZoom === 'number' && s.frameZoom > 0) frameZoom = s.frameZoom;
+    /* shell colours — hex-string validated against /^#[0-9a-f]{6}$/i */
+    const hexRe = /^#[0-9a-f]{6}$/i;
+    if (typeof s.shellColorInner === 'string' && hexRe.test(s.shellColorInner)) shellColorInner = s.shellColorInner;
+    if (typeof s.shellColorMid === 'string' && hexRe.test(s.shellColorMid)) shellColorMid = s.shellColorMid;
+    if (typeof s.shellColorOuter === 'string' && hexRe.test(s.shellColorOuter)) shellColorOuter = s.shellColorOuter;
+    if (typeof s.userShellColors === 'boolean') userShellColors = s.userShellColors;
+    if (typeof s.bloomTintColor === 'string' && hexRe.test(s.bloomTintColor)) bloomTintColor = s.bloomTintColor;
+    if (typeof s.sparkleColor === 'string' && hexRe.test(s.sparkleColor)) sparkleColor = s.sparkleColor;
+    if (typeof s.userBloomTint === 'boolean') userBloomTint = s.userBloomTint;
+    if (typeof s.userSparkleColor === 'boolean') userSparkleColor = s.userSparkleColor;
+    /* eye toggle persists across sessions but ONLY if the user has explicitly
+       clicked the pill since the new default-off behaviour shipped. Older saves
+       carrying eyeVisible:true from the previous default get ignored. URL ?eye=
+       still wins over both. */
+    if (!params.has('eye') && s.eyeUserToggled === true && typeof s.eyeVisible === 'boolean') {
+      eyeVisible = s.eyeVisible;
+      eyeUserToggled = true;
+    }
+    return s;
+  } catch(e) { return null; }
+}
+
+/* ============ UI ============ */
+const themeButtons = document.querySelectorAll('.theme-button');
+themeButtons.forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const idx = parseInt(btn.dataset.theme,10);
+    updateTheme(idx);
+    themeButtons.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    saveSettings();
+  });
+});
+const densitySlider = document.getElementById('density-slider');
+const densityValue = document.getElementById('density-value');
+let densityTimeout;
+densitySlider.addEventListener('input', () => {
+  const v = parseInt(densitySlider.value,10);
+  config.densityFactor = v/100;
+  densityValue.textContent = `${v}%`;
+  clearTimeout(densityTimeout);
+  densityTimeout = setTimeout(() => {
+    createNetworkVisualization(config.currentFormation, config.densityFactor);
+    saveSettings();
+  }, 400);
+});
+document.getElementById('change-formation-btn').addEventListener('click', () => {
+  config.currentFormation = (config.currentFormation+1)%config.numFormations;
+  createNetworkVisualization(config.currentFormation, config.densityFactor);
+  saveSettings();
+});
+
+/* ============ STREAMER SLIDERS WIRING ============ */
+function applyFrameTransform(){
+  const c = document.getElementById('neural-canvas');
+  if (!c) return;
+  c.style.transformOrigin = 'center center';
+  c.style.transform = `translate(${frameOffsetX}px, ${frameOffsetY}px) scale(${frameZoom})`;
+}
+
+/* push the three shell hex colours to both shader uniforms. safe to call
+   before meshes exist (no-ops gracefully). also keeps the colour-picker
+   inputs visually in sync with current state — useful after theme switches
+   or localStorage hydration. */
+function applyShellColors(syncInputs = true){
+  const colInner = new THREE.Color(shellColorInner);
+  const colMid   = new THREE.Color(shellColorMid);
+  const colOuter = new THREE.Color(shellColorOuter);
+  if (nodesMesh) {
+    const u = nodesMesh.material.uniforms;
+    u.uShellColorInner.value.copy(colInner);
+    u.uShellColorMid.value.copy(colMid);
+    u.uShellColorOuter.value.copy(colOuter);
+  }
+  if (connectionsMesh) {
+    const u = connectionsMesh.material.uniforms;
+    u.uShellColorInner.value.copy(colInner);
+    u.uShellColorMid.value.copy(colMid);
+    u.uShellColorOuter.value.copy(colOuter);
+  }
+  if (syncInputs) {
+    const i = document.getElementById('shell-color-inner');
+    const m = document.getElementById('shell-color-mid');
+    const o = document.getElementById('shell-color-outer');
+    if (i) i.value = shellColorInner;
+    if (m) m.value = shellColorMid;
+    if (o) o.value = shellColorOuter;
+  }
+}
+
+/* wire the three colour pickers — each sets state, marks user override,
+   pushes uniforms, persists. */
+['inner', 'mid', 'outer'].forEach(layer => {
+  const el = document.getElementById(`shell-color-${layer}`);
+  if (!el) return;
+  el.addEventListener('input', () => {
+    const hex = el.value;
+    if (layer === 'inner') shellColorInner = hex;
+    else if (layer === 'mid') shellColorMid = hex;
+    else shellColorOuter = hex;
+    userShellColors = true;
+    applyShellColors(false);
+    saveSettings();
+  });
+});
+
+/* push the bloom tint into every mip slot of UnrealBloomPass. all 5 slots get
+   the same colour so the tint is uniform across the halo's mip pyramid.
+   defensively check the property exists (older UnrealBloomPass APIs differed). */
+function applyBloomTint(syncInput = true){
+  if (bloomPass && bloomPass.bloomTintColors && Array.isArray(bloomPass.bloomTintColors)) {
+    const c = new THREE.Color(bloomTintColor);
+    for (let i = 0; i < bloomPass.bloomTintColors.length; i++) {
+      const v = bloomPass.bloomTintColors[i];
+      if (v && typeof v.set === 'function') v.set(c.r, c.g, c.b);
+    }
+  }
+  if (syncInput) {
+    const el = document.getElementById('glow-color-bloom');
+    if (el) el.value = bloomTintColor;
+  }
+}
+
+/* sparkle has no live uniform — it's consumed by triggerPulseAt as the base for
+   newly-fired pulses, so apply just means "sync the swatch" + persist. existing
+   in-flight pulses keep their colour; the next one uses the new sparkleColor. */
+function applySparkleColor(syncInput = true){
+  if (syncInput) {
+    const el = document.getElementById('glow-color-sparkle');
+    if (el) el.value = sparkleColor;
+  }
+}
+
+document.getElementById('glow-color-bloom')?.addEventListener('input', e => {
+  bloomTintColor = e.target.value;
+  userBloomTint = true;
+  applyBloomTint(false);
+  saveSettings();
+});
+document.getElementById('glow-color-sparkle')?.addEventListener('input', e => {
+  sparkleColor = e.target.value;
+  userSparkleColor = true;
+  saveSettings();
+});
+const voiceGainSlider = document.getElementById('voice-gain-slider');
+const voiceGainVal = document.getElementById('voice-gain-val');
+if (voiceGainSlider) voiceGainSlider.addEventListener('input', () => {
+  const v = parseInt(voiceGainSlider.value, 10) / 100;
+  voiceGain = v;
+  if (voiceGainVal) voiceGainVal.textContent = v.toFixed(2) + 'x';
+  saveSettings();
+});
+const scaleSensSlider = document.getElementById('scale-sens-slider');
+const scaleSensVal = document.getElementById('scale-sens-val');
+if (scaleSensSlider) scaleSensSlider.addEventListener('input', () => {
+  const v = parseInt(scaleSensSlider.value, 10) / 100;
+  scaleSensitivity = v;
+  if (scaleSensVal) scaleSensVal.textContent = v.toFixed(2) + 'x';
+  saveSettings();
+});
+const frameXSlider = document.getElementById('frame-x-slider');
+const frameXVal = document.getElementById('frame-x-val');
+if (frameXSlider) frameXSlider.addEventListener('input', () => {
+  frameOffsetX = parseInt(frameXSlider.value, 10);
+  if (frameXVal) frameXVal.textContent = frameOffsetX;
+  applyFrameTransform();
+  saveSettings();
+});
+const frameYSlider = document.getElementById('frame-y-slider');
+const frameYVal = document.getElementById('frame-y-val');
+if (frameYSlider) frameYSlider.addEventListener('input', () => {
+  frameOffsetY = parseInt(frameYSlider.value, 10);
+  if (frameYVal) frameYVal.textContent = frameOffsetY;
+  applyFrameTransform();
+  saveSettings();
+});
+const frameZoomSlider = document.getElementById('frame-zoom-slider');
+const frameZoomVal = document.getElementById('frame-zoom-val');
+if (frameZoomSlider) frameZoomSlider.addEventListener('input', () => {
+  frameZoom = parseInt(frameZoomSlider.value, 10) / 100;
+  if (frameZoomVal) frameZoomVal.textContent = frameZoom.toFixed(2) + 'x';
+  applyFrameTransform();
+  saveSettings();
+});
+const pausePlayBtn = document.getElementById('pause-play-btn');
+pausePlayBtn.addEventListener('click', () => {
+  config.paused = !config.paused;
+  pausePlayBtn.textContent = config.paused ? 'Play' : 'Freeze';
+  controls.autoRotate = !config.paused && AVATAR_STATE.faceActive < 0.5;
+});
+document.getElementById('reset-camera-btn').addEventListener('click', () => {
+  camera.position.set(0,8,28);
+  controls.target.set(0,0,0);
+  controls.update();
+});
+
+/* ============ STREAMER ACTIONS — shared by hotkeys AND visible buttons ============
+   Single source of truth for what each toggle does, so hotkeys and clicks stay
+   in lockstep and the pill UI always reflects underlying state. */
+const BG_MODES = ['clean', 'dark', 'green', 'blue', 'magenta'];
+let bgModeIndex = (() => {
+  if (CHROMA_BG) {
+    if (CHROMA_BG === '#00ff00') return 2;
+    if (CHROMA_BG === '#0000fe') return 3;
+    if (CHROMA_BG === '#ff00ff') return 4;
+  }
+  return TRANSPARENT ? 0 : 1;
+})();
+
+function actionTogglePanel(){
+  const sp = document.getElementById('setup-panel');
+  const ts = document.getElementById('theme-selector');
+  const cb = document.getElementById('control-buttons');
+  [sp, ts, cb].forEach(el => el.style.display = el.style.display === 'none' ? '' : 'none');
+}
+function actionPulse(){
+  const angle = Math.random() * Math.PI * 2;
+  const r = 6 + Math.random() * 10;
+  triggerPulseAt(new THREE.Vector3(Math.cos(angle) * r, (Math.random() - 0.5) * 4, Math.sin(angle) * r));
+}
+function actionFreeze(){
+  config.paused = !config.paused;
+  const btn = document.getElementById('pause-play-btn');
+  if (btn) btn.textContent = config.paused ? 'Play' : 'Freeze';
+  controls.autoRotate = !config.paused && AVATAR_STATE.faceActive < 0.5;
+  syncTogglePills();
+}
+function actionCycleTheme(){
+  const next = (config.activePaletteIndex + 1) % colorPalettes.length;
+  updateTheme(next);
+  document.querySelectorAll('.theme-button').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.theme-button[data-theme="${next}"]`)?.classList.add('active');
+  saveSettings();
+}
+function actionToggleBloom(){
+  bloomEnabled = !bloomEnabled;
+  saveSettings();
+  syncTogglePills();
+}
+function actionToggleTest(){
+  testMode = !testMode;
+  if (testMode) {
+    /* mark the status tags so user can see the simulator is feeding the avatar */
+    document.getElementById('camTag').textContent = 'TEST';
+    document.getElementById('camTag').className = 'tag live';
+    document.getElementById('micTag').textContent = 'TEST';
+    document.getElementById('micTag').className = 'tag live';
+  } else {
+    /* drop tags back to idle so user knows the simulator stopped */
+    document.getElementById('camTag').textContent = 'idle';
+    document.getElementById('camTag').className = 'tag';
+    document.getElementById('micTag').textContent = 'idle';
+    document.getElementById('micTag').className = 'tag';
+    /* zero out so the network settles instead of holding the last simulated values */
+    AVATAR_STATE.targetVoiceLevel = 0;
+    AVATAR_STATE.targetMouthOpen = 0;
+    AVATAR_STATE.targetFaceActive = 0;
+  }
+  syncTogglePills();
+}
+function actionToggleAur(){
+  aurVisible = !aurVisible;
+  if (aurGroup) aurGroup.visible = aurVisible;
+  syncTogglePills();
+}
+function actionToggleEye(){
+  eyeVisible = !eyeVisible;
+  eyeUserToggled = true; /* mark as user-controlled — load now respects saved value */
+  if (centerEyeGroup) centerEyeGroup.visible = eyeVisible;
+  syncTogglePills();
+  saveSettings();
+}
+/* ============ POSTMESSAGE CONTROL BRIDGE ============
+   Lets the parent page (index.html) drive the avatar live without changing
+   the iframe's src. Voice + mouth + face tracking continue working normally;
+   this is an additive command channel. Send messages like:
+     iframe.contentWindow.postMessage({type:'malikeye-control', morph:6}, '*')
+   Supported keys: morph, density, theme, pulse, paused, eye, aur, bloom,
+   colors:{inner,mid,outer,sparkle,bloomtint}, voiceGain, scaleSensitivity,
+   frame:{x,y,zoom}. */
+window.addEventListener('message', (e) => {
+  const d = e.data;
+  if (!d || d.type !== 'malikeye-control') return;
+  /* discrete actions */
+  if (d.pulse === true) actionPulse();
+  if (typeof d.paused === 'boolean' && d.paused !== config.paused) actionFreeze();
+  if (typeof d.eye === 'boolean' && d.eye !== eyeVisible) actionToggleEye();
+  if (typeof d.aur === 'boolean' && d.aur !== aurVisible) actionToggleAur();
+  if (typeof d.bloom === 'boolean' && d.bloom !== bloomEnabled) actionToggleBloom();
+  /* morph + density rebuild the network — slightly heavier */
+  if (typeof d.morph === 'number' && d.morph >= 0 && d.morph < config.numFormations) {
+    config.currentFormation = d.morph;
+    createNetworkVisualization(config.currentFormation, config.densityFactor);
+    saveSettings();
+  }
+  if (typeof d.density === 'number') {
+    const v = Math.max(0.3, Math.min(1, d.density > 1 ? d.density/100 : d.density));
+    config.densityFactor = v;
+    createNetworkVisualization(config.currentFormation, config.densityFactor);
+    const dsl = document.getElementById('density-slider');
+    const dvl = document.getElementById('density-value');
+    if (dsl) dsl.value = Math.round(v*100);
+    if (dvl) dvl.textContent = `${Math.round(v*100)}%`;
+    saveSettings();
+  }
+  /* theme — switches palette + refreshes shell/glow defaults (unless overridden) */
+  if (typeof d.theme === 'number' && d.theme >= 0 && d.theme < colorPalettes.length) {
+    updateTheme(d.theme);
+    document.querySelectorAll('.theme-button').forEach(b => b.classList.remove('active'));
+    document.querySelector(`.theme-button[data-theme="${d.theme}"]`)?.classList.add('active');
+    saveSettings();
+  }
+  /* per-shell + glow colours (hex strings, with or without #) */
+  if (d.colors) {
+    const hex = v => (typeof v === 'string') ? (v.startsWith('#') ? v : '#'+v) : null;
+    let changedShell = false, changedGlow = false;
+    if (hex(d.colors.inner))  { shellColorInner = hex(d.colors.inner);   userShellColors = true; changedShell = true; }
+    if (hex(d.colors.mid))    { shellColorMid   = hex(d.colors.mid);     userShellColors = true; changedShell = true; }
+    if (hex(d.colors.outer))  { shellColorOuter = hex(d.colors.outer);   userShellColors = true; changedShell = true; }
+    if (hex(d.colors.sparkle))   { sparkleColor   = hex(d.colors.sparkle);   userSparkleColor = true; changedGlow = true; }
+    if (hex(d.colors.bloomtint)) { bloomTintColor = hex(d.colors.bloomtint); userBloomTint   = true; changedGlow = true; }
+    if (changedShell) applyShellColors(true);
+    if (changedGlow)  { applyBloomTint(true); applySparkleColor(true); }
+    saveSettings();
+  }
+  /* slider equivalents */
+  if (typeof d.voiceGain === 'number') {
+    voiceGain = Math.max(0.5, Math.min(2, d.voiceGain > 2 ? d.voiceGain/100 : d.voiceGain));
+    const s = document.getElementById('voice-gain-slider');
+    const v = document.getElementById('voice-gain-val');
+    if (s) s.value = Math.round(voiceGain*100);
+    if (v) v.textContent = voiceGain.toFixed(2) + 'x';
+    saveSettings();
+  }
+  if (typeof d.scaleSensitivity === 'number') {
+    scaleSensitivity = Math.max(0, Math.min(2, d.scaleSensitivity > 2 ? d.scaleSensitivity/100 : d.scaleSensitivity));
+    const s = document.getElementById('scale-sens-slider');
+    const v = document.getElementById('scale-sens-val');
+    if (s) s.value = Math.round(scaleSensitivity*100);
+    if (v) v.textContent = scaleSensitivity.toFixed(2) + 'x';
+    saveSettings();
+  }
+  /* frame transform */
+  if (d.frame) {
+    if (typeof d.frame.x === 'number') frameOffsetX = d.frame.x;
+    if (typeof d.frame.y === 'number') frameOffsetY = d.frame.y;
+    if (typeof d.frame.zoom === 'number') frameZoom = d.frame.zoom;
+    applyFrameTransform();
+    saveSettings();
+  }
+});
+
+function actionCycleBg(){
+  bgModeIndex = (bgModeIndex + 1) % BG_MODES.length;
+  applyBgMode();
+  syncTogglePills();
+}
+function applyBgMode(){
+  const mode = BG_MODES[bgModeIndex];
+  const body = document.body;
+  if (mode === 'clean') {
+    /* transparent — best for OBS over a custom backdrop */
+    renderer.setClearColor(0x000000, 0);
+    body.classList.add('transparent');
+    body.style.background = '';
+  } else if (mode === 'dark') {
+    renderer.setClearColor(0x050508, 1);
+    body.classList.remove('transparent');
+    body.style.background = '#050508';
+  } else {
+    const hex = { green: '#00ff00', blue: '#0000fe', magenta: '#ff00ff' }[mode];
+    renderer.setClearColor(new THREE.Color(hex), 1);
+    body.classList.remove('transparent');
+    body.style.background = hex;
+  }
+}
+
+/* Keep all toggle pill visuals in sync with underlying state. */
+function syncTogglePills(){
+  const set = (id, on, stateText) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.toggle('on', !!on);
+    const s = el.querySelector('.pill-state');
+    if (s && stateText !== undefined) s.textContent = stateText;
+  };
+  set('pill-test', testMode, testMode ? 'on' : 'off');
+  set('pill-bloom', bloomEnabled, bloomEnabled ? 'on' : 'off');
+  set('pill-aur', aurVisible, aurVisible ? 'on' : 'off');
+  set('pill-eye', eyeVisible, eyeVisible ? 'on' : 'off');
+  set('pill-freeze', config.paused, config.paused ? 'on' : 'off');
+  const bgState = document.getElementById('pill-bg-state');
+  if (bgState) bgState.textContent = BG_MODES[bgModeIndex];
+  /* visually mark BG pill "on" whenever it's not in the default clean mode */
+  const bgPill = document.getElementById('pill-bg');
+  if (bgPill) bgPill.classList.toggle('on', bgModeIndex !== 0);
+}
+
+/* Wire button clicks to the same action functions the hotkeys use */
+document.getElementById('pill-test')?.addEventListener('click', actionToggleTest);
+document.getElementById('pill-bloom')?.addEventListener('click', actionToggleBloom);
+document.getElementById('pill-aur')?.addEventListener('click', actionToggleAur);
+document.getElementById('pill-eye')?.addEventListener('click', actionToggleEye);
+document.getElementById('pill-freeze')?.addEventListener('click', actionFreeze);
+document.getElementById('pill-pulse')?.addEventListener('click', actionPulse);
+document.getElementById('pill-bg')?.addEventListener('click', actionCycleBg);
+
+document.addEventListener('keydown', e => {
+  /* ignore hotkeys when typing into a form (none currently, but defensive) */
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+  const k = e.key.toLowerCase();
+  if(k === 'h') actionTogglePanel();
+  if(k === 'd') document.body.classList.toggle('debug');
+  /* STREAMER HOTKEYS — all route through the same action functions as the buttons */
+  if(k === 'm') actionPulse();
+  if(k === 'f') actionFreeze();
+  if(k === 't') actionCycleTheme();
+  if(k === 'b') actionToggleBloom();
+});
+
+/* start button — gateway for both audio + camera permission prompts.
+   in testMode we skip the prompts and just mark everything live. */
+const startBtn = document.getElementById('start-btn');
+startBtn.addEventListener('click', async () => {
+  startBtn.disabled = true;
+  startBtn.textContent = testMode ? 'Test Mode' : 'Awakening…';
+  if (testMode) {
+    document.getElementById('camTag').textContent = 'TEST';
+    document.getElementById('camTag').className = 'tag live';
+    document.getElementById('micTag').textContent = 'TEST';
+    document.getElementById('micTag').className = 'tag live';
+    startBtn.textContent = 'Test Active';
+    setTimeout(() => { document.getElementById('setup-panel').style.opacity = '0.6'; }, 2000);
+    return;
+  }
+  const [audioOK, faceOK] = await Promise.all([startAudio(), startFaceTracking()]);
+  if(audioOK || faceOK){
+    startBtn.textContent = 'Network Awake';
+    setTimeout(() => {
+      document.getElementById('setup-panel').style.opacity = '0.6';
+    }, 2000);
+  } else {
+    startBtn.disabled = false;
+    startBtn.textContent = 'Retry';
+  }
+});
+
+/* in OBS mode OR test mode, auto-start */
+if(OBS_MODE || testMode){
+  setTimeout(() => startBtn.click(), 1000);
+}
+
+/* ============ RESIZE ============ */
+function onResize(){
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+  bloomPass.resolution.set(window.innerWidth, window.innerHeight);
+}
+window.addEventListener('resize', onResize);
+
+/* ============ ANIMATION LOOP ============ */
+const clock = new THREE.Clock();
+let fpsLastT = 0, fpsFrames = 0;
+const fpsEl = document.getElementById('fps-indicator');
+/* current per-shell scale values — eased toward targets each frame with
+   their own curve so each layer pulses with its own personality. */
+let shellInner = 1.0, shellMid = 1.0, shellOuter = 1.0;
+
+function lerp(a,b,t){ return a + (b-a)*t; }
+/* ============ EASING (cubic-bezier feel) ============
+   Used to bend the linear 0→1 input curves (voiceLevel, mouthOpen) into
+   shapes that feel organic — slow start, punchy middle, soft settle. */
+function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+function easeOutCubic(x){ x = clamp01(x); return 1 - Math.pow(1 - x, 3); }
+function easeInOutCubic(x){ x = clamp01(x); return x < 0.5 ? 4*x*x*x : 1 - Math.pow(-2*x + 2, 3)/2; }
+function easeOutBack(x){ x = clamp01(x); const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x-1, 3) + c1 * Math.pow(x-1, 2); }
+function easeOutQuart(x){ x = clamp01(x); return 1 - Math.pow(1 - x, 4); }
+/* exponential smoothing toward a target value, with the per-frame factor
+   itself eased by easeOutCubic so the approach feels rounded rather than
+   geometric — closer to a damped spring than a flat lerp. */
+function easedApproach(current, target, t){
+  const e = easeOutCubic(clamp01(t));
+  return current + (target - current) * e;
+}
+
+function animate(){
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+
+  /* sample audio */
+  sampleAudio();
+
+  /* face: fade out face-active if no recent results */
+  if(Date.now() - AVATAR_STATE.lastFaceTime > 800) AVATAR_STATE.targetFaceActive = 0;
+
+  /* IDLE AMBIENT MODE: when face has been gone ~5s, the avatar gently
+     simulates breathing/swaying on its own so it doesn't look frozen.
+     Real face/voice immediately overrides as soon as you're back on cam. */
+  const sinceFace = (Date.now() - AVATAR_STATE.lastFaceTime) / 1000;
+  if (sinceFace > 5 && !testMode) {
+    /* ramp idle influence from 0→1 over 2 seconds after the 5s grace */
+    const idleStrength = clamp01((sinceFace - 5) / 2);
+    /* slow autonomous breath cycles — three layered sines for natural feel */
+    const idleBreath = 0.5 + 0.5 * (Math.sin(t * 0.42) * 0.6 + Math.sin(t * 0.27 + 1.2) * 0.4);
+    const idleMouth = Math.max(0, Math.sin(t * 0.18 + 0.6)) * 0.25;
+    const idleYaw = Math.sin(t * 0.13) * 0.35;
+    const idlePitch = Math.sin(t * 0.09 + 1.7) * 0.18;
+    AVATAR_STATE.targetVoiceLevel = lerp(AVATAR_STATE.targetVoiceLevel, idleBreath * 0.35, idleStrength * 0.6);
+    AVATAR_STATE.targetMouthOpen  = lerp(AVATAR_STATE.targetMouthOpen,  idleMouth,         idleStrength * 0.6);
+    AVATAR_STATE.targetHeadYaw    = lerp(AVATAR_STATE.targetHeadYaw,    idleYaw,           idleStrength * 0.4);
+    AVATAR_STATE.targetHeadPitch  = lerp(AVATAR_STATE.targetHeadPitch,  idlePitch,         idleStrength * 0.4);
+  }
+
+  /* TEST MODE: synthesize voice + mouth without webcam/mic so you can
+     preview the avatar visually during stream setup. */
+  if (testMode) {
+    AVATAR_STATE.targetVoiceLevel = 0.25 + 0.25 * Math.abs(Math.sin(t * 1.6)) + 0.15 * Math.abs(Math.sin(t * 4.3));
+    AVATAR_STATE.targetMouthOpen  = Math.max(0, Math.sin(t * 1.1)) * 0.7;
+    AVATAR_STATE.targetHeadYaw    = Math.sin(t * 0.4) * 0.4;
+    AVATAR_STATE.targetHeadPitch  = Math.sin(t * 0.3 + 1) * 0.2;
+    AVATAR_STATE.targetFaceActive = 1;
+    AVATAR_STATE.lastFaceTime = Date.now();
+  }
+
+  /* smooth all reactive values */
+  AVATAR_STATE.voiceLevel = lerp(AVATAR_STATE.voiceLevel, AVATAR_STATE.targetVoiceLevel, 0.2);
+  AVATAR_STATE.voicePitch = lerp(AVATAR_STATE.voicePitch, AVATAR_STATE.targetVoicePitch, 0.08);
+  AVATAR_STATE.mouthOpen = lerp(AVATAR_STATE.mouthOpen, AVATAR_STATE.targetMouthOpen, 0.18);
+  AVATAR_STATE.blink = lerp(AVATAR_STATE.blink, AVATAR_STATE.targetBlink, 0.3);
+  AVATAR_STATE.headYaw = lerp(AVATAR_STATE.headYaw, AVATAR_STATE.targetHeadYaw, 0.1);
+  AVATAR_STATE.headPitch = lerp(AVATAR_STATE.headPitch, AVATAR_STATE.targetHeadPitch, 0.1);
+  AVATAR_STATE.faceActive = lerp(AVATAR_STATE.faceActive, AVATAR_STATE.targetFaceActive, 0.12);
+
+  /* update meters in setup panel */
+  document.getElementById('voiceMeter').style.width = (AVATAR_STATE.voiceLevel*100).toFixed(1) + '%';
+  document.getElementById('mouthMeter').style.width = (AVATAR_STATE.mouthOpen*100).toFixed(1) + '%';
+
+  /* auto-pulse triggers */
+  if(!config.paused && nodesMesh){
+    /* track vocal activity for the reverie state */
+    if (AVATAR_STATE.voiceLevel > 0.15 || AVATAR_STATE.mouthOpen > 0.15) {
+      AVATAR_STATE.lastVocalTime = t;
+    }
+    /* voice spike pulse */
+    if(AVATAR_STATE.voiceLevel > 0.35 && t - AVATAR_STATE.lastVoicePulse > 0.4){
+      AVATAR_STATE.lastVoicePulse = t;
+      const angle = Math.random()*Math.PI*2;
+      const r = 6 + Math.random()*8;
+      triggerPulseAt(new THREE.Vector3(Math.cos(angle)*r, (Math.random()-0.5)*4, Math.sin(angle)*r));
+    }
+    /* mouth open pulse */
+    if(AVATAR_STATE.mouthOpen > 0.4 && t - AVATAR_STATE.lastMouthPulse > 0.5){
+      AVATAR_STATE.lastMouthPulse = t;
+      triggerPulseAt(new THREE.Vector3(0, 0, 0), new THREE.Color(1,1,1));
+    }
+    /* blink pulse — quick flash */
+    if(AVATAR_STATE.blink > 0.7 && t - AVATAR_STATE.lastMouthPulse > 0.3){
+      AVATAR_STATE.lastMouthPulse = t;
+      triggerPulseAt(new THREE.Vector3((Math.random()-0.5)*4, (Math.random()-0.5)*4, (Math.random()-0.5)*4));
+    }
+    /* ============ REVERIE STATE ============
+       After ~10 seconds of silence, the network starts dreaming — gentle
+       autonomous pulses arise at slow random intervals from the middle
+       shell with cool, desaturated colors. Reads as the avatar meditating
+       between conversations rather than going dead. */
+    const silenceSec = t - AVATAR_STATE.lastVocalTime;
+    if (silenceSec > 10 && t - AVATAR_STATE.lastReveriePulse > 3 + Math.random() * 4) {
+      AVATAR_STATE.lastReveriePulse = t;
+      const angle = Math.random() * Math.PI * 2;
+      const r = 7 + Math.random() * 5; /* middle shell radius range */
+      /* reverie palette: blue-violet drift, low saturation, soft luminance */
+      const hue = 0.62 + Math.random() * 0.18; /* blue → violet */
+      const reverieColor = new THREE.Color().setHSL(hue, 0.35, 0.5);
+      triggerPulseAt(
+        new THREE.Vector3(Math.cos(angle) * r, (Math.random() - 0.5) * 3, Math.sin(angle) * r),
+        reverieColor
+      );
+    }
+  }
+
+  /* shader uniforms */
+  if(!config.paused){
+    if(nodesMesh){
+      const u = nodesMesh.material.uniforms;
+      u.uTime.value = t;
+      u.uVoiceLevel.value = AVATAR_STATE.voiceLevel;
+      u.uVoicePitch.value = AVATAR_STATE.voicePitch;
+      u.uMouthOpen.value = AVATAR_STATE.mouthOpen;
+      u.uFaceActive.value = AVATAR_STATE.faceActive;
+      nodesMesh.rotation.y = Math.sin(t*0.04)*0.05;
+    }
+    if(connectionsMesh){
+      const u = connectionsMesh.material.uniforms;
+      u.uTime.value = t;
+      u.uVoiceLevel.value = AVATAR_STATE.voiceLevel;
+      u.uVoicePitch.value = AVATAR_STATE.voicePitch;
+      u.uMouthOpen.value = AVATAR_STATE.mouthOpen;
+      u.uFaceActive.value = AVATAR_STATE.faceActive;
+      connectionsMesh.rotation.y = Math.sin(t*0.04)*0.05;
+    }
+  }
+
+  /* ease the raw 0→1 inputs into curves that bend instead of tracking linearly.
+     voice uses easeOutQuart (soft ramp, punchy peak); mouth NOW uses easeOutCubic
+     (no overshoot — opens cleanly to the target instead of bouncing past it,
+     which previously made the scale feel jumpier than the magnitude suggested). */
+  const voiceEased = easeOutQuart(AVATAR_STATE.voiceLevel);
+  const mouthEased = easeOutCubic(AVATAR_STATE.mouthOpen);
+
+  /* SPLIT REACTIVITY (per user): voice drives ONLY the bloom; mouth opening
+     drives ONLY the network scale. This keeps the two inputs perceptually
+     independent — talking lights up, opening wide grows the net. */
+  /* Bloom: voice-only. Slightly bumped now that mouth no longer contributes. */
+  bloomPass.strength = bloomEnabled ? (BLOOM_BASE + voiceEased * 0.24) : 0;
+
+  /* Afterimage trails: voice-only (these read as part of the bloom/glow family). */
+  if (afterimagePass.enabled && afterimagePass.uniforms?.damp) {
+    afterimagePass.uniforms.damp.value = 0.55 + voiceEased * 0.32;
+  }
+
+  /* THREE-SHELL SCALING (mouth-only, tuned subtle):
+     Magnitudes are intentionally small so the network reads as breathing
+     rather than ballooning. Multiplied by `scaleSensitivity` (UI slider,
+     0-200%) so the user can dial it live if they want more punch or less.
+     - Inner stays virtually fixed (nucleus).
+     - Middle expands gently.
+     - Outer expands a touch more. */
+  const targetInner = 1.0 + mouthEased * 0.025 * scaleSensitivity;  /* default max ~1.025 */
+  const targetMid   = 1.0 + mouthEased * 0.10  * scaleSensitivity;  /* default max ~1.10 */
+  const targetOuter = 1.0 + mouthEased * 0.20  * scaleSensitivity;  /* default max ~1.20 */
+  /* per-shell bezier easing: inner = easeInOutCubic (heartbeat feel),
+     middle and outer both = easeOutCubic (clean settle — outer no longer
+     overshoots, so peak scale doesn't pop past the target value). */
+  const innerStep = easeInOutCubic(0.18);
+  const midStep   = easeOutCubic(0.28);
+  const outerStep = easeOutCubic(0.30);
+  shellInner = shellInner + (targetInner - shellInner) * innerStep;
+  shellMid   = shellMid   + (targetMid   - shellMid)   * midStep;
+  shellOuter = shellOuter + (targetOuter - shellOuter) * outerStep;
+  if (nodesMesh) {
+    const u = nodesMesh.material.uniforms;
+    u.uShellScaleInner.value = shellInner;
+    u.uShellScaleMid.value   = shellMid;
+    u.uShellScaleOuter.value = shellOuter;
+    /* reset any leftover uniform scale from before */
+    nodesMesh.scale.setScalar(1);
+  }
+  if (connectionsMesh) {
+    const u = connectionsMesh.material.uniforms;
+    u.uShellScaleInner.value = shellInner;
+    u.uShellScaleMid.value   = shellMid;
+    u.uShellScaleOuter.value = shellOuter;
+    connectionsMesh.scale.setScalar(1);
+  }
+
+  /* head-driven camera offset (subtle, additive to orbit) */
+  if(AVATAR_STATE.faceActive > 0.3){
+    controls.autoRotate = false;
+    const offsetX = -AVATAR_STATE.headYaw * 3;
+    const offsetY = -AVATAR_STATE.headPitch * 2;
+    controls.target.x = lerp(controls.target.x, offsetX, 0.05);
+    controls.target.y = lerp(controls.target.y, offsetY, 0.05);
+  } else {
+    controls.autoRotate = !config.paused;
+    controls.target.x = lerp(controls.target.x, 0, 0.03);
+    controls.target.y = lerp(controls.target.y, 0, 0.03);
+  }
+
+  /* AinSophAur — eased motion: breathing wave uses cubic ease in/out for a
+     more organic swell, voice/mouth use the same bezier-eased values as
+     the network so the whole composition pulses together. */
+  if (aurGroup && !config.paused) {
+    /* eased breathing: shape a sine wave with easeInOutCubic so peaks/troughs
+       linger slightly instead of cycling on a flat schedule */
+    const breathePhase = (Math.sin(t * 0.55) + 1) * 0.5; /* 0→1 */
+    const breathe = 0.80 + 0.20 * easeInOutCubic(breathePhase);
+    const voiceBoost = 1 + voiceEased * 0.6;
+    /* signature-reveal window: for the first REVEAL_DURATION seconds after
+       page load, force every sprite to show its clean (legible) texture and
+       fade in. After that, the glitch loop takes over. */
+    const REVEAL_DURATION = 1.6; /* seconds */
+    const REVEAL_FADE_IN  = 0.6; /* fade-in over this many seconds */
+    const REVEAL_FADE_OUT = 0.5; /* fade back as glitch takes over */
+    const inReveal = t < REVEAL_DURATION;
+    let revealOpacity = 1;
+    if (inReveal) {
+      revealOpacity = clamp01(t / REVEAL_FADE_IN);
+    } else if (t < REVEAL_DURATION + REVEAL_FADE_OUT) {
+      /* brief crossfade: opacity dips slightly as legible→glitched swap happens */
+      revealOpacity = 1 - 0.3 * (1 - (t - REVEAL_DURATION) / REVEAL_FADE_OUT);
+    }
+
+    aurGroup.userData.veils.forEach(v => {
+      /* rotation speed itself nudged by eased voice — quiet=slow, loud=brisk */
+      v.ring.rotateOnAxis(new THREE.Vector3(0, 0, 1), v.speed * 0.012 * (1 + voiceEased * 0.8));
+      v.mat.opacity = v.baseOpacity * breathe * voiceBoost;
+      v.glyphSprites.forEach(s => {
+        if (inReveal) {
+          /* pin sprite to the clean texture and fade in opacity */
+          s.material.map = v.cleanTex;
+          s.material.needsUpdate = true;
+          s.material.opacity = v.baseGlyphOpacity * revealOpacity;
+          /* push the first glitch swap to right after the reveal ends */
+          s.userData.nextGlitch = REVEAL_DURATION + Math.random() * 0.3;
+        } else {
+          /* glitch swap: when this sprite's timer expires, jump to a random
+             variant from the veil's pool. Loud voice = faster glitch rate. */
+          if (t > s.userData.nextGlitch) {
+            const pool = v.glyphPool;
+            s.material.map = pool[Math.floor(Math.random() * pool.length)];
+            s.material.needsUpdate = true;
+            /* base interval 80–220ms, accelerates with voice */
+            const base = 0.08 + Math.random() * 0.14;
+            s.userData.nextGlitch = t + base / (1 + voiceEased * 1.6);
+          }
+          /* subtle independent opacity flicker per sprite (not tied to breathe) */
+          const flicker = 0.85 + 0.15 * Math.sin(t * 7 + s.userData.glitchPhase);
+          s.material.opacity = v.baseGlyphOpacity * breathe * voiceBoost * flicker * revealOpacity;
+        }
+      });
+    });
+    if (aurGroup.userData.core) {
+      /* opacity carries voice (it's a brightness/bloom contributor) */
+      /* opacity is VOICE-ONLY now — voice drives all glow, mouth drives only
+         scale. Bumped voice contribution since mouth no longer stacks on. */
+      aurGroup.userData.core.material.opacity = 0.50 + voiceEased * 0.45;
+      /* scale is mouth-only — voice no longer drives any size in the rig */
+      aurGroup.userData.core.scale.setScalar(1.0 + mouthEased * 0.8);
+    }
+    if (aurGroup.userData.halo) {
+      /* halo opacity is voice-only (glow); halo scale is mouth-only (growth) */
+      aurGroup.userData.halo.material.opacity = 0.07 + voiceEased * 0.20;
+      aurGroup.userData.halo.scale.setScalar(1.0 + mouthEased * 0.4);
+    }
+    /* slow overall rotation; pitch oscillation eased too */
+    aurGroup.rotation.y += 0.0006;
+    const tiltPhase = (Math.sin(t * 0.08) + 1) * 0.5;
+    aurGroup.rotation.x = (easeInOutCubic(tiltPhase) - 0.5) * 0.1;
+  }
+
+  if(starField){
+    starField.rotation.y += 0.0002;
+    starField.material.uniforms.uTime.value = t;
+  }
+
+  /* ============ CENTER EYE update ============
+     billboard toward camera; push tracked-face uniforms into the shader.
+     gaze offset is negated so pupil tracks the same direction you turn your
+     head (mirroring keeps the gaze perceptually right for the viewer). */
+  if (centerEyeGroup && centerEyeGroup.visible) {
+    centerEyeGroup.lookAt(camera.position);
+    const m = centerEyeGroup.userData.mat;
+    if (m) {
+      m.uniforms.uTime.value = t;
+      m.uniforms.uBlink.value = AVATAR_STATE.blink;
+      m.uniforms.uGaze.value.set(-AVATAR_STATE.headYaw, -AVATAR_STATE.headPitch);
+      m.uniforms.uVoice.value = voiceEased;
+      m.uniforms.uMouthOpen.value = mouthEased;
+      m.uniforms.uFaceActive.value = AVATAR_STATE.faceActive;
+      /* when no face is tracked, drift the pupil gently so the eye looks
+         alive even when you step away — slow lissajous wander */
+      if (AVATAR_STATE.faceActive < 0.3) {
+        const wx = Math.sin(t * 0.31) * 0.4;
+        const wy = Math.sin(t * 0.23 + 1.2) * 0.2;
+        m.uniforms.uGaze.value.set(wx, wy);
+        /* gentle idle blink every ~6-9s */
+        const blinkPhase = (Math.sin(t * 0.7) + 1) * 0.5;
+        const idleBlink = blinkPhase > 0.985 ? (blinkPhase - 0.985) / 0.015 : 0;
+        m.uniforms.uBlink.value = Math.max(AVATAR_STATE.blink, idleBlink);
+      }
+    }
+  }
+
+  controls.update();
+  composer.render();
+
+  /* FPS */
+  fpsFrames++;
+  if(t - fpsLastT > 0.5){
+    if(fpsEl) fpsEl.textContent = `FPS: ${Math.round(fpsFrames/(t-fpsLastT))}`;
+    fpsLastT = t; fpsFrames = 0;
+  }
+}
+
+/* ============ INIT ============ */
+function init(){
+  /* hydrate from localStorage before building the scene */
+  loadSettings();
+  /* URL params win over localStorage — scene-preset bookmarks override saves */
+  if (URL_MORPH   !== null) config.currentFormation = URL_MORPH;
+  if (URL_DENSITY !== null) config.densityFactor    = URL_DENSITY;
+  if (URL_INNER)   { shellColorInner = URL_INNER;   userShellColors = true; }
+  if (URL_MID)     { shellColorMid   = URL_MID;     userShellColors = true; }
+  if (URL_OUTER)   { shellColorOuter = URL_OUTER;   userShellColors = true; }
+  if (URL_SPARKLE)   { sparkleColor   = URL_SPARKLE;   userSparkleColor = true; }
+  if (URL_BLOOMTINT) { bloomTintColor = URL_BLOOMTINT; userBloomTint   = true; }
+  /* reflect loaded values in the UI controls */
+  const dsl = document.getElementById('density-slider');
+  const dvl = document.getElementById('density-value');
+  if (dsl && dvl) {
+    const pct = Math.round(config.densityFactor * 100);
+    dsl.value = pct;
+    dvl.textContent = `${pct}%`;
+  }
+  /* sync stream-frame sliders to loaded values */
+  const vgs = document.getElementById('voice-gain-slider');
+  const vgv = document.getElementById('voice-gain-val');
+  if (vgs && vgv) { vgs.value = Math.round(voiceGain * 100); vgv.textContent = voiceGain.toFixed(2) + 'x'; }
+  const sss = document.getElementById('scale-sens-slider');
+  const ssv = document.getElementById('scale-sens-val');
+  if (sss && ssv) { sss.value = Math.round(scaleSensitivity * 100); ssv.textContent = scaleSensitivity.toFixed(2) + 'x'; }
+  const fxs = document.getElementById('frame-x-slider');
+  const fxv = document.getElementById('frame-x-val');
+  if (fxs && fxv) { fxs.value = frameOffsetX; fxv.textContent = frameOffsetX; }
+  const fys = document.getElementById('frame-y-slider');
+  const fyv = document.getElementById('frame-y-val');
+  if (fys && fyv) { fys.value = frameOffsetY; fyv.textContent = frameOffsetY; }
+  const fzs = document.getElementById('frame-zoom-slider');
+  const fzv = document.getElementById('frame-zoom-val');
+  if (fzs && fzv) { fzs.value = Math.round(frameZoom * 100); fzv.textContent = frameZoom.toFixed(2) + 'x'; }
+  /* apply persisted frame transform on first paint */
+  applyFrameTransform();
+  /* if user has never picked custom shell colours, align them with the active palette
+     defaults so the look matches the chosen theme right out of the gate. */
+  if (!userShellColors) {
+    const d = SHELL_DEFAULTS_PER_PALETTE[config.activePaletteIndex % SHELL_DEFAULTS_PER_PALETTE.length];
+    if (d) {
+      shellColorInner = d.inner;
+      shellColorMid   = d.mid;
+      shellColorOuter = d.outer;
+    }
+  }
+  /* same for glow colours — adopt theme defaults if no user override */
+  const g = GLOW_DEFAULTS_PER_PALETTE[config.activePaletteIndex % GLOW_DEFAULTS_PER_PALETTE.length];
+  if (g) {
+    if (!userBloomTint) bloomTintColor = g.bloom;
+    if (!userSparkleColor) sparkleColor = g.sparkle;
+  }
+  createNetworkVisualization(config.currentFormation, config.densityFactor);
+  /* push the shell colours into uniforms + sync swatch inputs to current state */
+  applyShellColors(true);
+  applyBloomTint(true);
+  applySparkleColor(true);
+  /* loadSettings may have flipped eyeVisible — sync the actual mesh visibility */
+  if (centerEyeGroup) centerEyeGroup.visible = eyeVisible;
+  document.querySelectorAll('.theme-button').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.theme-button[data-theme="${config.activePaletteIndex}"]`)?.classList.add('active');
+  /* sync toggle pills to reflect loaded/URL-derived state */
+  syncTogglePills();
+  /* IMPORTANT: force-apply the bg mode at the end of init so the body+renderer
+     are reconciled to a known clean state. Otherwise stale inline body.style
+     or partial transparent-class state can leave the iframe with a dark fill. */
+  applyBgMode();
+  animate();
+}
+init();
+</script>
+</body>
+</html>
