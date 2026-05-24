@@ -575,6 +575,10 @@ const URL_SCALE = (()=>{ const v = parseInt(params.get('scale'),10); return (!is
    the small camera preview, even when ?obs=1 is set. Helps verify what's
    actually reaching the network in OBS without yanking the setup panel back. */
 const DEBUG_MODE = params.get('debug') === '1';
+/* ?camera=substring — picks the first available camera whose label contains
+   this substring (case-insensitive). Lets you override the auto-picker if it
+   guesses wrong. Example: ?camera=c920 forces a Logitech C920. */
+const CAMERA_FILTER = (params.get('camera') || '').toLowerCase().trim();
 
 /* test mode: simulate audio + face input without real webcam/mic — for previewing
    on stream-setup nights. Mutable so the in-app Test toggle can flip it at runtime. */
@@ -2510,17 +2514,65 @@ function sampleAudio(){
 }
 
 /* ============ FACE TRACKING (MediaPipe) ============ */
-let faceMesh=null, mpCam=null;
+/* Patterns of known virtual cameras we want to AVOID picking. Anything matching
+   these likely doesn't show a real face — it's a placeholder or interceptor.
+   Users can still force a specific device via ?camera=substring. */
+const VIRTUAL_CAM_PATTERNS = /vtube|vts.virtual|obs.virtual|nvidia.broadcast|snap.camera|manycam|xsplit|streamlabs|elgato.virtual|droidcam|epoccam|iriun/i;
+function pickCamera(cams){
+  if (!cams.length) return null;
+  /* explicit URL filter wins — first cam whose label contains the substring */
+  if (CAMERA_FILTER) {
+    const match = cams.find(c => (c.label || '').toLowerCase().includes(CAMERA_FILTER));
+    if (match) return match;
+  }
+  /* otherwise prefer any camera whose label does NOT match a known virtual */
+  const physical = cams.filter(c => c.label && !VIRTUAL_CAM_PATTERNS.test(c.label));
+  if (physical.length) return physical[0];
+  /* labels can be empty in some contexts (permission not yet granted) — fall
+     back to the first device so we at least try something. */
+  return cams[0];
+}
+
+let faceMesh=null, faceLoopRunning=false;
 async function startFaceTracking(){
   try {
-    if(typeof FaceMesh==='undefined'||typeof Camera==='undefined') throw new Error('MediaPipe failed to load');
+    if(typeof FaceMesh==='undefined') throw new Error('MediaPipe failed to load');
     document.getElementById('camTag').textContent = 'LOADING';
+    /* Enumerate cameras + pick a real one (skipping VTube Studio / OBS Virtual
+       Cam / NVIDIA Broadcast / etc). Logs everything to console for debugging. */
+    let chosen = null;
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cams = devices.filter(d => d.kind === 'videoinput');
+      console.log('[neural-avatar] available cameras:', cams.map(c => c.label || c.deviceId).join(' | '));
+      chosen = pickCamera(cams);
+      if (chosen) console.log('[neural-avatar] picked camera:', chosen.label || chosen.deviceId);
+    } catch(e) { /* enumerateDevices can fail in some CEF contexts */ }
+    /* Grab the chosen device directly so we control which webcam feeds MediaPipe.
+       Falls back to default device if pickCamera returned nothing. */
+    const videoConstraints = chosen && chosen.deviceId
+      ? { deviceId: { exact: chosen.deviceId }, width: 480, height: 360 }
+      : { width: 480, height: 360 };
+    const stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints });
+    const camEl = document.getElementById('cam');
+    camEl.srcObject = stream;
+    camEl.muted = true;
+    camEl.playsInline = true;
+    await camEl.play();
     faceMesh = new FaceMesh({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}` });
     faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
     faceMesh.onResults(onFaceResults);
-    const camEl = document.getElementById('cam');
-    mpCam = new Camera(camEl, { onFrame: async () => { await faceMesh.send({ image: camEl }); }, width: 480, height: 360 });
-    await mpCam.start();
+    /* Manual frame loop — replaces MediaPipe's Camera helper which doesn't expose
+       deviceId selection. We send every frame the video element has ready. */
+    faceLoopRunning = true;
+    const loop = async () => {
+      if (!faceLoopRunning) return;
+      if (camEl.readyState >= 2 && camEl.videoWidth > 0) {
+        try { await faceMesh.send({ image: camEl }); } catch(e) { /* skip bad frame */ }
+      }
+      requestAnimationFrame(loop);
+    };
+    loop();
     document.getElementById('camTag').textContent = 'LIVE';
     document.getElementById('camTag').className = 'tag live';
     LAST_MEDIA_ERR.cam = null;
@@ -3069,7 +3121,15 @@ startBtn.addEventListener('click', async () => {
   if(audioOK || faceOK){
     startBtn.textContent = 'Network Awake';
     setTimeout(() => {
-      document.getElementById('setup-panel').style.opacity = '0.6';
+      const panel = document.getElementById('setup-panel');
+      /* In OBS clean mode (or debug-stripped-obs flow), fully hide so the panel
+         never shows up on stream. In normal viewing mode just dim to 60%. */
+      if (OBS_MODE) {
+        panel.style.opacity = '0';
+        panel.style.pointerEvents = 'none';
+      } else {
+        panel.style.opacity = '0.6';
+      }
     }, 2000);
   } else {
     startBtn.disabled = false;
