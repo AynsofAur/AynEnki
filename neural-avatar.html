@@ -350,6 +350,13 @@ body.debug video#cam { width: 160px; height: 120px; opacity: 1; top: 8px; right:
      box-shadow:0 4px 18px rgba(0,0,0,0.4);"
      onclick="retryMedia()"></div>
 
+<!-- ?debug=1 live readout — voice / mouth / head pose values updating each frame.
+     Lets you confirm in OBS what the network is actually seeing. -->
+<div id="debug-readout" style="display:none;position:fixed;bottom:8px;left:8px;
+     padding:8px 12px;background:rgba(8,8,16,0.78);color:#9cf;font:600 11px/1.4 monospace;
+     border-radius:4px;border:1px solid rgba(120,180,255,0.3);z-index:9998;pointer-events:none;
+     backdrop-filter:blur(4px);min-width:180px;"></div>
+
 <!-- setup / status panel -->
 <div id="setup-panel" class="glass-panel">
   <div id="setup-title">Neural Avatar</div>
@@ -564,6 +571,10 @@ const URL_BLOOMTINT = _parseHexParam('bloomtint');
    bake mic-specific calibration into the OBS URL. Range clamped to 50–500. */
 const URL_GAIN = (()=>{ const v = parseInt(params.get('gain'),10); return (!isNaN(v) && v>=50 && v<=500) ? v/100 : null; })();
 const URL_SCALE = (()=>{ const v = parseInt(params.get('scale'),10); return (!isNaN(v) && v>=0 && v<=500) ? v/100 : null; })();
+/* ?debug=1 — shows a persistent live-values readout (voice/mouth/yaw/pitch) AND
+   the small camera preview, even when ?obs=1 is set. Helps verify what's
+   actually reaching the network in OBS without yanking the setup panel back. */
+const DEBUG_MODE = params.get('debug') === '1';
 
 /* test mode: simulate audio + face input without real webcam/mic — for previewing
    on stream-setup nights. Mutable so the in-app Test toggle can flip it at runtime. */
@@ -619,6 +630,7 @@ let userBloomTint = false;
 let userSparkleColor = false;
 
 if (OBS_MODE) document.body.classList.add('obs-clean');
+if (DEBUG_MODE) document.body.classList.add('debug');
 if (TRANSPARENT) {
   document.body.classList.add('transparent');
   document.documentElement.classList.add('transparent');
@@ -2437,7 +2449,17 @@ function updateDiagBanner(){
 let audioCtx=null, audioAnalyser=null, audioTimeData=null, audioFreqData=null;
 async function startAudio(){
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    /* Explicit constraints — OBS's CEF has different defaults from Chrome.
+       In particular autoGainControl is often OFF in CEF, making the same mic
+       read much quieter than in a normal Chrome tab. Forcing AGC + noise
+       suppression + echo cancellation ON matches Chrome behaviour. */
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      }
+    });
     audioCtx = new (window.AudioContext||window.webkitAudioContext)();
     const source = audioCtx.createMediaStreamSource(stream);
     audioAnalyser = audioCtx.createAnalyser();
@@ -2572,7 +2594,13 @@ function loadSettings(){
        v2 lacked shellColor fields, so userShellColors stays false → theme defaults apply. */
     let raw = localStorage.getItem(SETTINGS_KEY);
     if (!raw) raw = localStorage.getItem('malikeye-avatar-v2');
-    if (!raw) return null;
+    if (!raw) {
+      /* no saved settings — still apply URL overrides so OBS sources without
+         persistent storage get the gain/scale they were configured with. */
+      if (URL_GAIN !== null) voiceGain = URL_GAIN;
+      if (URL_SCALE !== null) scaleSensitivity = URL_SCALE;
+      return null;
+    }
     const s = JSON.parse(raw);
     /* URL ?theme= overrides saved theme; otherwise use saved */
     if (!params.has('theme') && typeof s.theme === 'number' && s.theme >= 0 && s.theme < colorPalettes.length) {
@@ -3168,6 +3196,22 @@ function animate(){
   /* update meters in setup panel */
   document.getElementById('voiceMeter').style.width = (AVATAR_STATE.voiceLevel*100).toFixed(1) + '%';
   document.getElementById('mouthMeter').style.width = (AVATAR_STATE.mouthOpen*100).toFixed(1) + '%';
+
+  /* update live debug readout (?debug=1 or body.debug toggle).
+     textContent assign is cheap so we update every frame. */
+  if (DEBUG_MODE || document.body.classList.contains('debug')) {
+    const r = document.getElementById('debug-readout');
+    if (r) {
+      r.style.display = 'block';
+      r.textContent =
+        'voice: ' + (AVATAR_STATE.voiceLevel*100).toFixed(1).padStart(5,' ') + '%  (gain ' + voiceGain.toFixed(2) + 'x)\n' +
+        'mouth: ' + (AVATAR_STATE.mouthOpen*100).toFixed(1).padStart(5,' ') + '%  (scale ' + scaleSensitivity.toFixed(2) + 'x)\n' +
+        'yaw:   ' + AVATAR_STATE.headYaw.toFixed(2).padStart(5,' ') + '\n' +
+        'pitch: ' + AVATAR_STATE.headPitch.toFixed(2).padStart(5,' ') + '\n' +
+        'face:  ' + (AVATAR_STATE.faceActive>0.5?'TRACKING':'lost');
+      r.style.whiteSpace = 'pre';
+    }
+  }
 
   /* auto-pulse triggers */
   if(!config.paused && nodesMesh){
