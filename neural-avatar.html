@@ -341,6 +341,15 @@ body.debug video#cam { width: 160px; height: 120px; opacity: 1; top: 8px; right:
 <!-- canvas -->
 <canvas id="neural-canvas"></canvas>
 
+<!-- persistent diagnostic banner — stays visible even in ?obs=1 mode so
+     streamers can see cam/mic block status at a glance. Click to retry. -->
+<div id="diag-banner" style="display:none;position:fixed;top:8px;left:50%;transform:translateX(-50%);
+     padding:6px 14px;background:rgba(200,40,40,0.85);color:#fff;font:600 11px/1.2 'Inter',sans-serif;
+     letter-spacing:0.08em;border-radius:4px;border:1px solid rgba(255,255,255,0.3);
+     z-index:9999;cursor:pointer;pointer-events:auto;backdrop-filter:blur(6px);
+     box-shadow:0 4px 18px rgba(0,0,0,0.4);"
+     onclick="retryMedia()"></div>
+
 <!-- setup / status panel -->
 <div id="setup-panel" class="glass-panel">
   <div id="setup-title">Neural Avatar</div>
@@ -2395,6 +2404,30 @@ function triggerPulseAt(pos, color){
   }
 }
 
+/* ============ MEDIA DIAG ============
+   Tracks the last getUserMedia error per device so the persistent banner can
+   show what went wrong (NotAllowedError vs NotReadableError vs NotFoundError)
+   even when ?obs=1 has hidden the setup-panel. */
+const LAST_MEDIA_ERR = { cam: null, mic: null };
+function updateDiagBanner(){
+  const banner = document.getElementById('diag-banner');
+  if (!banner) return;
+  const cam = LAST_MEDIA_ERR.cam;
+  const mic = LAST_MEDIA_ERR.mic;
+  if (!cam && !mic) { banner.style.display = 'none'; return; }
+  const parts = [];
+  if (cam) parts.push('cam: ' + cam.replace(/Error$/, ''));
+  if (mic) parts.push('mic: ' + mic.replace(/Error$/, ''));
+  let hint = '';
+  const combined = (cam || '') + ' ' + (mic || '');
+  if (/NotReadable|TrackStart/.test(combined)) hint = ' — device busy (close other apps/sources)';
+  else if (/NotAllowed|Permission/.test(combined)) hint = ' — permission denied (see OBS launch flag)';
+  else if (/NotFound|DevicesNotFound/.test(combined)) hint = ' — no device detected';
+  else if (/Security/.test(combined)) hint = ' — needs HTTPS';
+  banner.textContent = 'BLOCKED: ' + parts.join(', ') + hint + '  [click to retry]';
+  banner.style.display = 'block';
+}
+
 /* ============ AUDIO REACTIVE ============ */
 let audioCtx=null, audioAnalyser=null, audioTimeData=null, audioFreqData=null;
 async function startAudio(){
@@ -2410,11 +2443,20 @@ async function startAudio(){
     audioFreqData = new Uint8Array(audioAnalyser.frequencyBinCount);
     document.getElementById('micTag').textContent = 'LIVE';
     document.getElementById('micTag').className = 'tag live';
+    LAST_MEDIA_ERR.mic = null;
+    updateDiagBanner();
     return true;
   } catch(err){
     console.warn('Audio init failed', err);
-    document.getElementById('micTag').textContent = 'BLOCKED';
-    document.getElementById('micTag').className = 'tag err';
+    const tag = document.getElementById('micTag');
+    /* surface the actual error name (NotAllowedError, NotReadableError, NotFoundError, etc.)
+       so user can tell permission-denied apart from camera-in-use apart from no-device. */
+    const name = (err && err.name) || 'ERR';
+    tag.textContent = name.replace(/Error$/, '').toUpperCase();
+    tag.className = 'tag err';
+    tag.title = (err && err.message) || name;
+    LAST_MEDIA_ERR.mic = name;
+    updateDiagBanner();
     return false;
   }
 }
@@ -2454,11 +2496,18 @@ async function startFaceTracking(){
     await mpCam.start();
     document.getElementById('camTag').textContent = 'LIVE';
     document.getElementById('camTag').className = 'tag live';
+    LAST_MEDIA_ERR.cam = null;
+    updateDiagBanner();
     return true;
   } catch(err){
     console.warn('Face tracking init failed', err);
-    document.getElementById('camTag').textContent = 'BLOCKED';
-    document.getElementById('camTag').className = 'tag err';
+    const tag = document.getElementById('camTag');
+    const name = (err && err.name) || 'ERR';
+    tag.textContent = name.replace(/Error$/, '').toUpperCase();
+    tag.className = 'tag err';
+    tag.title = (err && err.message) || name;
+    LAST_MEDIA_ERR.cam = name;
+    updateDiagBanner();
     return false;
   }
 }
@@ -2995,6 +3044,29 @@ startBtn.addEventListener('click', async () => {
 if(OBS_MODE || testMode){
   setTimeout(() => startBtn.click(), 1000);
 }
+
+/* Click handler for the diagnostic banner — retries only the failed streams.
+   Exposed on window so the inline onclick="retryMedia()" can reach it. */
+window.retryMedia = async function retryMedia(){
+  const banner = document.getElementById('diag-banner');
+  if (banner) banner.textContent = 'retrying…';
+  const tasks = [];
+  if (LAST_MEDIA_ERR.mic) {
+    document.getElementById('micTag').textContent = 'LOADING';
+    document.getElementById('micTag').className = 'tag';
+    tasks.push(startAudio());
+  }
+  if (LAST_MEDIA_ERR.cam) {
+    document.getElementById('camTag').textContent = 'LOADING';
+    document.getElementById('camTag').className = 'tag';
+    tasks.push(startFaceTracking());
+  }
+  if (!tasks.length) {
+    /* nothing blocked, but user clicked anyway — try both for good measure */
+    tasks.push(startAudio(), startFaceTracking());
+  }
+  await Promise.all(tasks);
+};
 
 /* ============ RESIZE ============ */
 function onResize(){
