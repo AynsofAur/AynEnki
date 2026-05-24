@@ -2299,6 +2299,44 @@
       font-family: 'IBM Plex Mono', 'DM Mono', 'Consolas', monospace;
       color: #c8d8ff;
     }
+    /* ===== ENTRANCE FADE — scenes materialize on activation =====
+       Runs on every load of the page so OBS's "Refresh browser when scene
+       becomes active" replays it on each scene switch. Combined with OBS's
+       built-in Fade transition (300-500ms), produces a cross-dissolve with
+       the HUD elements arriving in a staggered cadence — corners first,
+       then text, then status bar. */
+    @keyframes nv-fade-in {
+      from { opacity: 0; transform: translateY(2px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes nv-fade-in-scrim {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    .nv-stage > .nv-avatar-frame { animation: nv-fade-in-scrim 1200ms ease-out 200ms both; }
+    .nv-stage > .nv-grid         { animation: nv-fade-in-scrim 600ms ease-out 0ms both; }
+    .nv-stage > .nv-scan         { animation: nv-fade-in-scrim 500ms ease-out 100ms both; }
+    .nv-stage > .nv-sweep        { animation: nv-fade-in-scrim 800ms ease-out 400ms both; }
+    .nv-stage > .nv-corner.tl    { animation: nv-fade-in 600ms ease-out 80ms both; }
+    .nv-stage > .nv-corner.tr    { animation: nv-fade-in 600ms ease-out 140ms both; }
+    .nv-stage > .nv-corner.bl    { animation: nv-fade-in 600ms ease-out 200ms both; }
+    .nv-stage > .nv-corner.br    { animation: nv-fade-in 600ms ease-out 100ms both; }
+    .nv-stage > .nv-socials      { animation: nv-fade-in 700ms ease-out 380ms both; }
+    .nv-stage > .nv-center       { animation: nv-fade-in 900ms ease-out 350ms both; }
+    .nv-stage > .nv-status       { animation: nv-fade-in 800ms ease-out 550ms both; }
+    /* tech-difficulties variant — slightly faster, more nervous entrance */
+    .nv-glitch.nv-stage > .nv-center  { animation-duration: 600ms; animation-delay: 150ms; }
+    .nv-glitch.nv-stage > .nv-corner.tl,
+    .nv-glitch.nv-stage > .nv-corner.tr,
+    .nv-glitch.nv-stage > .nv-corner.bl,
+    .nv-glitch.nv-stage > .nv-corner.br { animation-duration: 400ms; }
+    /* respect users with reduced-motion preference */
+    @media (prefers-reduced-motion: reduce) {
+      .nv-stage > * {
+        animation-duration: 1ms !important;
+        animation-delay: 0ms !important;
+      }
+    }
     /* neural avatar lives behind the HUD — dimmed but reactive */
     .nv-avatar-frame {
       position: absolute; inset: 0;
@@ -2909,13 +2947,143 @@
 
   <!-- ============ ADMIN ============ -->
   <section class="view" id="view-admin">
+    <style>
+      /* ===== ADMIN TAB BAR =====
+         Sticky tab strip groups the 13 admin sections into 4 categories so the
+         user isn't doomscrolling. Active tab persists in localStorage. */
+      #view-admin .admin-tabs {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        display: flex;
+        gap: 4px;
+        padding: 14px 0 12px;
+        margin: 0 0 18px;
+        background: linear-gradient(180deg, rgba(20,18,28,0.96) 0%, rgba(20,18,28,0.92) 80%, rgba(20,18,28,0));
+        backdrop-filter: blur(8px);
+        flex-wrap: wrap;
+        border-bottom: 1px solid rgba(201,160,80,0.18);
+      }
+      #view-admin .admin-tab {
+        padding: 10px 18px;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.78rem;
+        font-weight: 600;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: rgba(232,184,75,0.55);
+        background: rgba(60,50,80,0.18);
+        border: 1px solid rgba(232,184,75,0.18);
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.18s ease;
+        user-select: none;
+      }
+      #view-admin .admin-tab:hover { color: rgba(245,208,122,0.9); border-color: rgba(232,184,75,0.4); background: rgba(80,65,110,0.25); }
+      #view-admin .admin-tab.active {
+        color: #f5d07a;
+        background: rgba(120,80,160,0.25);
+        border-color: rgba(232,184,75,0.65);
+        box-shadow: 0 0 18px rgba(232,184,75,0.18);
+      }
+      #view-admin .admin-tab .count {
+        opacity: 0.55;
+        margin-left: 8px;
+        font-weight: 400;
+      }
+      /* hide sections whose tab doesn't match the active tab on the container */
+      #adminBody[data-tab="streaming"] .admin-section:not([data-admin-tab="streaming"]),
+      #adminBody[data-tab="identity"]  .admin-section:not([data-admin-tab="identity"]),
+      #adminBody[data-tab="content"]   .admin-section:not([data-admin-tab="content"]),
+      #adminBody[data-tab="tools"]     .admin-section:not([data-admin-tab="tools"]) {
+        display: none;
+      }
+      /* ===== COLLAPSIBLE SECTIONS =====
+         h3 inside .admin-section becomes a clickable target. Chevron rotates
+         to indicate state. Streaming tab defaults to collapsed since it has
+         the most sections — others default open. Per-section state persists. */
+      #view-admin .admin-section > h3 {
+        cursor: pointer;
+        position: relative;
+        user-select: none;
+        padding-right: 36px;
+        transition: color 0.18s ease;
+      }
+      #view-admin .admin-section > h3:hover { color: var(--gold-bright, #f5d07a); }
+      #view-admin .admin-section > h3::after {
+        content: '▾';
+        position: absolute;
+        right: 4px;
+        top: 50%;
+        transform: translateY(-50%);
+        transition: transform 0.22s ease;
+        font-size: 0.8em;
+        opacity: 0.55;
+      }
+      #view-admin .admin-section.collapsed > h3::after {
+        transform: translateY(-50%) rotate(-90deg);
+      }
+      #view-admin .admin-section.collapsed > *:not(h3) {
+        display: none !important;
+      }
+      #view-admin .admin-section.collapsed {
+        padding-bottom: 0 !important;
+        margin-bottom: 8px !important;
+      }
+      /* quick-action buttons in the tab bar — expand/collapse all in current tab */
+      #view-admin .admin-tab-actions {
+        margin-left: auto;
+        display: flex;
+        gap: 6px;
+      }
+      #view-admin .admin-tab-action {
+        padding: 8px 12px;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.7rem;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: rgba(232,184,75,0.55);
+        background: transparent;
+        border: 1px solid rgba(232,184,75,0.18);
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.18s ease;
+      }
+      #view-admin .admin-tab-action:hover { color: #f5d07a; border-color: rgba(232,184,75,0.5); }
+
+      /* save bar — sticky at the bottom regardless of tab */
+      #view-admin .admin-savebar {
+        position: sticky;
+        bottom: 0;
+        background: linear-gradient(0deg, rgba(20,18,28,0.96) 70%, rgba(20,18,28,0));
+        padding: 14px 0 12px;
+        margin: 24px 0 0;
+        z-index: 49;
+        display: flex; gap: 8px; flex-wrap: wrap;
+      }
+    </style>
     <div class="container">
       <div class="section-header">
         <h2 style="background:linear-gradient(180deg,#5e4f7e,#2A2535 60%,#3a3145);-webkit-background-clip:text;background-clip:text;color:transparent;">&#10070; ADMIN PANEL</h2>
         <button class="btn danger" onclick="logout()">Logout</button>
       </div>
 
-      <div class="admin-section">
+      <!-- TAB BAR — switches which section group is visible -->
+      <div class="admin-tabs" id="adminTabs">
+        <div class="admin-tab" data-tab="streaming" onclick="adminSwitchTab('streaming')">Streaming <span class="count">5</span></div>
+        <div class="admin-tab" data-tab="identity"  onclick="adminSwitchTab('identity')">Identity <span class="count">3</span></div>
+        <div class="admin-tab" data-tab="content"   onclick="adminSwitchTab('content')">Content <span class="count">3</span></div>
+        <div class="admin-tab" data-tab="tools"     onclick="adminSwitchTab('tools')">Tools <span class="count">2</span></div>
+        <div class="admin-tab-actions">
+          <button class="admin-tab-action" onclick="adminExpandAll(true)" title="Expand all sections in current tab">Expand</button>
+          <button class="admin-tab-action" onclick="adminExpandAll(false)" title="Collapse all sections in current tab">Collapse</button>
+        </div>
+      </div>
+
+      <!-- ADMIN BODY — sections are tagged with data-admin-tab; CSS hides the rest -->
+      <div id="adminBody" data-tab="streaming">
+
+      <div class="admin-section" data-admin-tab="streaming">
         <h3>STREAM PAGES &middot; LAUNCH</h3>
         <div class="admin-grid">
           <div class="panel">
@@ -3038,7 +3206,7 @@
            Editable text + countdown for the cyber-HUD overlays (Starting / BRB
            / Ending / Technical Difficulties). Each scene also has a quick-open
            button so you can preview and grab its URL for OBS. -->
-      <div class="admin-section">
+      <div class="admin-section" data-admin-tab="streaming">
         <h3>&#10070; NEURAL NETWORK &middot; STREAM SCENE LAYOUTS</h3>
         <div class="panel">
           <p style="color: var(--vellum); font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: .95rem; margin: 0 0 1rem;">
@@ -3113,7 +3281,7 @@
            One-stop scene-URL generator for OBS Browser Sources. Pick the
            knobs, copy the URL, paste into OBS. Avoids ever having to type
            query strings by hand. -->
-      <div class="admin-section">
+      <div class="admin-section" data-admin-tab="streaming">
         <h3>&#10070; NEURAL AVATAR &middot; OBS URL BUILDER</h3>
         <div class="panel" id="aurlPanel">
           <p style="color: var(--vellum); font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: .95rem; margin: 0 0 1.2rem;">
@@ -3325,7 +3493,7 @@
         </div>
       </div>
 
-      <div class="admin-section">
+      <div class="admin-section" data-admin-tab="streaming">
         <h3>AYN ENKI &middot; CONTENT</h3>
         <div class="admin-grid">
           <div class="panel">
@@ -3376,7 +3544,7 @@
         </div>
       </div>
 
-      <div class="admin-section">
+      <div class="admin-section" data-admin-tab="identity">
         <h3>BRAND &middot; SITE META</h3>
         <div class="admin-grid">
           <div class="panel">
@@ -3398,7 +3566,7 @@
         </div>
       </div>
 
-      <div class="admin-section">
+      <div class="admin-section" data-admin-tab="identity">
         <h3>SOCIAL &middot; SUPPORT LINKS</h3>
         <div class="admin-grid">
           <div class="panel">
@@ -3434,19 +3602,19 @@
         </div>
       </div>
 
-      <div class="admin-section">
+      <div class="admin-section" data-admin-tab="content">
         <h3>PORTFOLIO PIECES</h3>
         <div class="item-list" id="portfolioList"></div>
         <button class="btn" onclick="editPiece('portfolio', null)">+ Add Piece</button>
       </div>
 
-      <div class="admin-section">
+      <div class="admin-section" data-admin-tab="content">
         <h3>SHOP ITEMS</h3>
         <div class="item-list" id="shopList"></div>
         <button class="btn" onclick="editPiece('shop', null)">+ Add Item</button>
       </div>
 
-      <div class="admin-section">
+      <div class="admin-section" data-admin-tab="content">
         <h3>COMMISSIONS</h3>
         <div class="admin-grid">
           <div class="panel">
@@ -3468,13 +3636,13 @@
         </div>
       </div>
 
-      <div class="admin-section">
+      <div class="admin-section" data-admin-tab="identity">
         <h3>STREAM SCHEDULE</h3>
         <div class="item-list" id="scheduleList"></div>
         <button class="btn" onclick="editScheduleItem(null)">+ Add Slot</button>
       </div>
 
-      <div class="admin-section">
+      <div class="admin-section" data-admin-tab="streaming">
         <h3>OVERLAY CONTENT</h3>
         <div class="admin-grid">
           <div class="panel">
@@ -3520,7 +3688,7 @@
         </div>
       </div>
 
-      <div class="admin-section">
+      <div class="admin-section" data-admin-tab="tools">
         <h3>TOOLS</h3>
         <div class="admin-grid">
           <div class="panel">
@@ -3585,7 +3753,7 @@
         </div>
       </div>
 
-      <div class="admin-section">
+      <div class="admin-section" data-admin-tab="tools">
         <h3>SECURITY &middot; DATA</h3>
         <div class="admin-grid">
           <div class="panel">
@@ -3604,9 +3772,12 @@
         </div>
       </div>
 
-      <div style="text-align:center; margin: 3rem 0 4rem;">
+      </div><!-- /#adminBody -->
+
+      <!-- sticky save/reset — always at the bottom regardless of which tab is active -->
+      <div class="admin-savebar">
         <button class="btn primary" onclick="saveAdmin()">SAVE ALL CHANGES</button>
-        <button class="btn danger" style="margin-left:12px;" onclick="resetAll()">RESET TO DEFAULTS</button>
+        <button class="btn danger" onclick="resetAll()">RESET TO DEFAULTS</button>
       </div>
     </div>
   </section>
@@ -4184,7 +4355,8 @@
     'neural-starting': { init: () => initNeuralScene('starting'), cleanup: () => cleanupNeuralScene('starting') },
     'neural-brb':     { init: () => initNeuralScene('brb'),      cleanup: () => cleanupNeuralScene('brb') },
     'neural-ending':  { init: () => initNeuralScene('ending'),   cleanup: () => cleanupNeuralScene('ending') },
-    'neural-tech':    { init: () => initNeuralScene('tech'),     cleanup: () => cleanupNeuralScene('tech') }
+    'neural-tech':    { init: () => initNeuralScene('tech'),     cleanup: () => cleanupNeuralScene('tech') },
+    'admin':          { init: () => { if (typeof restoreAdminTab === 'function') restoreAdminTab(); }, cleanup: () => {} }
   };
 
   /* ============ NEURAL AVATAR PER-SCENE WIRING ============
@@ -5454,6 +5626,8 @@
     document.getElementById('aAeEndingFarewells').value = (ae.endingFarewells || []).join('\n');
     /* NEURAL scene content */
     fillNeuralAdmin();
+    /* Restore last-used admin tab */
+    restoreAdminTab();
     document.getElementById('aEmbersEnabled').checked = state.embersEnabled !== false;
     const es = state.emberSettings || {};
     const d = es.density != null ? es.density : 1;
@@ -5609,6 +5783,79 @@
     if (!confirm('Reset everything to defaults? This erases all custom content.')) return;
     state = JSON.parse(JSON.stringify(DEFAULTS));
     saveState(); fillAdmin(); render(); toast('Reset complete');
+  }
+
+  /* ============ ADMIN TAB SWITCHER ============
+     Persists last-used tab so returning to admin lands you where you left off. */
+  const ADMIN_TAB_KEY = 'malikeye-admin-tab';
+  const ADMIN_COLLAPSED_KEY = 'malikeye-admin-collapsed';
+  window.adminSwitchTab = function adminSwitchTab(tab){
+    const body = document.getElementById('adminBody');
+    if (!body) return;
+    body.setAttribute('data-tab', tab);
+    document.querySelectorAll('#adminTabs .admin-tab').forEach(el => {
+      el.classList.toggle('active', el.getAttribute('data-tab') === tab);
+    });
+    try { localStorage.setItem(ADMIN_TAB_KEY, tab); } catch(e) {}
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  };
+
+  /* --- collapsible sections --- */
+  function _adminSectionKey(sec){
+    const h = sec.querySelector('h3');
+    return h ? h.textContent.trim() : '';
+  }
+  function _saveCollapsed(){
+    const map = {};
+    document.querySelectorAll('#adminBody .admin-section').forEach(sec => {
+      const k = _adminSectionKey(sec);
+      if (k) map[k] = sec.classList.contains('collapsed');
+    });
+    try { localStorage.setItem(ADMIN_COLLAPSED_KEY, JSON.stringify(map)); } catch(e) {}
+  }
+  window.adminToggleSection = function adminToggleSection(h3){
+    const sec = h3.closest('.admin-section');
+    if (!sec) return;
+    sec.classList.toggle('collapsed');
+    _saveCollapsed();
+  };
+  /* expand/collapse all in the currently-visible tab */
+  window.adminExpandAll = function adminExpandAll(expand){
+    const body = document.getElementById('adminBody');
+    if (!body) return;
+    const tab = body.getAttribute('data-tab');
+    document.querySelectorAll(`#adminBody .admin-section[data-admin-tab="${tab}"]`).forEach(sec => {
+      sec.classList.toggle('collapsed', !expand);
+    });
+    _saveCollapsed();
+  };
+  function _initCollapsibles(){
+    /* wire each h3 once */
+    document.querySelectorAll('#adminBody .admin-section > h3').forEach(h => {
+      if (h.dataset.collapsibleInit) return;
+      h.dataset.collapsibleInit = '1';
+      h.addEventListener('click', () => adminToggleSection(h));
+    });
+    /* apply saved state — default: streaming sections collapsed, others open */
+    let map = {};
+    try { map = JSON.parse(localStorage.getItem(ADMIN_COLLAPSED_KEY) || '{}'); } catch(e) {}
+    document.querySelectorAll('#adminBody .admin-section').forEach(sec => {
+      const k = _adminSectionKey(sec);
+      const saved = map[k];
+      if (saved === true)  sec.classList.add('collapsed');
+      else if (saved === false) sec.classList.remove('collapsed');
+      else {
+        /* first-visit default: collapse Streaming-tab sections, leave others open */
+        if (sec.getAttribute('data-admin-tab') === 'streaming') sec.classList.add('collapsed');
+      }
+    });
+  }
+  function restoreAdminTab(){
+    let tab = 'streaming';
+    try { tab = localStorage.getItem(ADMIN_TAB_KEY) || 'streaming'; } catch(e) {}
+    if (!['streaming','identity','content','tools'].includes(tab)) tab = 'streaming';
+    adminSwitchTab(tab);
+    _initCollapsibles();
   }
 
   /* ============ NEURAL SCENE ADMIN ============ */
