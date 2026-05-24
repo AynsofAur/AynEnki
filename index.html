@@ -2375,6 +2375,26 @@
       text-align: center;
       gap: 22px;
     }
+    /* radial scrim — sits between avatar and text, kills bright bloom directly
+       behind the words so the title/timer always read cleanly. Soft edges so
+       you barely notice it, sharp enough that the text never disappears. */
+    .nv-stage::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: 9;
+      pointer-events: none;
+      background: radial-gradient(
+        ellipse 38% 28% at 50% 50%,
+        rgba(5,5,15,0.78) 0%,
+        rgba(5,5,15,0.55) 40%,
+        rgba(5,5,15,0.0) 80%
+      );
+    }
+    /* extra text contrast — a soft dark halo around each text element */
+    .nv-brand, .nv-title, .nv-sub, .nv-count, .nv-count-label {
+      filter: drop-shadow(0 0 8px rgba(0,0,0,0.85));
+    }
     .nv-brand {
       font-family: 'Inter', sans-serif;
       font-weight: 700;
@@ -2497,6 +2517,31 @@
     }
     .nv-glitch .nv-corner { border-color: #ff7a7a; box-shadow: 0 0 18px rgba(255,100,100,0.45); }
     .nv-glitch .nv-corner::before { background: #ff7a7a; box-shadow: 0 0 8px #ff7a7a; }
+    /* rotating flicker message — shown below sub on BRB / Tech scenes.
+       Animation re-runs every time we swap textContent + remount the class. */
+    .nv-message {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: clamp(0.8rem, 1.05vw, 0.98rem);
+      letter-spacing: 0.22em;
+      color: #c8d8ff;
+      text-transform: uppercase;
+      margin-top: 4px;
+      max-width: 720px;
+      text-shadow: 0 0 8px rgba(120,180,255,0.4), 0 0 14px rgba(0,0,0,0.9);
+      opacity: 0;
+    }
+    .nv-message.flick { animation: nv-msg-flicker 0.7s steps(2) forwards; }
+    .nv-glitch .nv-message { color: #ffb0b0; text-shadow: 0 0 8px rgba(255,100,100,0.5), 0 0 14px rgba(0,0,0,0.9); }
+    @keyframes nv-msg-flicker {
+      0%   { opacity: 0; }
+      18%  { opacity: 0.9; transform: translateX(-1px); }
+      28%  { opacity: 0.2; transform: translateX(2px); }
+      45%  { opacity: 1;   transform: translateX(0); }
+      62%  { opacity: 0.5; transform: translateX(-1px); }
+      78%  { opacity: 1;   transform: translateX(0); }
+      88%  { opacity: 0.85; }
+      100% { opacity: 1;   transform: translateX(0); }
+    }
   </style>
 
   <!-- ============ NEURAL · STARTING SOON ============ -->
@@ -2548,6 +2593,7 @@
         <div class="nv-divider"><hr><div class="diamond"></div><hr></div>
         <div class="nv-title" id="nvBrbTitle">Be Right Back</div>
         <div class="nv-sub" id="nvBrbSub">The watcher idles · do not stray far</div>
+        <div class="nv-message" id="nvBrbMessage">Loading…</div>
         <div class="nv-count" id="nvBrbCount" style="display:none">--:--</div>
       </div>
       <div class="nv-status">
@@ -2605,6 +2651,7 @@
         <div class="nv-divider"><hr><div class="diamond"></div><hr></div>
         <div class="nv-title" id="nvTechTitle">Technical difficulties</div>
         <div class="nv-sub" id="nvTechSub">Reestablishing connection · please stand by</div>
+        <div class="nv-message" id="nvTechMessage">Loading…</div>
         <div class="nv-count" id="nvTechCount" style="display:none">--:--</div>
       </div>
       <div class="nv-status">
@@ -3013,7 +3060,7 @@
           <!-- Starting Soon -->
           <h4 style="color:var(--gold); margin:1.2rem 0 .5rem; letter-spacing:.15em;">STARTING SOON</h4>
           <div class="grid-2">
-            <div class="field"><label>Brand text</label><input type="text" id="nvSsBrandFld" placeholder="MALIKEYE"></div>
+            <div class="field"><label>Brand text</label><input type="text" id="nvSsBrandFld" placeholder="(leave empty to use site brand)"></div>
             <div class="field"><label>Countdown (minutes)</label><input type="number" id="nvSsMinutesFld" min="0" max="120" placeholder="10"></div>
           </div>
           <div class="field"><label>Title line</label><input type="text" id="nvSsTitleFld" placeholder="Initializing the network"></div>
@@ -3023,14 +3070,18 @@
 
           <!-- BRB -->
           <h4 style="color:var(--gold); margin:1.4rem 0 .5rem; letter-spacing:.15em;">BE RIGHT BACK</h4>
-          <div class="field"><label>Brand text</label><input type="text" id="nvBrbBrandFld" placeholder="MALIKEYE"></div>
+          <div class="field"><label>Brand text</label><input type="text" id="nvBrbBrandFld" placeholder="(uses site brand)"></div>
           <div class="field"><label>Title line</label><input type="text" id="nvBrbTitleFld" placeholder="Be Right Back"></div>
           <div class="field"><label>Sub line</label><input type="text" id="nvBrbSubFld" placeholder="The watcher idles · do not stray far"></div>
+          <div class="field">
+            <label>Rotating flicker phrases (one per line, rotates every 5.5s)</label>
+            <textarea id="nvBrbPhrasesFld" rows="8" style="width:100%; font-family:'IBM Plex Mono',monospace; font-size:.85rem;" placeholder="Refilling the etheric reservoir&#10;Hydration subroutine running&#10;…"></textarea>
+          </div>
           <button class="btn" onclick="window.location.hash='neural-brb'" style="margin-top:.4rem;">Open BRB</button>
 
           <!-- Ending -->
           <h4 style="color:var(--gold); margin:1.4rem 0 .5rem; letter-spacing:.15em;">ENDING</h4>
-          <div class="field"><label>Brand text</label><input type="text" id="nvEndBrandFld" placeholder="MALIKEYE"></div>
+          <div class="field"><label>Brand text</label><input type="text" id="nvEndBrandFld" placeholder="(leave empty to use site brand)"></div>
           <div class="field"><label>Title line</label><input type="text" id="nvEndTitleFld" placeholder="Thank you for watching"></div>
           <div class="field"><label>Sub line</label><input type="text" id="nvEndSubFld" placeholder="Until the network wakes once more"></div>
           <button class="btn" onclick="window.location.hash='neural-ending'" style="margin-top:.4rem;">Open Ending</button>
@@ -3040,6 +3091,10 @@
           <div class="field"><label>Brand text (alarm-styled)</label><input type="text" id="nvTechBrandFld" placeholder="SIGNAL LOST"></div>
           <div class="field"><label>Title line</label><input type="text" id="nvTechTitleFld" placeholder="Technical difficulties"></div>
           <div class="field"><label>Sub line</label><input type="text" id="nvTechSubFld" placeholder="Reestablishing connection · please stand by"></div>
+          <div class="field">
+            <label>Rotating flicker phrases (one per line, rotates every 4.2s)</label>
+            <textarea id="nvTechPhrasesFld" rows="6" style="width:100%; font-family:'IBM Plex Mono',monospace; font-size:.85rem;" placeholder="Packet collision detected · retrying&#10;Quantum entanglement unstable · realigning&#10;…"></textarea>
+          </div>
           <button class="btn" onclick="window.location.hash='neural-tech'" style="margin-top:.4rem;">Open Technical</button>
 
           <div style="margin-top:1.4rem; padding:.8rem; background:rgba(120,180,255,0.05); border:1px solid rgba(120,180,255,0.2); border-radius:6px;">
@@ -3837,24 +3892,65 @@
       { id: 'sch3', day: 'Saturday', title: 'Long-form — deep dives',     time: '7:00 PM ET' },
       { id: 'sch4', day: 'Sunday',   title: 'Just Chatting / community',  time: '6:00 PM ET' }
     ],
-    /* Neural-network scene overlays (starting / brb / ending / tech) */
+    /* Neural-network scene overlays (starting / brb / ending / tech).
+       Brand fields default to empty so they fall through to state.brand
+       (the site-wide brand) — override per-scene only if you want a
+       different word on a specific scene. techBrand DOES default to
+       SIGNAL LOST because the alarm-styled brand wants its own text. */
     neural: {
       twitchHandle: '/Malikeye',
       discordHandle: '/Malikeye',
-      ssBrand: 'MALIKEYE',
+      ssBrand: '',
       ssTitle: 'Initializing the network',
       ssSub: 'The eye opens · stand by while the lattice aligns',
       ssCountLabel: 'Synchronization in progress',
       ssMinutes: 10,
-      brbBrand: 'MALIKEYE',
+      brbBrand: '',
       brbTitle: 'Be Right Back',
       brbSub: 'The watcher idles · do not stray far',
-      endBrand: 'MALIKEYE',
+      brbPhrases: [
+        "Adjusting the temporal lattice…",
+        "Recompiling reality·dot·exe",
+        "Refilling the etheric reservoir",
+        "Negotiating with the cat overlord",
+        "Hydration subroutine running",
+        "404 · streamer briefly elsewhere",
+        "Snacks queued · resume imminent",
+        "Reticulating thought splines",
+        "Bio·input rebalancing",
+        "Quick consult with the ancestors",
+        "Watering the houseplants of fate",
+        "Side·quest: locate the lost mug",
+        "Defragmenting the soul cache",
+        "ERROR · meatspace error · retrying",
+        "Inserting coin · please wait",
+        "Buffering · brain at 11% loaded",
+        "Renegotiating the social contract",
+        "The dishwasher must be appeased",
+        "Crisis at the post office · BRB",
+        "Audio·visual recalibration complete soon"
+      ],
+      endBrand: '',
       endTitle: 'Thank you for watching',
       endSub: 'Until the network wakes once more',
       techBrand: 'SIGNAL LOST',
       techTitle: 'Technical difficulties',
-      techSub: 'Reestablishing connection · please stand by'
+      techSub: 'Reestablishing connection · please stand by',
+      techPhrases: [
+        "Packet collision detected · retrying",
+        "Quantum entanglement unstable · realigning",
+        "ERR_CONNECTION_RESET · holding the line",
+        "Realigning chakra clock cycles",
+        "Cosmic ray strike · re·flipping bits",
+        "Solar flare interference · please stand by",
+        "Buffer underrun · spooling reality",
+        "Connection to the void degraded",
+        "Recalculating timestream offset",
+        "DNS lookup failed for divinity·local",
+        "Re·indexing the akashic records",
+        "Signal traversing the noosphere",
+        "Heartbeat irregular · stabilizing"
+      ]
     },
     /* Overlay content */
     ssBrand: '',
@@ -5531,12 +5627,14 @@
     setV('nvBrbBrandFld',  n.brbBrand);
     setV('nvBrbTitleFld',  n.brbTitle);
     setV('nvBrbSubFld',    n.brbSub);
+    setV('nvBrbPhrasesFld',(n.brbPhrases || []).join('\n'));
     setV('nvEndBrandFld',  n.endBrand);
     setV('nvEndTitleFld',  n.endTitle);
     setV('nvEndSubFld',    n.endSub);
     setV('nvTechBrandFld', n.techBrand);
     setV('nvTechTitleFld', n.techTitle);
     setV('nvTechSubFld',   n.techSub);
+    setV('nvTechPhrasesFld',(n.techPhrases || []).join('\n'));
     /* show the four scene URLs for easy OBS copy */
     const urls = document.getElementById('nvSceneUrls');
     if (urls) {
@@ -5554,20 +5652,24 @@
     const get = id => (document.getElementById(id) || {}).value || '';
     state.neural.twitchHandle  = get('nvTwitchHandle')  || DEFAULTS.neural.twitchHandle;
     state.neural.discordHandle = get('nvDiscordHandle') || DEFAULTS.neural.discordHandle;
-    state.neural.ssBrand      = get('nvSsBrandFld')      || DEFAULTS.neural.ssBrand;
+    state.neural.ssBrand      = get('nvSsBrandFld'); /* may be empty — falls back to state.brand at init */
     state.neural.ssTitle      = get('nvSsTitleFld')      || DEFAULTS.neural.ssTitle;
     state.neural.ssSub        = get('nvSsSubFld')        || DEFAULTS.neural.ssSub;
     state.neural.ssCountLabel = get('nvSsCountLabelFld') || DEFAULTS.neural.ssCountLabel;
     state.neural.ssMinutes    = parseInt(get('nvSsMinutesFld'), 10) || 0;
-    state.neural.brbBrand  = get('nvBrbBrandFld')  || DEFAULTS.neural.brbBrand;
+    state.neural.brbBrand  = get('nvBrbBrandFld'); /* may be empty — falls back to state.brand at init */
     state.neural.brbTitle  = get('nvBrbTitleFld')  || DEFAULTS.neural.brbTitle;
     state.neural.brbSub    = get('nvBrbSubFld')    || DEFAULTS.neural.brbSub;
-    state.neural.endBrand  = get('nvEndBrandFld')  || DEFAULTS.neural.endBrand;
+    state.neural.brbPhrases  = get('nvBrbPhrasesFld').split('\n').map(s=>s.trim()).filter(Boolean);
+    if (!state.neural.brbPhrases.length) state.neural.brbPhrases = DEFAULTS.neural.brbPhrases.slice();
+    state.neural.endBrand  = get('nvEndBrandFld'); /* may be empty — falls back to state.brand at init */
     state.neural.endTitle  = get('nvEndTitleFld')  || DEFAULTS.neural.endTitle;
     state.neural.endSub    = get('nvEndSubFld')    || DEFAULTS.neural.endSub;
     state.neural.techBrand = get('nvTechBrandFld') || DEFAULTS.neural.techBrand;
     state.neural.techTitle = get('nvTechTitleFld') || DEFAULTS.neural.techTitle;
     state.neural.techSub   = get('nvTechSubFld')   || DEFAULTS.neural.techSub;
+    state.neural.techPhrases = get('nvTechPhrasesFld').split('\n').map(s=>s.trim()).filter(Boolean);
+    if (!state.neural.techPhrases.length) state.neural.techPhrases = DEFAULTS.neural.techPhrases.slice();
     saveState();
     toast('Neural scene settings saved');
   };
@@ -5870,7 +5972,26 @@
     ending:   '?obs=1&morph=6&theme=3&density=45&intensity=low&bloomtint=6080a0',
     tech:     '?obs=1&morph=2&theme=1&density=80&intensity=med&bloomtint=ff6a6a&sparkle=ff8c4a'
   };
-  const _neuralTimers = { starting: null };
+  const _neuralTimers = { starting: null, brbMsg: null, techMsg: null };
+  /* Rotates a phrase array into a target element with a glitch flicker.
+     Same vibe as the AE brbPhrases rotation but tuned for the cyber-HUD scenes. */
+  function neuralFlickerMessage(elId, phrases, intervalMs) {
+    const el = document.getElementById(elId);
+    if (!el || !phrases || !phrases.length) return null;
+    let lastIdx = -1;
+    const tick = () => {
+      let idx;
+      do { idx = Math.floor(Math.random() * phrases.length); } while (phrases.length > 1 && idx === lastIdx);
+      lastIdx = idx;
+      el.textContent = phrases[idx];
+      /* re-trigger flicker animation by removing+forcing reflow+adding class */
+      el.classList.remove('flick');
+      void el.offsetWidth;
+      el.classList.add('flick');
+    };
+    tick();
+    return setInterval(tick, intervalMs);
+  }
   function initNeuralScene(kind) {
     /* 1. embed avatar iframe behind HUD (replaces previous to avoid stale state) */
     const wrap = document.querySelector(`#view-neural-${kind} .nv-avatar-frame`);
@@ -5909,6 +6030,9 @@
       set('nvBrbSub',   n.brbSub   || 'The watcher idles · do not stray far');
       set('nvBrbTwitch',  n.twitchHandle || '/Malikeye');
       set('nvBrbDiscord', n.discordHandle || '/Malikeye');
+      /* rotating flicker message — pulls from state.neural.brbPhrases */
+      const phrases = (n.brbPhrases && n.brbPhrases.length) ? n.brbPhrases : DEFAULTS.neural.brbPhrases;
+      _neuralTimers.brbMsg = neuralFlickerMessage('nvBrbMessage', phrases, 5500);
     } else if (kind === 'ending') {
       set('nvEndBrand', n.endBrand || state.brand || 'MALIKEYE');
       set('nvEndTitle', n.endTitle || 'Thank you for watching');
@@ -5921,13 +6045,21 @@
       set('nvTechSub',   n.techSub   || 'Reestablishing connection · please stand by');
       set('nvTechTwitch',  n.twitchHandle || '/Malikeye');
       set('nvTechDiscord', n.discordHandle || '/Malikeye');
+      /* rotating flicker message — pulls from state.neural.techPhrases */
+      const phrases = (n.techPhrases && n.techPhrases.length) ? n.techPhrases : DEFAULTS.neural.techPhrases;
+      _neuralTimers.techMsg = neuralFlickerMessage('nvTechMessage', phrases, 4200);
     }
   }
   function cleanupNeuralScene(kind) {
-    /* stop timer if running */
+    /* stop timers if running */
     if (kind === 'starting' && _neuralTimers.starting) {
-      clearInterval(_neuralTimers.starting);
-      _neuralTimers.starting = null;
+      clearInterval(_neuralTimers.starting); _neuralTimers.starting = null;
+    }
+    if (kind === 'brb' && _neuralTimers.brbMsg) {
+      clearInterval(_neuralTimers.brbMsg); _neuralTimers.brbMsg = null;
+    }
+    if (kind === 'tech' && _neuralTimers.techMsg) {
+      clearInterval(_neuralTimers.techMsg); _neuralTimers.techMsg = null;
     }
     /* tear down iframe so cam/mic is released — important when switching scenes */
     const wrap = document.querySelector(`#view-neural-${kind} .nv-avatar-frame`);
