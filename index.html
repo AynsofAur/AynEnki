@@ -2280,6 +2280,341 @@
 
   <!-- (AYN ENKI · CHARACTER CONCEPT removed per user request) -->
 
+  <!-- ================================================================
+       NEURAL NETWORK SCENE OVERLAYS — Starting / BRB / Ending / Technical
+       Cyber-HUD aesthetic. Each scene auto-embeds the neural avatar behind
+       the HUD frame so the network breathes/reacts even on standby scenes.
+       Reachable via #neural-starting, #neural-brb, #neural-ending, #neural-tech.
+       All text + timer + handles editable from admin panel.
+  ================================================================ -->
+  <style>
+    /* shared base for all neural overlays */
+    .nv-stage {
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse at 50% 40%, rgba(80,140,255,0.10), transparent 60%),
+        radial-gradient(ellipse at 50% 80%, rgba(160,80,255,0.08), transparent 70%),
+        #050510;
+      overflow: hidden;
+      font-family: 'IBM Plex Mono', 'DM Mono', 'Consolas', monospace;
+      color: #c8d8ff;
+    }
+    /* neural avatar lives behind the HUD — dimmed but reactive */
+    .nv-avatar-frame {
+      position: absolute; inset: 0;
+      pointer-events: none;
+      opacity: 0.78;
+      z-index: 1;
+    }
+    .nv-avatar-frame iframe {
+      width: 100%; height: 100%;
+      border: 0; background: transparent;
+      display: block;
+    }
+    /* subtle data grid */
+    .nv-grid {
+      position: absolute; inset: 0; z-index: 2; pointer-events: none;
+      background-image:
+        linear-gradient(rgba(100,150,255,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(100,150,255,0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: radial-gradient(ellipse at 50% 50%, #000 30%, transparent 75%);
+      -webkit-mask-image: radial-gradient(ellipse at 50% 50%, #000 30%, transparent 75%);
+    }
+    /* horizontal scan lines */
+    .nv-scan {
+      position: absolute; inset: 0; z-index: 3; pointer-events: none;
+      background: repeating-linear-gradient(
+        180deg,
+        transparent 0,
+        transparent 3px,
+        rgba(120,180,255,0.025) 3px,
+        rgba(120,180,255,0.025) 4px
+      );
+    }
+    /* moving sweep line */
+    .nv-sweep {
+      position: absolute; left: 0; right: 0; height: 60px;
+      background: linear-gradient(180deg, transparent, rgba(120,180,255,0.08), transparent);
+      animation: nv-sweep-anim 8s linear infinite;
+      z-index: 3; pointer-events: none;
+    }
+    @keyframes nv-sweep-anim {
+      0% { top: -60px; }
+      100% { top: 100%; }
+    }
+    /* HUD corner brackets */
+    .nv-corner {
+      position: absolute; width: 70px; height: 70px;
+      border: 1.5px solid #6aa0ff;
+      z-index: 5; opacity: 0.7;
+      box-shadow: 0 0 18px rgba(100,150,255,0.35);
+    }
+    .nv-corner.tl { top: 28px; left: 28px; border-right: 0; border-bottom: 0; }
+    .nv-corner.tr { top: 28px; right: 28px; border-left: 0; border-bottom: 0; }
+    .nv-corner.bl { bottom: 28px; left: 28px; border-right: 0; border-top: 0; }
+    .nv-corner.br { bottom: 28px; right: 28px; border-left: 0; border-top: 0; }
+    /* small tick mark inside each corner */
+    .nv-corner::before {
+      content: ''; position: absolute;
+      width: 6px; height: 6px;
+      background: #6aa0ff;
+      border-radius: 50%;
+      box-shadow: 0 0 8px #6aa0ff;
+    }
+    .nv-corner.tl::before { top: -3px; left: -3px; }
+    .nv-corner.tr::before { top: -3px; right: -3px; }
+    .nv-corner.bl::before { bottom: -3px; left: -3px; }
+    .nv-corner.br::before { bottom: -3px; right: -3px; }
+    /* central content stack */
+    .nv-center {
+      position: absolute; inset: 0; z-index: 10;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      pointer-events: none;
+      text-align: center;
+      gap: 22px;
+    }
+    .nv-brand {
+      font-family: 'Inter', sans-serif;
+      font-weight: 700;
+      font-size: clamp(2.4rem, 5vw, 4.5rem);
+      letter-spacing: 0.45em;
+      color: #e8efff;
+      text-shadow:
+        0 0 12px rgba(120,180,255,0.6),
+        0 0 30px rgba(160,80,255,0.35);
+      padding-left: 0.45em; /* compensate trailing letter-spacing */
+    }
+    .nv-divider {
+      display: flex; align-items: center; gap: 14px;
+      width: min(38vw, 460px);
+    }
+    .nv-divider hr {
+      flex: 1; height: 1px; border: 0;
+      background: linear-gradient(90deg, transparent, rgba(120,180,255,0.5), transparent);
+    }
+    .nv-divider .diamond {
+      width: 8px; height: 8px;
+      background: #6aa0ff;
+      transform: rotate(45deg);
+      box-shadow: 0 0 10px rgba(120,180,255,0.8);
+    }
+    .nv-title {
+      font-family: 'Inter', sans-serif;
+      font-weight: 300;
+      font-size: clamp(1.3rem, 2.4vw, 2rem);
+      letter-spacing: 0.18em;
+      color: #c8d8ff;
+      text-transform: uppercase;
+      opacity: 0.95;
+    }
+    .nv-sub {
+      font-size: clamp(0.85rem, 1.3vw, 1.05rem);
+      letter-spacing: 0.18em;
+      color: #8caaff;
+      opacity: 0.82;
+      max-width: 700px;
+      line-height: 1.7;
+      text-transform: uppercase;
+    }
+    .nv-count {
+      font-family: 'Inter', sans-serif;
+      font-weight: 200;
+      font-size: clamp(3rem, 8vw, 6.5rem);
+      letter-spacing: 0.12em;
+      color: #ffffff;
+      text-shadow:
+        0 0 24px rgba(120,180,255,0.55),
+        0 0 60px rgba(160,80,255,0.3);
+      font-variant-numeric: tabular-nums;
+      margin-top: 8px;
+    }
+    .nv-count-label {
+      font-size: 0.78rem;
+      letter-spacing: 0.4em;
+      color: #6a88c8;
+      text-transform: uppercase;
+      margin-top: -8px;
+    }
+    /* status bar at bottom */
+    .nv-status {
+      position: absolute; bottom: 40px; left: 0; right: 0;
+      z-index: 10;
+      display: flex; justify-content: center; align-items: center;
+      gap: 32px;
+      font-size: 0.72rem;
+      letter-spacing: 0.35em;
+      color: #8caaff;
+      opacity: 0.85;
+      text-transform: uppercase;
+    }
+    .nv-status .dot {
+      display: inline-block;
+      width: 7px; height: 7px;
+      background: #6aa0ff;
+      border-radius: 50%;
+      box-shadow: 0 0 8px #6aa0ff;
+      margin-right: 10px;
+      animation: nv-pulse-dot 2.4s ease-in-out infinite;
+    }
+    .nv-status .dot.warn { background: #ffae5a; box-shadow: 0 0 8px #ffae5a; }
+    .nv-status .dot.err  { background: #ff6a6a; box-shadow: 0 0 10px #ff6a6a; animation: nv-pulse-dot 0.9s ease-in-out infinite; }
+    @keyframes nv-pulse-dot {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50%     { opacity: 0.4; transform: scale(0.7); }
+    }
+    .nv-status .sep {
+      color: #4a5a8a; letter-spacing: 0.5em;
+    }
+    /* social handles row (top center) */
+    .nv-socials {
+      position: absolute; top: 36px; left: 50%; transform: translateX(-50%);
+      z-index: 10;
+      display: flex; gap: 28px;
+      font-size: 0.78rem; letter-spacing: 0.25em; text-transform: uppercase;
+      color: #8caaff;
+      opacity: 0.88;
+    }
+    .nv-socials .item { display: flex; gap: 10px; }
+    .nv-socials .item .lbl { color: #5a78b8; }
+    .nv-socials .sep { color: #4a5a8a; letter-spacing: 0.5em; }
+    /* technical-difficulties scene: glitch shake on the brand */
+    .nv-glitch .nv-brand {
+      animation: nv-glitch-shake 0.18s steps(2) infinite;
+      color: #ff8c8c;
+      text-shadow:
+        2px 0 0 rgba(255,80,80,0.5),
+        -2px 0 0 rgba(80,180,255,0.5),
+        0 0 20px rgba(255,100,100,0.6);
+    }
+    @keyframes nv-glitch-shake {
+      0%   { transform: translate(0,0); }
+      25%  { transform: translate(-1px,1px); }
+      50%  { transform: translate(1px,-1px); }
+      75%  { transform: translate(-1px,-1px); }
+      100% { transform: translate(1px,1px); }
+    }
+    .nv-glitch .nv-corner { border-color: #ff7a7a; box-shadow: 0 0 18px rgba(255,100,100,0.45); }
+    .nv-glitch .nv-corner::before { background: #ff7a7a; box-shadow: 0 0 8px #ff7a7a; }
+  </style>
+
+  <!-- ============ NEURAL · STARTING SOON ============ -->
+  <section class="view" id="view-neural-starting">
+    <div class="nv-stage">
+      <div class="nv-avatar-frame" data-neural-frame="starting"></div>
+      <div class="nv-grid"></div>
+      <div class="nv-scan"></div>
+      <div class="nv-sweep"></div>
+      <div class="nv-corner tl"></div><div class="nv-corner tr"></div>
+      <div class="nv-corner bl"></div><div class="nv-corner br"></div>
+      <div class="nv-socials">
+        <div class="item"><span class="lbl">TWITCH</span><span id="nvSsTwitch">/Malikeye</span></div>
+        <div class="sep">·</div>
+        <div class="item"><span class="lbl">DISCORD</span><span id="nvSsDiscord">/Malikeye</span></div>
+      </div>
+      <div class="nv-center">
+        <div class="nv-brand" id="nvSsBrand">MALIKEYE</div>
+        <div class="nv-divider"><hr><div class="diamond"></div><hr></div>
+        <div class="nv-title" id="nvSsTitle">Initializing the network</div>
+        <div class="nv-sub" id="nvSsSub">The eye opens · stand by while the lattice aligns</div>
+        <div class="nv-count" id="nvSsCount">10:00</div>
+        <div class="nv-count-label" id="nvSsCountLabel">Synchronization in progress</div>
+      </div>
+      <div class="nv-status">
+        <span><span class="dot warn"></span>NETWORK INITIALIZING</span>
+        <span class="sep">·</span>
+        <span><span class="dot"></span>STAND BY</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ NEURAL · BE RIGHT BACK ============ -->
+  <section class="view" id="view-neural-brb">
+    <div class="nv-stage">
+      <div class="nv-avatar-frame" data-neural-frame="brb"></div>
+      <div class="nv-grid"></div>
+      <div class="nv-scan"></div>
+      <div class="nv-sweep"></div>
+      <div class="nv-corner tl"></div><div class="nv-corner tr"></div>
+      <div class="nv-corner bl"></div><div class="nv-corner br"></div>
+      <div class="nv-socials">
+        <div class="item"><span class="lbl">TWITCH</span><span id="nvBrbTwitch">/Malikeye</span></div>
+        <div class="sep">·</div>
+        <div class="item"><span class="lbl">DISCORD</span><span id="nvBrbDiscord">/Malikeye</span></div>
+      </div>
+      <div class="nv-center">
+        <div class="nv-brand" id="nvBrbBrand">MALIKEYE</div>
+        <div class="nv-divider"><hr><div class="diamond"></div><hr></div>
+        <div class="nv-title" id="nvBrbTitle">Be Right Back</div>
+        <div class="nv-sub" id="nvBrbSub">The watcher idles · do not stray far</div>
+        <div class="nv-count" id="nvBrbCount" style="display:none">--:--</div>
+      </div>
+      <div class="nv-status">
+        <span><span class="dot"></span>CONNECTION ACTIVE</span>
+        <span class="sep">·</span>
+        <span><span class="dot warn"></span>HOST AWAY</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ NEURAL · ENDING ============ -->
+  <section class="view" id="view-neural-ending">
+    <div class="nv-stage">
+      <div class="nv-avatar-frame" data-neural-frame="ending"></div>
+      <div class="nv-grid"></div>
+      <div class="nv-scan"></div>
+      <div class="nv-sweep"></div>
+      <div class="nv-corner tl"></div><div class="nv-corner tr"></div>
+      <div class="nv-corner bl"></div><div class="nv-corner br"></div>
+      <div class="nv-socials">
+        <div class="item"><span class="lbl">TWITCH</span><span id="nvEndTwitch">/Malikeye</span></div>
+        <div class="sep">·</div>
+        <div class="item"><span class="lbl">DISCORD</span><span id="nvEndDiscord">/Malikeye</span></div>
+      </div>
+      <div class="nv-center">
+        <div class="nv-brand" id="nvEndBrand">MALIKEYE</div>
+        <div class="nv-divider"><hr><div class="diamond"></div><hr></div>
+        <div class="nv-title" id="nvEndTitle">Thank you for watching</div>
+        <div class="nv-sub" id="nvEndSub">Until the network wakes once more</div>
+      </div>
+      <div class="nv-status">
+        <span><span class="dot"></span>SESSION COMPLETE</span>
+        <span class="sep">·</span>
+        <span><span class="dot warn"></span>POWERING DOWN</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ NEURAL · TECHNICAL DIFFICULTIES ============ -->
+  <section class="view" id="view-neural-tech">
+    <div class="nv-stage nv-glitch">
+      <div class="nv-avatar-frame" data-neural-frame="tech"></div>
+      <div class="nv-grid"></div>
+      <div class="nv-scan"></div>
+      <div class="nv-sweep"></div>
+      <div class="nv-corner tl"></div><div class="nv-corner tr"></div>
+      <div class="nv-corner bl"></div><div class="nv-corner br"></div>
+      <div class="nv-socials">
+        <div class="item"><span class="lbl">TWITCH</span><span id="nvTechTwitch">/Malikeye</span></div>
+        <div class="sep">·</div>
+        <div class="item"><span class="lbl">DISCORD</span><span id="nvTechDiscord">/Malikeye</span></div>
+      </div>
+      <div class="nv-center">
+        <div class="nv-brand" id="nvTechBrand">SIGNAL LOST</div>
+        <div class="nv-divider"><hr><div class="diamond"></div><hr></div>
+        <div class="nv-title" id="nvTechTitle">Technical difficulties</div>
+        <div class="nv-sub" id="nvTechSub">Reestablishing connection · please stand by</div>
+        <div class="nv-count" id="nvTechCount" style="display:none">--:--</div>
+      </div>
+      <div class="nv-status">
+        <span><span class="dot err"></span>CONNECTION LOST</span>
+        <span class="sep">·</span>
+        <span><span class="dot warn"></span>RECOVERING</span>
+      </div>
+    </div>
+  </section>
+
   <!-- ============ QUOTE SHEET (admin tool) ============ -->
   <section class="view" id="view-quote">
     <style>
@@ -2648,6 +2983,73 @@
               <button class="btn small ghost" onclick="goFullscreen('ae-overlay')">Fullscreen</button>
               <button class="btn small ghost" onclick="copyOverlayUrl('ae-overlay')">Copy URL</button>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ NEURAL NETWORK SCENE LAYOUTS ============
+           Editable text + countdown for the cyber-HUD overlays (Starting / BRB
+           / Ending / Technical Difficulties). Each scene also has a quick-open
+           button so you can preview and grab its URL for OBS. -->
+      <div class="admin-section">
+        <h3>&#10070; NEURAL NETWORK &middot; STREAM SCENE LAYOUTS</h3>
+        <div class="panel">
+          <p style="color: var(--vellum); font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: .95rem; margin: 0 0 1rem;">
+            Cyber-HUD scenes for stream transitions. Edit the text, set the countdown, then load each scene as its own OBS Browser Source.
+          </p>
+
+          <!-- shared social handles -->
+          <div class="grid-2" style="margin-bottom:1rem;">
+            <div class="field">
+              <label>Twitch handle</label>
+              <input type="text" id="nvTwitchHandle" placeholder="/Malikeye">
+            </div>
+            <div class="field">
+              <label>Discord handle</label>
+              <input type="text" id="nvDiscordHandle" placeholder="/Malikeye">
+            </div>
+          </div>
+
+          <!-- Starting Soon -->
+          <h4 style="color:var(--gold); margin:1.2rem 0 .5rem; letter-spacing:.15em;">STARTING SOON</h4>
+          <div class="grid-2">
+            <div class="field"><label>Brand text</label><input type="text" id="nvSsBrandFld" placeholder="MALIKEYE"></div>
+            <div class="field"><label>Countdown (minutes)</label><input type="number" id="nvSsMinutesFld" min="0" max="120" placeholder="10"></div>
+          </div>
+          <div class="field"><label>Title line</label><input type="text" id="nvSsTitleFld" placeholder="Initializing the network"></div>
+          <div class="field"><label>Sub line</label><input type="text" id="nvSsSubFld" placeholder="The eye opens · stand by while the lattice aligns"></div>
+          <div class="field"><label>Countdown label</label><input type="text" id="nvSsCountLabelFld" placeholder="Synchronization in progress"></div>
+          <button class="btn" onclick="window.location.hash='neural-starting'" style="margin-top:.4rem;">Open Starting Soon</button>
+
+          <!-- BRB -->
+          <h4 style="color:var(--gold); margin:1.4rem 0 .5rem; letter-spacing:.15em;">BE RIGHT BACK</h4>
+          <div class="field"><label>Brand text</label><input type="text" id="nvBrbBrandFld" placeholder="MALIKEYE"></div>
+          <div class="field"><label>Title line</label><input type="text" id="nvBrbTitleFld" placeholder="Be Right Back"></div>
+          <div class="field"><label>Sub line</label><input type="text" id="nvBrbSubFld" placeholder="The watcher idles · do not stray far"></div>
+          <button class="btn" onclick="window.location.hash='neural-brb'" style="margin-top:.4rem;">Open BRB</button>
+
+          <!-- Ending -->
+          <h4 style="color:var(--gold); margin:1.4rem 0 .5rem; letter-spacing:.15em;">ENDING</h4>
+          <div class="field"><label>Brand text</label><input type="text" id="nvEndBrandFld" placeholder="MALIKEYE"></div>
+          <div class="field"><label>Title line</label><input type="text" id="nvEndTitleFld" placeholder="Thank you for watching"></div>
+          <div class="field"><label>Sub line</label><input type="text" id="nvEndSubFld" placeholder="Until the network wakes once more"></div>
+          <button class="btn" onclick="window.location.hash='neural-ending'" style="margin-top:.4rem;">Open Ending</button>
+
+          <!-- Technical Difficulties -->
+          <h4 style="color:#ff8c8c; margin:1.4rem 0 .5rem; letter-spacing:.15em;">TECHNICAL DIFFICULTIES</h4>
+          <div class="field"><label>Brand text (alarm-styled)</label><input type="text" id="nvTechBrandFld" placeholder="SIGNAL LOST"></div>
+          <div class="field"><label>Title line</label><input type="text" id="nvTechTitleFld" placeholder="Technical difficulties"></div>
+          <div class="field"><label>Sub line</label><input type="text" id="nvTechSubFld" placeholder="Reestablishing connection · please stand by"></div>
+          <button class="btn" onclick="window.location.hash='neural-tech'" style="margin-top:.4rem;">Open Technical</button>
+
+          <div style="margin-top:1.4rem; padding:.8rem; background:rgba(120,180,255,0.05); border:1px solid rgba(120,180,255,0.2); border-radius:6px;">
+            <p style="margin:0 0 .4rem; font-size:.85rem; color:var(--vellum);">For OBS Browser Source URLs:</p>
+            <p style="margin:0; font-size:.8rem; font-family:'IBM Plex Mono',monospace; color:#8caaff; word-break:break-all;" id="nvSceneUrls"></p>
+          </div>
+
+          <div style="display:flex; gap:.6rem; margin-top:1rem;">
+            <button class="btn primary" onclick="saveNeuralScenes()">Save Scene Settings</button>
+            <button class="btn" onclick="resetNeuralScenes()">Reset to Defaults</button>
           </div>
         </div>
       </div>
@@ -3435,6 +3837,25 @@
       { id: 'sch3', day: 'Saturday', title: 'Long-form — deep dives',     time: '7:00 PM ET' },
       { id: 'sch4', day: 'Sunday',   title: 'Just Chatting / community',  time: '6:00 PM ET' }
     ],
+    /* Neural-network scene overlays (starting / brb / ending / tech) */
+    neural: {
+      twitchHandle: '/Malikeye',
+      discordHandle: '/Malikeye',
+      ssBrand: 'MALIKEYE',
+      ssTitle: 'Initializing the network',
+      ssSub: 'The eye opens · stand by while the lattice aligns',
+      ssCountLabel: 'Synchronization in progress',
+      ssMinutes: 10,
+      brbBrand: 'MALIKEYE',
+      brbTitle: 'Be Right Back',
+      brbSub: 'The watcher idles · do not stray far',
+      endBrand: 'MALIKEYE',
+      endTitle: 'Thank you for watching',
+      endSub: 'Until the network wakes once more',
+      techBrand: 'SIGNAL LOST',
+      techTitle: 'Technical difficulties',
+      techSub: 'Reestablishing connection · please stand by'
+    },
     /* Overlay content */
     ssBrand: '',
     ssSub: 'The watcher awakens',
@@ -3646,7 +4067,7 @@
 
   /* ============ ROUTING ============ */
   const PUBLIC_VIEWS = ['home', 'portfolio', 'shop', 'commissions', 'about'];
-  const OVERLAY_VIEWS = ['avatar', 'starting-soon', 'brb', 'ending', 'game-scene', 'game-goals', 'game-info-bar', 'just-chatting', 'ae-starting-soon', 'ae-brb', 'ae-ending', 'ae-overlay'];
+  const OVERLAY_VIEWS = ['avatar', 'starting-soon', 'brb', 'ending', 'game-scene', 'game-goals', 'game-info-bar', 'just-chatting', 'ae-starting-soon', 'ae-brb', 'ae-ending', 'ae-overlay', 'neural-starting', 'neural-brb', 'neural-ending', 'neural-tech'];
   const HIDDEN_VIEWS = [...OVERLAY_VIEWS, 'admin', 'quote'];
 
   /* per-route init/cleanup hooks */
@@ -3663,7 +4084,11 @@
     'ae-starting-soon': { init: () => initAeStartingSoon(), cleanup: () => cleanupAeStartingSoon() },
     'ae-brb':         { init: () => initAeBrb(), cleanup: () => cleanupAeBrb() },
     'ae-ending':      { init: () => initAeEnding(), cleanup: () => cleanupAeEnding() },
-    'ae-overlay':     { init: () => initAeOverlay(), cleanup: () => cleanupAeOverlay() }
+    'ae-overlay':     { init: () => initAeOverlay(), cleanup: () => cleanupAeOverlay() },
+    'neural-starting': { init: () => initNeuralScene('starting'), cleanup: () => cleanupNeuralScene('starting') },
+    'neural-brb':     { init: () => initNeuralScene('brb'),      cleanup: () => cleanupNeuralScene('brb') },
+    'neural-ending':  { init: () => initNeuralScene('ending'),   cleanup: () => cleanupNeuralScene('ending') },
+    'neural-tech':    { init: () => initNeuralScene('tech'),     cleanup: () => cleanupNeuralScene('tech') }
   };
 
   /* ============ NEURAL AVATAR PER-SCENE WIRING ============
@@ -4931,6 +5356,8 @@
     document.getElementById('aAeEndThanks').value = ae.endThanks || 'Thank You for Watching';
     document.getElementById('aAeBrbPhrases').value = (ae.brbPhrases || []).join('\n');
     document.getElementById('aAeEndingFarewells').value = (ae.endingFarewells || []).join('\n');
+    /* NEURAL scene content */
+    fillNeuralAdmin();
     document.getElementById('aEmbersEnabled').checked = state.embersEnabled !== false;
     const es = state.emberSettings || {};
     const d = es.density != null ? es.density : 1;
@@ -5087,6 +5514,70 @@
     state = JSON.parse(JSON.stringify(DEFAULTS));
     saveState(); fillAdmin(); render(); toast('Reset complete');
   }
+
+  /* ============ NEURAL SCENE ADMIN ============ */
+  function fillNeuralAdmin() {
+    /* Make sure state.neural exists with defaults — older saved states won't have it. */
+    state.neural = Object.assign({}, DEFAULTS.neural, state.neural || {});
+    const n = state.neural;
+    const setV = (id, v) => { const el = document.getElementById(id); if (el) el.value = v == null ? '' : v; };
+    setV('nvTwitchHandle',  n.twitchHandle);
+    setV('nvDiscordHandle', n.discordHandle);
+    setV('nvSsBrandFld',      n.ssBrand);
+    setV('nvSsTitleFld',      n.ssTitle);
+    setV('nvSsSubFld',        n.ssSub);
+    setV('nvSsCountLabelFld', n.ssCountLabel);
+    setV('nvSsMinutesFld',    n.ssMinutes);
+    setV('nvBrbBrandFld',  n.brbBrand);
+    setV('nvBrbTitleFld',  n.brbTitle);
+    setV('nvBrbSubFld',    n.brbSub);
+    setV('nvEndBrandFld',  n.endBrand);
+    setV('nvEndTitleFld',  n.endTitle);
+    setV('nvEndSubFld',    n.endSub);
+    setV('nvTechBrandFld', n.techBrand);
+    setV('nvTechTitleFld', n.techTitle);
+    setV('nvTechSubFld',   n.techSub);
+    /* show the four scene URLs for easy OBS copy */
+    const urls = document.getElementById('nvSceneUrls');
+    if (urls) {
+      const base = location.origin + location.pathname;
+      urls.innerHTML = [
+        ['Starting', 'neural-starting'],
+        ['BRB',      'neural-brb'],
+        ['Ending',   'neural-ending'],
+        ['Technical','neural-tech']
+      ].map(([label, hash]) => `${label.padEnd(10,' ')}${base}#${hash}`).join('<br>');
+    }
+  }
+  window.saveNeuralScenes = function saveNeuralScenes(){
+    state.neural = state.neural || {};
+    const get = id => (document.getElementById(id) || {}).value || '';
+    state.neural.twitchHandle  = get('nvTwitchHandle')  || DEFAULTS.neural.twitchHandle;
+    state.neural.discordHandle = get('nvDiscordHandle') || DEFAULTS.neural.discordHandle;
+    state.neural.ssBrand      = get('nvSsBrandFld')      || DEFAULTS.neural.ssBrand;
+    state.neural.ssTitle      = get('nvSsTitleFld')      || DEFAULTS.neural.ssTitle;
+    state.neural.ssSub        = get('nvSsSubFld')        || DEFAULTS.neural.ssSub;
+    state.neural.ssCountLabel = get('nvSsCountLabelFld') || DEFAULTS.neural.ssCountLabel;
+    state.neural.ssMinutes    = parseInt(get('nvSsMinutesFld'), 10) || 0;
+    state.neural.brbBrand  = get('nvBrbBrandFld')  || DEFAULTS.neural.brbBrand;
+    state.neural.brbTitle  = get('nvBrbTitleFld')  || DEFAULTS.neural.brbTitle;
+    state.neural.brbSub    = get('nvBrbSubFld')    || DEFAULTS.neural.brbSub;
+    state.neural.endBrand  = get('nvEndBrandFld')  || DEFAULTS.neural.endBrand;
+    state.neural.endTitle  = get('nvEndTitleFld')  || DEFAULTS.neural.endTitle;
+    state.neural.endSub    = get('nvEndSubFld')    || DEFAULTS.neural.endSub;
+    state.neural.techBrand = get('nvTechBrandFld') || DEFAULTS.neural.techBrand;
+    state.neural.techTitle = get('nvTechTitleFld') || DEFAULTS.neural.techTitle;
+    state.neural.techSub   = get('nvTechSubFld')   || DEFAULTS.neural.techSub;
+    saveState();
+    toast('Neural scene settings saved');
+  };
+  window.resetNeuralScenes = function resetNeuralScenes(){
+    if (!confirm('Reset neural scene text & timer to defaults?')) return;
+    state.neural = JSON.parse(JSON.stringify(DEFAULTS.neural));
+    saveState();
+    fillNeuralAdmin();
+    toast('Neural scenes reset');
+  };
   function exportConfig() {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -5367,6 +5858,80 @@
   }
   function cleanupAeOverlay() {
     if (aeTimers.ovTimer) { clearInterval(aeTimers.ovTimer); aeTimers.ovTimer = null; }
+  }
+
+  /* ============ NEURAL NETWORK STREAM SCENES ============
+     Starting / BRB / Ending / Technical-difficulties scenes that embed the
+     reactive neural-avatar.html in the background (different preset per scene)
+     and add HUD framing + editable text + countdown timer. */
+  const NEURAL_SCENE_PRESETS = {
+    starting: '?obs=1&morph=6&theme=3&density=70&intensity=med&bloomtint=8aa8ff',
+    brb:      '?obs=1&morph=6&theme=3&density=55&intensity=low&bloomtint=a060e0',
+    ending:   '?obs=1&morph=6&theme=3&density=45&intensity=low&bloomtint=6080a0',
+    tech:     '?obs=1&morph=2&theme=1&density=80&intensity=med&bloomtint=ff6a6a&sparkle=ff8c4a'
+  };
+  const _neuralTimers = { starting: null };
+  function initNeuralScene(kind) {
+    /* 1. embed avatar iframe behind HUD (replaces previous to avoid stale state) */
+    const wrap = document.querySelector(`#view-neural-${kind} .nv-avatar-frame`);
+    if (wrap) {
+      wrap.innerHTML = '';
+      const iframe = document.createElement('iframe');
+      iframe.src = 'neural-avatar.html' + NEURAL_SCENE_PRESETS[kind];
+      iframe.allow = 'camera; microphone; autoplay';
+      iframe.setAttribute('allowtransparency', 'true');
+      wrap.appendChild(iframe);
+    }
+    /* 2. apply editable text from state.neural */
+    const n = state.neural || {};
+    const set = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.textContent = val; };
+    if (kind === 'starting') {
+      set('nvSsBrand', n.ssBrand || state.brand || 'MALIKEYE');
+      set('nvSsTitle', n.ssTitle || 'Initializing the network');
+      set('nvSsSub',   n.ssSub   || 'The eye opens · stand by while the lattice aligns');
+      set('nvSsCountLabel', n.ssCountLabel || 'Synchronization in progress');
+      set('nvSsTwitch',  n.twitchHandle || '/Malikeye');
+      set('nvSsDiscord', n.discordHandle || '/Malikeye');
+      /* countdown */
+      let total = Math.max(0, parseInt(n.ssMinutes, 10) || 0) * 60;
+      const el = document.getElementById('nvSsCount');
+      const tick = () => {
+        if (!el) return;
+        const m = Math.floor(total / 60), s = total % 60;
+        el.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        if (total > 0) total--;
+      };
+      tick();
+      _neuralTimers.starting = setInterval(tick, 1000);
+    } else if (kind === 'brb') {
+      set('nvBrbBrand', n.brbBrand || state.brand || 'MALIKEYE');
+      set('nvBrbTitle', n.brbTitle || 'Be Right Back');
+      set('nvBrbSub',   n.brbSub   || 'The watcher idles · do not stray far');
+      set('nvBrbTwitch',  n.twitchHandle || '/Malikeye');
+      set('nvBrbDiscord', n.discordHandle || '/Malikeye');
+    } else if (kind === 'ending') {
+      set('nvEndBrand', n.endBrand || state.brand || 'MALIKEYE');
+      set('nvEndTitle', n.endTitle || 'Thank you for watching');
+      set('nvEndSub',   n.endSub   || 'Until the network wakes once more');
+      set('nvEndTwitch',  n.twitchHandle || '/Malikeye');
+      set('nvEndDiscord', n.discordHandle || '/Malikeye');
+    } else if (kind === 'tech') {
+      set('nvTechBrand', n.techBrand || 'SIGNAL LOST');
+      set('nvTechTitle', n.techTitle || 'Technical difficulties');
+      set('nvTechSub',   n.techSub   || 'Reestablishing connection · please stand by');
+      set('nvTechTwitch',  n.twitchHandle || '/Malikeye');
+      set('nvTechDiscord', n.discordHandle || '/Malikeye');
+    }
+  }
+  function cleanupNeuralScene(kind) {
+    /* stop timer if running */
+    if (kind === 'starting' && _neuralTimers.starting) {
+      clearInterval(_neuralTimers.starting);
+      _neuralTimers.starting = null;
+    }
+    /* tear down iframe so cam/mic is released — important when switching scenes */
+    const wrap = document.querySelector(`#view-neural-${kind} .nv-avatar-frame`);
+    if (wrap) wrap.innerHTML = '';
   }
 
   /* --- CHARACTER CONCEPT --- */
