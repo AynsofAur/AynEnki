@@ -364,12 +364,12 @@ body.debug video#cam { width: 160px; height: 120px; opacity: 1; top: 8px; right:
     <div class="slider-row">
       <span class="slider-label">Voice Gain</span>
       <span class="slider-value" id="voice-gain-val">1.0x</span>
-      <input type="range" min="50" max="200" value="100" class="density-slider" id="voice-gain-slider">
+      <input type="range" min="50" max="500" value="100" class="density-slider" id="voice-gain-slider">
     </div>
     <div class="slider-row">
       <span class="slider-label">Scale</span>
       <span class="slider-value" id="scale-sens-val">1.0x</span>
-      <input type="range" min="0" max="200" value="100" class="density-slider" id="scale-sens-slider">
+      <input type="range" min="0" max="500" value="100" class="density-slider" id="scale-sens-slider">
     </div>
     <div class="slider-row">
       <span class="slider-label">Frame X</span>
@@ -559,6 +559,11 @@ const URL_MID       = _parseHexParam('mid');
 const URL_OUTER     = _parseHexParam('outer');
 const URL_SPARKLE   = _parseHexParam('sparkle');
 const URL_BLOOMTINT = _parseHexParam('bloomtint');
+/* ?gain=N and ?scale=N (N as integer percent, e.g. ?gain=250 = 2.5x).
+   These override both the default AND any localStorage-saved value so you can
+   bake mic-specific calibration into the OBS URL. Range clamped to 50–500. */
+const URL_GAIN = (()=>{ const v = parseInt(params.get('gain'),10); return (!isNaN(v) && v>=50 && v<=500) ? v/100 : null; })();
+const URL_SCALE = (()=>{ const v = parseInt(params.get('scale'),10); return (!isNaN(v) && v>=0 && v<=500) ? v/100 : null; })();
 
 /* test mode: simulate audio + face input without real webcam/mic — for previewing
    on stream-setup nights. Mutable so the in-app Test toggle can flip it at runtime. */
@@ -2583,12 +2588,16 @@ function loadSettings(){
     if (!INTENSITY_LOW && !INTENSITY_HIGH && typeof s.bloom === 'boolean') {
       bloomEnabled = s.bloom;
     }
-    if (typeof s.voiceGain === 'number' && s.voiceGain >= 0.5 && s.voiceGain <= 2.0) {
+    if (typeof s.voiceGain === 'number' && s.voiceGain >= 0.5 && s.voiceGain <= 5.0) {
       voiceGain = s.voiceGain;
     }
-    if (typeof s.scaleSensitivity === 'number' && s.scaleSensitivity >= 0 && s.scaleSensitivity <= 2.0) {
+    if (typeof s.scaleSensitivity === 'number' && s.scaleSensitivity >= 0 && s.scaleSensitivity <= 5.0) {
       scaleSensitivity = s.scaleSensitivity;
     }
+    /* URL params always trump saved values — lets you bake calibration
+       into the OBS URL without touching localStorage on the streaming machine. */
+    if (URL_GAIN !== null) voiceGain = URL_GAIN;
+    if (URL_SCALE !== null) scaleSensitivity = URL_SCALE;
     if (typeof s.frameOffsetX === 'number') frameOffsetX = s.frameOffsetX;
     if (typeof s.frameOffsetY === 'number') frameOffsetY = s.frameOffsetY;
     if (typeof s.frameZoom === 'number' && s.frameZoom > 0) frameZoom = s.frameZoom;
@@ -2920,7 +2929,7 @@ window.addEventListener('message', (e) => {
   }
   /* slider equivalents */
   if (typeof d.voiceGain === 'number') {
-    voiceGain = Math.max(0.5, Math.min(2, d.voiceGain > 2 ? d.voiceGain/100 : d.voiceGain));
+    voiceGain = Math.max(0.5, Math.min(5, d.voiceGain > 5 ? d.voiceGain/100 : d.voiceGain));
     const s = document.getElementById('voice-gain-slider');
     const v = document.getElementById('voice-gain-val');
     if (s) s.value = Math.round(voiceGain*100);

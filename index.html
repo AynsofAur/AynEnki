@@ -2707,6 +2707,16 @@
                        oninput="document.getElementById('aurlDensityVal').textContent=this.value; aurlBuild()">
               </div>
               <div class="field">
+                <label>Voice Gain: <span id="aurlGainVal">1.00</span>x  <span style="opacity:0.5; font-size:0.75rem;">(boost for quiet mics)</span></label>
+                <input type="range" id="aurlGain" min="50" max="500" value="100"
+                       oninput="document.getElementById('aurlGainVal').textContent=(this.value/100).toFixed(2); aurlBuild()">
+              </div>
+              <div class="field">
+                <label>Scale Sensitivity: <span id="aurlScaleVal">1.00</span>x  <span style="opacity:0.5; font-size:0.75rem;">(mouth-driven growth)</span></label>
+                <input type="range" id="aurlScale" min="0" max="500" value="100"
+                       oninput="document.getElementById('aurlScaleVal').textContent=(this.value/100).toFixed(2); aurlBuild()">
+              </div>
+              <div class="field">
                 <label>Intensity preset</label>
                 <select id="aurlIntensity" onchange="aurlBuild()">
                   <option value="">Balanced (default)</option>
@@ -3889,6 +3899,13 @@
     if (d && d !== '100') p.set('density', d);
     if (inten) p.set('intensity', inten);
     if (bg) p.set('bg', bg);
+    /* mic gain + scale sensitivity — only emit if different from 1.0x default.
+       these are the calibration knobs that are hidden in obs-clean mode, so
+       baking them into the URL is how streamers ship the right values. */
+    const gain = document.getElementById('aurlGain')?.value;
+    const scale = document.getElementById('aurlScale')?.value;
+    if (gain && gain !== '100') p.set('gain', gain);
+    if (scale && scale !== '100') p.set('scale', scale);
     /* colours — drop the # for URL friendliness; only emit if non-default */
     const hexNoHash = el => (el.value || '').replace('#','').toLowerCase();
     const inner = hexNoHash(document.getElementById('aurlInner'));
