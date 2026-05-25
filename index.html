@@ -3270,9 +3270,10 @@
             <p style="margin:0; font-size:.8rem; font-family:'IBM Plex Mono',monospace; color:#8caaff; word-break:break-all;" id="nvSceneUrls"></p>
           </div>
 
-          <div style="display:flex; gap:.6rem; margin-top:1rem;">
+          <div style="display:flex; gap:.6rem; margin-top:1rem; align-items:center;">
             <button class="btn primary" onclick="saveNeuralScenes()">Save Scene Settings</button>
             <button class="btn" onclick="resetNeuralScenes()">Reset to Defaults</button>
+            <span style="font-size:.8rem; opacity:.6; font-style:italic;">(or use SAVE ALL CHANGES at the bottom — covers everything)</span>
           </div>
         </div>
       </div>
@@ -5777,6 +5778,14 @@
     state.ae.endThanks = document.getElementById('aAeEndThanks').value || 'Thank You for Watching';
     state.ae.brbPhrases = document.getElementById('aAeBrbPhrases').value.split('\n').map(s => s.trim()).filter(Boolean);
     state.ae.endingFarewells = document.getElementById('aAeEndingFarewells').value.split('\n').map(s => s.trim()).filter(Boolean);
+    /* Pull neural scene fields too — the "Save Scene Settings" button is a
+       convenience for the neural section alone, but SAVE ALL CHANGES should
+       save EVERYTHING in the admin panel without surprises. */
+    if (typeof saveNeuralScenes === 'function' && document.getElementById('nvSsBrandFld')) {
+      /* Reuse the dedicated save so logic stays in one place. It calls
+         saveState() internally — we'll call render() once at the end below. */
+      try { saveNeuralScenes({ silent: true }); } catch(e) { console.warn('neural save failed', e); }
+    }
     saveState(); render(); toast('Settings saved');
   }
   function resetAll() {
@@ -5894,9 +5903,10 @@
       ].map(([label, hash]) => `${label.padEnd(10,' ')}${base}#${hash}`).join('<br>');
     }
   }
-  window.saveNeuralScenes = function saveNeuralScenes(){
+  window.saveNeuralScenes = function saveNeuralScenes(opts){
     state.neural = state.neural || {};
     const get = id => (document.getElementById(id) || {}).value || '';
+    const silent = opts && opts.silent;
     state.neural.twitchHandle  = get('nvTwitchHandle')  || DEFAULTS.neural.twitchHandle;
     state.neural.discordHandle = get('nvDiscordHandle') || DEFAULTS.neural.discordHandle;
     state.neural.ssBrand      = get('nvSsBrandFld'); /* may be empty — falls back to state.brand at init */
@@ -5918,7 +5928,7 @@
     state.neural.techPhrases = get('nvTechPhrasesFld').split('\n').map(s=>s.trim()).filter(Boolean);
     if (!state.neural.techPhrases.length) state.neural.techPhrases = DEFAULTS.neural.techPhrases.slice();
     saveState();
-    toast('Neural scene settings saved');
+    if (!silent) toast('Neural scene settings saved');
   };
   window.resetNeuralScenes = function resetNeuralScenes(){
     if (!confirm('Reset neural scene text & timer to defaults?')) return;
