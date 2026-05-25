@@ -54,6 +54,24 @@ body.obs-clean .glass-panel,
 body.obs-clean #control-buttons,
 body.obs-clean #fps-indicator { opacity: 0; pointer-events: none; }
 
+/* ============ STINGER MODE ============
+   Total visual lockdown — only the canvas + flash overlay render. Everything
+   else is forced invisible so a screen-recording captures a clean stinger. */
+body.stinger-mode #setup-panel,
+body.stinger-mode #control-buttons,
+body.stinger-mode #fps-indicator,
+body.stinger-mode #avatarControlPanel,
+body.stinger-mode #diag-banner,
+body.stinger-mode #debug-readout { display: none !important; }
+body.stinger-mode { background: transparent !important; }
+#stinger-flash {
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 100;
+  opacity: 0;
+  background: radial-gradient(circle at 50% 50%, #ffffff 0%, var(--stinger-tint, #a0d8ff) 28%, rgba(50,30,80,0.7) 55%, transparent 80%);
+  mix-blend-mode: screen;
+}
+
 /* hidden camera for MediaPipe */
 video#cam { position: fixed; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 body.debug video#cam { width: 160px; height: 120px; opacity: 1; top: 8px; right: 8px; border: 1px solid #fff; z-index: 60; }
@@ -341,6 +359,10 @@ body.debug video#cam { width: 160px; height: 120px; opacity: 1; top: 8px; right:
 <!-- canvas -->
 <canvas id="neural-canvas"></canvas>
 
+<!-- stinger flash overlay — bright at midpoint of each cycle, covers screen
+     so OBS can swap scenes underneath without showing a hard cut. -->
+<div id="stinger-flash"></div>
+
 <!-- persistent diagnostic banner — stays visible even in ?obs=1 mode so
      streamers can see cam/mic block status at a glance. Click to retry. -->
 <div id="diag-banner" style="display:none;position:fixed;top:8px;left:50%;transform:translateX(-50%);
@@ -579,6 +601,15 @@ const DEBUG_MODE = params.get('debug') === '1';
    this substring (case-insensitive). Lets you override the auto-picker if it
    guesses wrong. Example: ?camera=c920 forces a Logitech C920. */
 const CAMERA_FILTER = (params.get('camera') || '').toLowerCase().trim();
+/* ?stinger=1 — STINGER TRANSITION MODE. The avatar runs a scripted
+   collapse-then-burst animation on a loop, with NO cam/mic, NO UI, NO setup
+   panel. Designed to be screen-recorded into an MP4 the user loads into OBS
+   as a Stinger Transition. ?stingerdur=N sets cycle duration in seconds
+   (default 1.0). The midpoint of each cycle is the moment OBS swaps scenes. */
+const STINGER_MODE = params.get('stinger') === '1';
+const STINGER_DURATION = Math.max(0.4, Math.min(3.0, parseFloat(params.get('stingerdur')) || 1.0));
+/* ?stingertint=hex — color of the midpoint flash (default cyan to match avatar) */
+const STINGER_TINT = _parseHexParam('stingertint') || '#a0d8ff';
 
 /* test mode: simulate audio + face input without real webcam/mic — for previewing
    on stream-setup nights. Mutable so the in-app Test toggle can flip it at runtime. */
@@ -635,6 +666,10 @@ let userSparkleColor = false;
 
 if (OBS_MODE) document.body.classList.add('obs-clean');
 if (DEBUG_MODE) document.body.classList.add('debug');
+if (STINGER_MODE) {
+  document.body.classList.add('stinger-mode', 'obs-clean'); /* obs-clean hides extras too */
+  document.documentElement.style.setProperty('--stinger-tint', STINGER_TINT);
+}
 if (TRANSPARENT) {
   document.body.classList.add('transparent');
   document.documentElement.classList.add('transparent');
@@ -3141,6 +3176,14 @@ startBtn.addEventListener('click', async () => {
 if(OBS_MODE || testMode){
   setTimeout(() => startBtn.click(), 1000);
 }
+/* In stinger mode we DON'T click the awaken button — we never want cam/mic
+   to engage during a stinger recording. The animate loop's stinger driver
+   handles everything visually. */
+if (STINGER_MODE) {
+  /* keep setup panel hidden no matter what */
+  const sp = document.getElementById('setup-panel');
+  if (sp) { sp.style.display = 'none'; }
+}
 
 /* Click handler for the diagnostic banner — retries only the failed streams.
    Exposed on window so the inline onclick="retryMedia()" can reach it. */
@@ -3208,6 +3251,47 @@ function easedApproach(current, target, t){
 function animate(){
   requestAnimationFrame(animate);
   const t = clock.getElapsedTime();
+
+  /* ============ STINGER DRIVER ============
+     Scripted collapse→burst loop. Drives voiceLevel + mouthOpen + bloom +
+     flash overlay through a controlled curve. Midpoint = full coverage so
+     OBS can swap scenes invisibly underneath. */
+  if (STINGER_MODE) {
+    const cyc = (t % STINGER_DURATION) / STINGER_DURATION; /* 0..1 */
+    /* phase 0-0.5: collapse inward, ramp brightness up
+       phase 0.5-1.0: explode outward, ramp brightness down */
+    let voice, mouth, flash;
+    if (cyc < 0.5) {
+      const p = cyc / 0.5;                      /* 0..1 first half */
+      const ease = p * p;                       /* easeIn — slow start, fast end */
+      voice = ease;
+      mouth = 0.2 + ease * 0.6;                 /* gentle scale collapse */
+      flash = ease * ease;                      /* slow ramp, hits 1 at midpoint */
+    } else {
+      const p = (cyc - 0.5) / 0.5;              /* 0..1 second half */
+      const ease = 1 - (1 - p) * (1 - p);       /* easeOut — fast start, slow end */
+      voice = 1 - ease;
+      mouth = 0.8 - ease * 0.6;                 /* expand back out */
+      flash = (1 - ease) * (1 - ease);          /* fast decay from 1 */
+    }
+    /* override avatar state for shader uniforms */
+    AVATAR_STATE.voiceLevel = voice;
+    AVATAR_STATE.targetVoiceLevel = voice;
+    AVATAR_STATE.mouthOpen = mouth;
+    AVATAR_STATE.targetMouthOpen = mouth;
+    /* trigger pulse near midpoint for extra dramatic flash */
+    if (cyc > 0.42 && cyc < 0.58 && Math.random() < 0.4 && typeof triggerPulseAt === 'function') {
+      try {
+        triggerPulseAt(
+          new THREE.Vector3((Math.random()-0.5)*3, (Math.random()-0.5)*3, 0),
+          new THREE.Color(1, 1, 1)
+        );
+      } catch(e) { /* ignore */ }
+    }
+    /* full-screen flash overlay */
+    const fe = document.getElementById('stinger-flash');
+    if (fe) fe.style.opacity = flash.toFixed(3);
+  }
 
   /* sample audio */
   sampleAudio();

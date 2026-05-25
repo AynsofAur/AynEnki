@@ -2570,6 +2570,102 @@
     }
     .nv-message.flick { animation: nv-msg-flicker 0.7s steps(2) forwards; }
     .nv-glitch .nv-message { color: #ffb0b0; text-shadow: 0 0 8px rgba(255,100,100,0.5), 0 0 14px rgba(0,0,0,0.9); }
+
+    /* ============ NEURAL GAME-SCENE OVERLAY ============
+       Mostly-transparent layout. Game capture shows through. Avatar lives in
+       the bottom-right corner, small HUD strip across the top, info strip
+       along the bottom. Designed to be layered ABOVE the game capture source. */
+    .nv-game-stage {
+      position: absolute; inset: 0;
+      pointer-events: none;
+      font-family: 'IBM Plex Mono', monospace;
+      color: #c8d8ff;
+      background: transparent;
+    }
+    /* corner brackets — thinner & smaller than fullscreen scenes */
+    .nv-game-corner {
+      position: absolute; width: 38px; height: 38px;
+      border: 1px solid #6aa0ff;
+      opacity: 0.55;
+      box-shadow: 0 0 12px rgba(100,150,255,0.3);
+    }
+    .nv-game-corner.tl { top: 16px; left: 16px; border-right: 0; border-bottom: 0; }
+    .nv-game-corner.tr { top: 16px; right: 16px; border-left: 0; border-bottom: 0; }
+    .nv-game-corner.bl { bottom: 16px; left: 16px; border-right: 0; border-top: 0; }
+    /* avatar zone — sized for a corner overlay, dark glow ring frames it */
+    .nv-game-avatar {
+      position: absolute;
+      bottom: 26px; right: 26px;
+      width: 320px; height: 320px;
+      pointer-events: none;
+      z-index: 4;
+    }
+    .nv-game-avatar::before {
+      content: '';
+      position: absolute; inset: -8px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(120,180,255,0.08) 0%, transparent 72%);
+      pointer-events: none;
+    }
+    .nv-game-avatar iframe {
+      width: 100%; height: 100%;
+      border: 0; background: transparent;
+      display: block;
+    }
+    /* HUD strip at the top — live indicator + game title */
+    .nv-game-hud-top {
+      position: absolute;
+      top: 22px; left: 50%; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 18px;
+      padding: 7px 16px;
+      font-size: 0.72rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      background: rgba(8,8,16,0.5);
+      border: 1px solid rgba(120,180,255,0.25);
+      border-radius: 4px;
+      backdrop-filter: blur(6px);
+      z-index: 5;
+      color: #c8d8ff;
+    }
+    .nv-game-live {
+      display: inline-flex; align-items: center; gap: 8px;
+      color: #ff6a6a;
+      font-weight: 600;
+    }
+    .nv-game-live .dot {
+      width: 8px; height: 8px;
+      background: #ff5a5a;
+      border-radius: 50%;
+      box-shadow: 0 0 10px #ff5a5a;
+      animation: nv-pulse-dot 1.2s ease-in-out infinite;
+    }
+    .nv-game-uptime { color: #8caaff; font-variant-numeric: tabular-nums; }
+    .nv-game-title  { color: #f5d07a; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .nv-game-hud-top .sep { color: #4a5a8a; }
+    /* bottom info strip — handles + tagline */
+    .nv-game-hud-bot {
+      position: absolute;
+      bottom: 22px; left: 26px;
+      display: flex; gap: 16px; align-items: center;
+      font-size: 0.72rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: #8caaff;
+      opacity: 0.78;
+      z-index: 5;
+    }
+    .nv-game-hud-bot .lbl { color: #5a78b8; margin-right: 6px; }
+    .nv-game-hud-bot .sep { color: #4a5a8a; }
+    /* entrance fade for game scene */
+    .nv-game-stage > .nv-game-corner.tl { animation: nv-fade-in 500ms ease-out 100ms both; }
+    .nv-game-stage > .nv-game-corner.tr { animation: nv-fade-in 500ms ease-out 160ms both; }
+    .nv-game-stage > .nv-game-corner.bl { animation: nv-fade-in 500ms ease-out 220ms both; }
+    .nv-game-stage > .nv-game-hud-top   { animation: nv-fade-in 700ms ease-out 350ms both; }
+    .nv-game-stage > .nv-game-hud-bot   { animation: nv-fade-in 700ms ease-out 480ms both; }
+    .nv-game-stage > .nv-game-avatar    { animation: nv-fade-in-scrim 1100ms ease-out 250ms both; }
+    /* the view's own background must be transparent so game capture shows through */
+    #view-neural-game { background: transparent !important; }
     @keyframes nv-msg-flicker {
       0%   { opacity: 0; }
       18%  { opacity: 0.9; transform: translateX(-1px); }
@@ -2667,6 +2763,31 @@
         <span class="sep">·</span>
         <span><span class="dot warn"></span>POWERING DOWN</span>
       </div>
+    </div>
+  </section>
+
+  <!-- ============ NEURAL · GAME SCENE OVERLAY ============
+       Layered over Game Capture in OBS. Avatar in bottom-right corner,
+       minimal HUD top + bottom, transparent in the middle so gameplay
+       shows through. -->
+  <section class="view" id="view-neural-game">
+    <div class="nv-game-stage">
+      <div class="nv-game-corner tl"></div>
+      <div class="nv-game-corner tr"></div>
+      <div class="nv-game-corner bl"></div>
+      <div class="nv-game-hud-top">
+        <span class="nv-game-live"><span class="dot"></span>LIVE</span>
+        <span class="sep">·</span>
+        <span class="nv-game-uptime" id="nvGameUptime">00:00:00</span>
+        <span class="sep">·</span>
+        <span class="nv-game-title" id="nvGameTitle">Playing something incredible</span>
+      </div>
+      <div class="nv-game-hud-bot">
+        <span><span class="lbl">TWITCH</span><span id="nvGameTwitch">/Malikeye</span></span>
+        <span class="sep">·</span>
+        <span><span class="lbl">DISCORD</span><span id="nvGameDiscord">/Malikeye</span></span>
+      </div>
+      <div class="nv-game-avatar" data-neural-frame="game"></div>
     </div>
   </section>
 
@@ -3265,10 +3386,46 @@
           </div>
           <button class="btn" onclick="window.location.hash='neural-tech'" style="margin-top:.4rem;">Open Technical</button>
 
+          <!-- Game Scene Overlay -->
+          <h4 style="color:var(--gold); margin:1.4rem 0 .5rem; letter-spacing:.15em;">GAME SCENE OVERLAY</h4>
+          <p style="color:var(--vellum); font-family:'Cormorant Garamond',serif; font-style:italic; font-size:.9rem; margin:0 0 .8rem;">
+            Mostly-transparent overlay for gameplay. Layer this OVER your Game Capture in OBS. Avatar in bottom-right, HUD top + bottom, game shows through the middle.
+          </p>
+          <p style="font-size:.85rem; margin:.6rem 0;">
+            Uses the same Twitch/Discord handles as the other scenes. Game title comes from <strong>Ayn Enki · Content → Stream Title</strong> field (or falls back to a default).
+          </p>
+          <button class="btn" onclick="window.location.hash='neural-game'" style="margin-top:.4rem;">Open Game Scene</button>
+
           <div style="margin-top:1.4rem; padding:.8rem; background:rgba(120,180,255,0.05); border:1px solid rgba(120,180,255,0.2); border-radius:6px;">
             <p style="margin:0 0 .4rem; font-size:.85rem; color:var(--vellum);">For OBS Browser Source URLs:</p>
             <p style="margin:0; font-size:.8rem; font-family:'IBM Plex Mono',monospace; color:#8caaff; word-break:break-all;" id="nvSceneUrls"></p>
           </div>
+
+          <!-- STINGER TRANSITION RECORDER -->
+          <h4 style="color:#c8a8ff; margin:1.6rem 0 .5rem; letter-spacing:.15em;">STINGER TRANSITION (RECORD ME)</h4>
+          <p style="color:var(--vellum); font-family:'Cormorant Garamond',serif; font-style:italic; font-size:.92rem; margin:0 0 .8rem;">
+            A 1-second collapse→burst loop. Screen-record it into an MP4, then load that MP4 in OBS as a Stinger Transition for cinematic scene cuts.
+          </p>
+          <div style="display:flex; gap:.6rem; flex-wrap:wrap; align-items:center; margin-bottom:.6rem;">
+            <button class="btn" onclick="window.open('neural-avatar.html?stinger=1','_blank','noopener')">Preview Stinger</button>
+            <button class="btn" onclick="window.open('neural-avatar.html?stinger=1&stingerdur=0.7','_blank','noopener')">Fast (0.7s)</button>
+            <button class="btn" onclick="window.open('neural-avatar.html?stinger=1&stingerdur=1.4','_blank','noopener')">Slow (1.4s)</button>
+          </div>
+          <p style="margin:0; font-size:.8rem; font-family:'IBM Plex Mono',monospace; color:#a08adf; word-break:break-all;">
+            URL: <span id="nvStingerUrl"></span>
+          </p>
+          <details style="margin-top:.8rem; font-size:.85rem; color:var(--vellum);">
+            <summary style="cursor:pointer; color:#c8a8ff;">How to record it for OBS</summary>
+            <ol style="margin:.6rem 0 0 1.2rem; line-height:1.7;">
+              <li>Click <strong>Preview Stinger</strong> above. It opens a new tab with the looping animation.</li>
+              <li>On Windows: press <code>Win + Alt + R</code> to start Game Bar recording. Or use OBS itself: add a Browser Source with the stinger URL, hide everything else, hit Start Recording.</li>
+              <li>Let it record for about 3 seconds (captures 3 loops). Stop.</li>
+              <li>Open the resulting MP4 in any video editor (Clipchamp, DaVinci Resolve, ffmpeg). Trim to one clean cycle — exactly 1000ms (or 700/1400 if you used Fast/Slow).</li>
+              <li>In OBS: Settings → Scene Transitions → click <code>+</code> → <strong>Stinger</strong> → load your trimmed MP4.</li>
+              <li>Set <strong>Transition Point</strong> to <strong>500ms</strong> (the midpoint where OBS swaps scenes under the flash).</li>
+              <li>Set as your default transition. Done — every scene cut now plays the stinger.</li>
+            </ol>
+          </details>
 
           <div style="display:flex; gap:.6rem; margin-top:1rem; align-items:center;">
             <button class="btn primary" onclick="saveNeuralScenes()">Save Scene Settings</button>
@@ -4335,7 +4492,7 @@
 
   /* ============ ROUTING ============ */
   const PUBLIC_VIEWS = ['home', 'portfolio', 'shop', 'commissions', 'about'];
-  const OVERLAY_VIEWS = ['avatar', 'starting-soon', 'brb', 'ending', 'game-scene', 'game-goals', 'game-info-bar', 'just-chatting', 'ae-starting-soon', 'ae-brb', 'ae-ending', 'ae-overlay', 'neural-starting', 'neural-brb', 'neural-ending', 'neural-tech'];
+  const OVERLAY_VIEWS = ['avatar', 'starting-soon', 'brb', 'ending', 'game-scene', 'game-goals', 'game-info-bar', 'just-chatting', 'ae-starting-soon', 'ae-brb', 'ae-ending', 'ae-overlay', 'neural-starting', 'neural-brb', 'neural-ending', 'neural-tech', 'neural-game'];
   const HIDDEN_VIEWS = [...OVERLAY_VIEWS, 'admin', 'quote'];
 
   /* per-route init/cleanup hooks */
@@ -4357,6 +4514,7 @@
     'neural-brb':     { init: () => initNeuralScene('brb'),      cleanup: () => cleanupNeuralScene('brb') },
     'neural-ending':  { init: () => initNeuralScene('ending'),   cleanup: () => cleanupNeuralScene('ending') },
     'neural-tech':    { init: () => initNeuralScene('tech'),     cleanup: () => cleanupNeuralScene('tech') },
+    'neural-game':    { init: () => initNeuralGame(),            cleanup: () => cleanupNeuralGame() },
     'admin':          { init: () => { if (typeof restoreAdminTab === 'function') restoreAdminTab(); }, cleanup: () => {} }
   };
 
@@ -5899,10 +6057,21 @@
         ['Starting', 'neural-starting'],
         ['BRB',      'neural-brb'],
         ['Ending',   'neural-ending'],
-        ['Technical','neural-tech']
+        ['Technical','neural-tech'],
+        ['Game',     'neural-game']
       ].map(([label, hash]) => `${label.padEnd(10,' ')}${base}#${hash}`).join('<br>');
     }
   }
+  function _populateStingerUrl(){
+    const stingerUrl = document.getElementById('nvStingerUrl');
+    if (stingerUrl) {
+      const baseDir = new URL('.', location.href).href;
+      stingerUrl.textContent = baseDir + 'neural-avatar.html?stinger=1';
+    }
+  }
+  /* run once when DOM is ready so the URL displays even before admin saves */
+  document.addEventListener('DOMContentLoaded', _populateStingerUrl);
+
   window.saveNeuralScenes = function saveNeuralScenes(opts){
     state.neural = state.neural || {};
     const get = id => (document.getElementById(id) || {}).value || '';
@@ -6320,6 +6489,52 @@
     }
     /* tear down iframe so cam/mic is released — important when switching scenes */
     const wrap = document.querySelector(`#view-neural-${kind} .nv-avatar-frame`);
+    if (wrap) wrap.innerHTML = '';
+  }
+
+  /* ============ NEURAL GAME SCENE ============
+     Corner-overlay scene meant to be layered over Game Capture in OBS.
+     Avatar runs corner-tuned preset (lower density, low intensity, smaller).
+     Includes a live uptime ticker. */
+  let _neuralGameUptimeTimer = null;
+  let _neuralGameStartTime = 0;
+  function initNeuralGame(){
+    /* embed avatar — corner preset uses Tree of Life morph at low density */
+    const wrap = document.querySelector('#view-neural-game .nv-game-avatar');
+    if (wrap) {
+      wrap.innerHTML = '';
+      const iframe = document.createElement('iframe');
+      iframe.src = 'neural-avatar.html?obs=1&morph=6&theme=3&density=55&intensity=low&bloomtint=a0c8ff';
+      iframe.allow = 'camera; microphone; autoplay';
+      iframe.setAttribute('allowtransparency', 'true');
+      wrap.appendChild(iframe);
+    }
+    /* apply text — uses neural state for handles, ae.streamTitle for game name (so
+       editing the existing Ayn Enki "Stream Title" field also updates this) */
+    const n = state.neural || {};
+    const ae = state.ae || {};
+    const set = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.textContent = val; };
+    set('nvGameTwitch',  n.twitchHandle || '/Malikeye');
+    set('nvGameDiscord', n.discordHandle || '/Malikeye');
+    set('nvGameTitle',   ae.streamTitle || state.gsGame || 'Playing something incredible');
+    /* live uptime ticker — starts from now each time the scene activates */
+    _neuralGameStartTime = Date.now();
+    const tick = () => {
+      const el = document.getElementById('nvGameUptime');
+      if (!el) return;
+      const sec = Math.floor((Date.now() - _neuralGameStartTime) / 1000);
+      const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+      el.textContent =
+        String(h).padStart(2,'0') + ':' +
+        String(m).padStart(2,'0') + ':' +
+        String(s).padStart(2,'0');
+    };
+    tick();
+    _neuralGameUptimeTimer = setInterval(tick, 1000);
+  }
+  function cleanupNeuralGame(){
+    if (_neuralGameUptimeTimer) { clearInterval(_neuralGameUptimeTimer); _neuralGameUptimeTimer = null; }
+    const wrap = document.querySelector('#view-neural-game .nv-game-avatar');
     if (wrap) wrap.innerHTML = '';
   }
 
