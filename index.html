@@ -1012,6 +1012,21 @@
   body.neural-on #view-game-scene     .gs-avatar-zone svg {
     visibility: hidden !important;
   }
+  /* ============ PORTFOLIO MODE ============
+     ?mode=portfolio activates body.portfolio-mode. Hides every streaming-side
+     touchpoint so the link is safe to send to clients / employers / gallery
+     submissions without context-switching them onto a stream pitch. */
+  body.portfolio-mode #heroWatchBtn { display: none !important; }
+  body.portfolio-mode [data-streaming="1"] { display: none !important; }
+  body.portfolio-mode #homeScheduleBlock { display: none !important; }
+  /* hide streaming-only social icons (Twitch, Discord) — keep the rest */
+  body.portfolio-mode .social-grid a[data-social="twitch"],
+  body.portfolio-mode .social-grid a[data-social="discord"] { display: none !important; }
+  /* hide admin shortcut hint on home (Ctrl+Shift+A) */
+  body.portfolio-mode .hint { display: none !important; }
+  /* tighten hero — no Watch Live makes the action row a touch lopsided */
+  body.portfolio-mode .hero-actions { gap: 12px; }
+
   .overlay-eye-svg { width: 100%; height: 100%; animation: floaty 6s ease-in-out infinite; }
   .overlay-title-block { margin-top: 3.2vh; position: relative; z-index: 11; }
   .overlay-brand {
@@ -1658,7 +1673,7 @@
     </div>
 
     <!-- schedule -->
-    <div class="section-block">
+    <div class="section-block" id="homeScheduleBlock" data-streaming="1">
       <div class="section-header">
         <div>
           <h2>Stream Schedule</h2>
@@ -1674,11 +1689,11 @@
     </div>
 
     <!-- socials -->
-    <div class="section-block">
+    <div class="section-block" id="homeSocialsBlock">
       <div class="section-header">
         <div>
-          <h2>Join the Order</h2>
-          <div class="sub">Follow the eye wherever it gazes</div>
+          <h2 id="homeSocialsTitle">Join the Order</h2>
+          <div class="sub" id="homeSocialsSub">Follow the eye wherever it gazes</div>
         </div>
       </div>
       <div class="social-grid" id="socialGrid"></div>
@@ -3538,6 +3553,14 @@
                 <input type="color" id="aurlBloomtint" value="#ffffff" onchange="aurlBuild()">
               </div>
               <div class="field">
+                <label>Nucleus (core sphere)</label>
+                <input type="color" id="aurlNucleus" value="#fff4d0" onchange="aurlBuild()">
+              </div>
+              <div class="field">
+                <label>Halo (around nucleus)</label>
+                <input type="color" id="aurlHalo" value="#c8952a" onchange="aurlBuild()">
+              </div>
+              <div class="field">
                 <label>Toggles</label>
                 <div style="display:flex; flex-direction:column; gap:4px;">
                   <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem;">
@@ -3720,6 +3743,23 @@
           <div class="panel">
             <h4>ABOUT</h4>
             <div class="field"><label>Bio</label><textarea id="aAboutBio" style="min-height:140px;"></textarea></div>
+          </div>
+          <div class="panel">
+            <h4>PORTFOLIO LINK &middot; FOR CLIENTS</h4>
+            <p style="color: var(--vellum); font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: .92rem; margin: 0 0 .8rem;">
+              A shareable URL that hides every streaming touchpoint (schedule, Watch Live, Twitch/Discord). Safe to send to clients, galleries, or job applications without context-switching them onto a stream pitch.
+            </p>
+            <div class="field">
+              <label>Portfolio link</label>
+              <input type="text" id="aPortfolioLink" readonly style="font-family:'IBM Plex Mono',monospace; font-size:.85rem;">
+            </div>
+            <div style="display:flex; gap:.6rem; flex-wrap:wrap;">
+              <button class="btn primary" onclick="copyPortfolioLink()">Copy Link</button>
+              <button class="btn" onclick="openPortfolioLink()">Preview</button>
+            </div>
+            <p style="margin:.8rem 0 0; font-size:.8rem; opacity:.65;">
+              Hidden when this is active: Stream Schedule section, Watch Live button, Twitch + Discord social cards, admin shortcut hint. Hero copy swaps to "Selected Works".
+            </p>
           </div>
         </div>
       </div>
@@ -4770,6 +4810,10 @@
     if (outer)     p.set('outer', outer);
     if (sparkle)   p.set('sparkle', sparkle);
     if (bloomtint && bloomtint !== 'ffffff') p.set('bloomtint', bloomtint);
+    const nucleus = hexNoHash(document.getElementById('aurlNucleus'));
+    const halo    = hexNoHash(document.getElementById('aurlHalo'));
+    if (nucleus && nucleus !== 'fff4d0') p.set('nucleus', nucleus);
+    if (halo    && halo    !== 'c8952a') p.set('halo', halo);
     /* veil glyph customization (ARG) — per-veil set + custom text */
     const v1set = document.getElementById('aurlVeil1')?.value;
     const v2set = document.getElementById('aurlVeil2')?.value;
@@ -4789,8 +4833,103 @@
     const url = base + (p.toString() ? '?' + p.toString() : '');
     const out = document.getElementById('aurlOutput');
     if (out) out.value = url;
+    /* persist + propagate appearance to embedded neural scene avatars */
+    _saveAvatarBuilder();
     return url;
   }
+  /* ============ AVATAR URL BUILDER · PERSISTENCE ============
+     Saves every field of the URL builder so the user's last settings are
+     remembered across admin reloads. Also exposes the appearance params as a
+     base URL fragment used when neural scenes embed the avatar — so changes
+     in the builder propagate to Starting / BRB / Ending / Tech / Game scenes
+     automatically (per-scene density/bloomtint still override). */
+  function _saveAvatarBuilder(){
+    /* Bail if the URL Builder isn't actually in the DOM. Prevents accidental
+       state-wipes if this function is somehow invoked from a non-admin route
+       where the form fields don't exist (all the `get()` calls would return
+       undefined and we'd overwrite a previously-saved good config with nulls). */
+    if (!document.getElementById('aurlMorph')) return;
+    const get = id => (document.getElementById(id) || {}).value;
+    const chk = id => !!((document.getElementById(id) || {}).checked);
+    const b = {
+      morph:       get('aurlMorph'),
+      theme:       get('aurlTheme'),
+      density:     get('aurlDensity'),
+      gain:        get('aurlGain'),
+      scale:       get('aurlScale'),
+      intensity:   get('aurlIntensity'),
+      bg:          get('aurlBg'),
+      inner:       get('aurlInner'),
+      mid:         get('aurlMid'),
+      outer:       get('aurlOuter'),
+      sparkle:     get('aurlSparkle'),
+      bloomtint:   get('aurlBloomtint'),
+      nucleus:     get('aurlNucleus'),
+      halo:        get('aurlHalo'),
+      veil1:       get('aurlVeil1'),
+      veil2:       get('aurlVeil2'),
+      veil3:       get('aurlVeil3'),
+      veil1text:   get('aurlVeil1text'),
+      veil2text:   get('aurlVeil2text'),
+      veil3text:   get('aurlVeil3text'),
+      veillegible: chk('aurlVeilLegible'),
+      glitchset:   get('aurlGlitchset'),
+      obs:         chk('aurlObs'),
+      aur:         chk('aurlAur'),
+      eye:         chk('aurlEye'),
+      stars:       chk('aurlStars')
+    };
+    state.avatarBuilder = b;
+    try { saveState(); } catch(e) {}
+  }
+  function _restoreAvatarBuilder(){
+    const b = state.avatarBuilder;
+    if (!b) return;
+    const setV = (id, v) => { const el = document.getElementById(id); if (el && v != null && v !== '') el.value = v; };
+    const setC = (id, v) => { const el = document.getElementById(id); if (el && typeof v === 'boolean') el.checked = v; };
+    setV('aurlMorph', b.morph); setV('aurlTheme', b.theme);
+    setV('aurlDensity', b.density);
+    if (b.density) { const d = document.getElementById('aurlDensityVal'); if (d) d.textContent = b.density; }
+    setV('aurlGain', b.gain);
+    if (b.gain) { const g = document.getElementById('aurlGainVal'); if (g) g.textContent = (b.gain/100).toFixed(2); }
+    setV('aurlScale', b.scale);
+    if (b.scale) { const s = document.getElementById('aurlScaleVal'); if (s) s.textContent = (b.scale/100).toFixed(2); }
+    setV('aurlIntensity', b.intensity); setV('aurlBg', b.bg);
+    setV('aurlInner', b.inner); setV('aurlMid', b.mid); setV('aurlOuter', b.outer);
+    setV('aurlSparkle', b.sparkle); setV('aurlBloomtint', b.bloomtint);
+    setV('aurlNucleus', b.nucleus); setV('aurlHalo', b.halo);
+    setV('aurlVeil1', b.veil1); setV('aurlVeil2', b.veil2); setV('aurlVeil3', b.veil3);
+    setV('aurlVeil1text', b.veil1text); setV('aurlVeil2text', b.veil2text); setV('aurlVeil3text', b.veil3text);
+    setC('aurlVeilLegible', b.veillegible); setV('aurlGlitchset', b.glitchset);
+    setC('aurlObs', b.obs); setC('aurlAur', b.aur); setC('aurlEye', b.eye); setC('aurlStars', b.stars);
+  }
+  /* Build the appearance-only query fragment used by embedded neural scenes.
+     Strips obs/density/intensity/bloomtint which the SCENE controls per-mood. */
+  function avatarAppearanceParams(){
+    const b = state.avatarBuilder || {};
+    const p = new URLSearchParams();
+    const hex = v => (v || '').replace('#','').toLowerCase();
+    if (b.morph && b.morph !== '0') p.set('morph', b.morph);
+    if (b.theme && b.theme !== '0') p.set('theme', b.theme);
+    if (hex(b.inner))   p.set('inner', hex(b.inner));
+    if (hex(b.mid))     p.set('mid',   hex(b.mid));
+    if (hex(b.outer))   p.set('outer', hex(b.outer));
+    if (hex(b.sparkle)) p.set('sparkle', hex(b.sparkle));
+    if (hex(b.nucleus) && hex(b.nucleus) !== 'fff4d0') p.set('nucleus', hex(b.nucleus));
+    if (hex(b.halo)    && hex(b.halo)    !== 'c8952a') p.set('halo', hex(b.halo));
+    if (b.veil1) p.set('veil1', b.veil1);
+    if (b.veil2) p.set('veil2', b.veil2);
+    if (b.veil3) p.set('veil3', b.veil3);
+    if (b.veil1text) p.set('veil1text', b.veil1text);
+    if (b.veil2text) p.set('veil2text', b.veil2text);
+    if (b.veil3text) p.set('veil3text', b.veil3text);
+    if (b.veillegible) p.set('veillegible', '1');
+    if (b.glitchset) p.set('glitchset', b.glitchset);
+    if (b.gain && b.gain !== '100') p.set('gain', b.gain);
+    if (b.scale && b.scale !== '100') p.set('scale', b.scale);
+    return p.toString();
+  }
+  window.avatarAppearanceParams = avatarAppearanceParams;
   function aurlCopy(){
     const out = document.getElementById('aurlOutput');
     if (!out || !out.value) { aurlBuild(); }
@@ -4807,9 +4946,14 @@
   function aurlReset(){
     aurlPreset('just-chatting');
   }
-  /* run initial build when admin is loaded so the textarea is populated */
+  /* run initial build when admin is loaded so the textarea is populated.
+     Also restore the user's last saved builder settings BEFORE the build so
+     the URL reflects their previous choices. */
   document.addEventListener('DOMContentLoaded', () => {
-    if (document.getElementById('aurlOutput')) aurlBuild();
+    if (document.getElementById('aurlOutput')) {
+      try { _restoreAvatarBuilder(); } catch(e) {}
+      aurlBuild();
+    }
   });
 
   /* ============ META TAGS ============ */
@@ -4868,7 +5012,7 @@
       grid.innerHTML = `<div class="empty">Add social links in the admin panel.</div>`; return;
     }
     grid.innerHTML = items.map(s => `
-      <a href="${escapeAttr(s.url)}" target="_blank" rel="noopener">
+      <a href="${escapeAttr(s.url)}" target="_blank" rel="noopener" data-social="${s.key}">
         ${s.icon}
         <div>
           <div class="name">${escapeHtml(s.name)}</div>
@@ -5509,6 +5653,51 @@
     renderShop();
     renderAbout();
     fillCommissionsForm();
+    applyPortfolioMode();
+  }
+
+  /* ============ PORTFOLIO MODE ============
+     ?mode=portfolio strips every streaming-related touchpoint so the link can
+     be shared with clients / employers / galleries without the recipient
+     being marketed a Twitch stream they didn't sign up to see. Adds a body
+     class that CSS uses to hide schedule, Watch Live, streaming socials, and
+     swaps the tagline + hero copy for a portfolio-led framing. Stays
+     reversible — remove the param to get the streaming site back. */
+  /* Resolve the canonical portfolio URL: base URL + ?mode=portfolio.
+     Strips any existing query string so the link is always clean. */
+  function portfolioLinkUrl(){
+    const base = location.origin + location.pathname;
+    return base + '?mode=portfolio';
+  }
+  /* Populate the admin field whenever admin opens or saves */
+  function _populatePortfolioLink(){
+    const el = document.getElementById('aPortfolioLink');
+    if (el) el.value = portfolioLinkUrl();
+  }
+  document.addEventListener('DOMContentLoaded', _populatePortfolioLink);
+  window.copyPortfolioLink = function copyPortfolioLink(){
+    const url = portfolioLinkUrl();
+    const done = () => toast('Portfolio link copied');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(done).catch(() => fallbackCopy(url, done));
+    } else { fallbackCopy(url, done); }
+  };
+  window.openPortfolioLink = function openPortfolioLink(){
+    window.open(portfolioLinkUrl(), '_blank', 'noopener');
+  };
+
+  function applyPortfolioMode(){
+    const isPortfolio = new URLSearchParams(location.search).get('mode') === 'portfolio';
+    document.body.classList.toggle('portfolio-mode', isPortfolio);
+    if (!isPortfolio) return;
+    /* swap hero copy to artist-led framing (preserves brand name) */
+    const eyebrow = document.getElementById('heroEyebrowTop');
+    if (eyebrow) eyebrow.textContent = 'SELECTED WORKS';
+    const tagline = document.getElementById('heroTagline');
+    if (tagline) tagline.innerHTML = 'A working portfolio &mdash; selected pieces, available services, commissions on request';
+    /* swap the page title so browser tabs read portfolio-first */
+    const baseBrand = (state && state.brand) || 'Portfolio';
+    document.title = baseBrand + ' &mdash; Portfolio';
   }
 
   /* ============ PIECE EDITOR ============ */
@@ -5785,6 +5974,11 @@
     document.getElementById('aAeEndingFarewells').value = (ae.endingFarewells || []).join('\n');
     /* NEURAL scene content */
     fillNeuralAdmin();
+    /* URL builder — restore last saved settings + rebuild URL preview */
+    try {
+      if (typeof _restoreAvatarBuilder === 'function') _restoreAvatarBuilder();
+      if (typeof aurlBuild === 'function' && document.getElementById('aurlOutput')) aurlBuild();
+    } catch(e) {}
     /* Restore last-used admin tab */
     restoreAdminTab();
     document.getElementById('aEmbersEnabled').checked = state.embersEnabled !== false;
@@ -6392,12 +6586,26 @@
      Starting / BRB / Ending / Technical-difficulties scenes that embed the
      reactive neural-avatar.html in the background (different preset per scene)
      and add HUD framing + editable text + countdown timer. */
-  const NEURAL_SCENE_PRESETS = {
-    starting: '?obs=1&morph=6&theme=3&density=70&intensity=med&bloomtint=8aa8ff',
-    brb:      '?obs=1&morph=6&theme=3&density=55&intensity=low&bloomtint=a060e0',
-    ending:   '?obs=1&morph=6&theme=3&density=45&intensity=low&bloomtint=6080a0',
-    tech:     '?obs=1&morph=2&theme=1&density=80&intensity=med&bloomtint=ff6a6a&sparkle=ff8c4a'
+  /* Per-scene SHAPE/MOOD overrides — these always win over the user's URL
+     builder settings because each scene is meant to feel different (density,
+     intensity, bloom tint). Anything NOT in this list comes from the user's
+     URL builder appearance (colors, nucleus, halo, veils, morph, theme). */
+  const NEURAL_SCENE_OVERRIDES = {
+    starting: { obs: '1', density: '70', intensity: 'med', bloomtint: '8aa8ff' },
+    brb:      { obs: '1', density: '55', intensity: 'low', bloomtint: 'a060e0' },
+    ending:   { obs: '1', density: '45', intensity: 'low', bloomtint: '6080a0' },
+    tech:     { obs: '1', density: '80', intensity: 'med', bloomtint: 'ff6a6a', morph: '2' }
   };
+  /* Build the full param string for a scene by merging user-builder appearance
+     with per-scene overrides. Per-scene overrides ALWAYS win for the keys
+     present in them. */
+  function neuralScenePreset(kind) {
+    const overrides = NEURAL_SCENE_OVERRIDES[kind] || {};
+    const userParams = (typeof avatarAppearanceParams === 'function') ? avatarAppearanceParams() : '';
+    const merged = new URLSearchParams(userParams);
+    Object.keys(overrides).forEach(k => merged.set(k, overrides[k]));
+    return '?' + merged.toString();
+  }
   const _neuralTimers = { starting: null, brbMsg: null, techMsg: null };
   /* Rotates a phrase array into a target element with a glitch flicker.
      Same vibe as the AE brbPhrases rotation but tuned for the cyber-HUD scenes. */
@@ -6424,7 +6632,7 @@
     if (wrap) {
       wrap.innerHTML = '';
       const iframe = document.createElement('iframe');
-      iframe.src = 'neural-avatar.html' + NEURAL_SCENE_PRESETS[kind];
+      iframe.src = 'neural-avatar.html' + neuralScenePreset(kind);
       iframe.allow = 'camera; microphone; autoplay';
       iframe.setAttribute('allowtransparency', 'true');
       wrap.appendChild(iframe);
@@ -6504,7 +6712,12 @@
     if (wrap) {
       wrap.innerHTML = '';
       const iframe = document.createElement('iframe');
-      iframe.src = 'neural-avatar.html?obs=1&morph=6&theme=3&density=55&intensity=low&bloomtint=a0c8ff';
+      /* game-scene avatar = user builder appearance + corner-tuned overrides */
+      const gameParams = new URLSearchParams(typeof avatarAppearanceParams === 'function' ? avatarAppearanceParams() : '');
+      ['obs=1','density=55','intensity=low','bloomtint=a0c8ff'].forEach(kv => {
+        const [k,v] = kv.split('='); gameParams.set(k, v);
+      });
+      iframe.src = 'neural-avatar.html?' + gameParams.toString();
       iframe.allow = 'camera; microphone; autoplay';
       iframe.setAttribute('allowtransparency', 'true');
       wrap.appendChild(iframe);

@@ -588,6 +588,10 @@ const URL_MID       = _parseHexParam('mid');
 const URL_OUTER     = _parseHexParam('outer');
 const URL_SPARKLE   = _parseHexParam('sparkle');
 const URL_BLOOMTINT = _parseHexParam('bloomtint');
+/* nucleus + halo colour overrides — the bright pulsing core and its soft halo
+   at the center of the AinSophAur. Default keeps the existing gold look. */
+const URL_NUCLEUS   = _parseHexParam('nucleus');
+const URL_HALO      = _parseHexParam('halo');
 /* ?gain=N and ?scale=N (N as integer percent, e.g. ?gain=250 = 2.5x).
    These override both the default AND any localStorage-saved value so you can
    bake mic-specific calibration into the OBS URL. Range clamped to 50–500. */
@@ -1005,10 +1009,16 @@ function createAurOverlay(){
       cleanTex: glyphSprites[0]?.userData.cleanTex
     });
   });
-  /* radiant central point — "Limitless Light" itself (smaller to match inner-network scale) */
+  /* radiant central point — "Limitless Light" itself.
+     ?nucleus=hex overrides the default ivory-gold so streamers can theme the
+     core to match their scene mood (e.g. cyan for cyber, red for technical). */
+  const NUCLEUS_DEFAULT = 0xfff4d0;
+  const HALO_DEFAULT    = 0xc8952a;
+  const nucleusColor = URL_NUCLEUS ? new THREE.Color(URL_NUCLEUS).getHex() : NUCLEUS_DEFAULT;
+  const haloColor    = URL_HALO    ? new THREE.Color(URL_HALO).getHex()    : HALO_DEFAULT;
   const coreGeo = new THREE.SphereGeometry(0.45, 24, 24);
   const coreMat = new THREE.MeshBasicMaterial({
-    color: 0xfff4d0, transparent: true, opacity: 0.55,
+    color: nucleusColor, transparent: true, opacity: 0.55,
     blending: THREE.AdditiveBlending, depthWrite: false
   });
   group.userData.core = new THREE.Mesh(coreGeo, coreMat);
@@ -1016,7 +1026,7 @@ function createAurOverlay(){
   /* soft halo around the core */
   const haloGeo = new THREE.SphereGeometry(1.4, 24, 24);
   const haloMat = new THREE.MeshBasicMaterial({
-    color: 0xc8952a, transparent: true, opacity: 0.08,
+    color: haloColor, transparent: true, opacity: 0.08,
     blending: THREE.AdditiveBlending, depthWrite: false
   });
   group.userData.halo = new THREE.Mesh(haloGeo, haloMat);
