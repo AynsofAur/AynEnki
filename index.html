@@ -3890,6 +3890,22 @@
         <h3>TOOLS</h3>
         <div class="admin-grid">
           <div class="panel">
+            <h4 style="color: var(--gold-bright);">&#10070; RECEIPT TRACKER</h4>
+            <p style="color: var(--vellum); font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: .95rem; margin: 0 0 .8rem;">
+              Standalone expense report tool. Capture receipts with your camera, OCR vendor + amount, categorize for Schedule C, export to PDF or CSV. Data lives in browser IndexedDB &mdash; entirely on your device. Works offline as a PWA.
+            </p>
+            <p style="font-size:.85rem; opacity:.7; margin:0 0 .8rem;">
+              Lives at <code>/receipts/</code>. Bookmark it or install it to your home screen for one-tap receipt capture during commissions / stream gear runs.
+            </p>
+            <div style="display:flex; gap:.6rem; flex-wrap:wrap;">
+              <a class="btn primary" href="./receipts/" target="_blank" rel="noopener">Open Receipt Tracker &rarr;</a>
+              <button class="btn" onclick="navigator.clipboard?.writeText(location.origin + location.pathname.replace(/[^/]*$/, '') + 'receipts/'); toast('Link copied');">Copy Link</button>
+            </div>
+            <p style="font-size:.75rem; opacity:.55; margin:.8rem 0 0; font-style:italic;">
+              Categorize as: Office Supplies, Equipment, Marketing, Software &amp; Services, Professional Services, etc. Export the report when tax season hits.
+            </p>
+          </div>
+          <div class="panel">
             <h4 style="color: var(--gold-bright);">&#10070; AMBIENT EMBERS</h4>
             <p style="color: var(--vellum); font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: .95rem; margin: 0 0 .8rem;">Drifting gold particles on the overlay scenes.</p>
 

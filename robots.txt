@@ -1,0 +1,3 @@
+User-agent: *
+Disallow: /receipts/
+Disallow: /AynEnki/receipts/
