@@ -1710,7 +1710,7 @@
       <div class="social-grid" id="socialGrid"></div>
     </div>
 
-    <p class="hint">Press <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>A</kbd> for the sanctum</p>
+    <p class="hint">Press <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>K</kbd> for the sanctum</p>
   </section>
 
   <!-- ============ PORTFOLIO ============ -->
@@ -6508,10 +6508,36 @@
     isAdmin = false; document.getElementById('adminTab').style.display = 'none';
     route('home'); toast('Logged out');
   }
+  /* SANCTUM ACCESS — three independent triggers so no browser shortcut update
+     can ever lock the owner out:
+       1. Ctrl/Cmd + Shift + K (Chrome doesn't reserve this)
+       2. ?sanctum=1 URL param (works in any browser, no keyboard needed)
+       3. Triple-click the nav brand text */
+  function _openSanctum(){
+    if (!isAdmin) openLogin(); else route('admin');
+  }
   document.addEventListener('keydown', e => {
-    if (e.ctrlKey && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'K' || e.key === 'k')) {
       e.preventDefault();
-      if (!isAdmin) openLogin(); else route('admin');
+      _openSanctum();
+    }
+  });
+  /* URL-param trigger — strip the param afterwards so the URL stays clean */
+  if (new URLSearchParams(location.search).get('sanctum') === '1') {
+    setTimeout(() => {
+      _openSanctum();
+      const url = location.origin + location.pathname + location.hash;
+      history.replaceState(null, '', url);
+    }, 200);
+  }
+  /* triple-click on the nav brand */
+  document.addEventListener('DOMContentLoaded', () => {
+    const brandEl = document.getElementById('navBrand');
+    if (brandEl && !brandEl.dataset.sanctumWired) {
+      brandEl.dataset.sanctumWired = '1';
+      brandEl.addEventListener('click', (e) => {
+        if (e.detail === 3) { e.preventDefault(); _openSanctum(); }
+      });
     }
   });
   document.getElementById('loginPassword').addEventListener('keydown', e => {
@@ -7015,4 +7041,159 @@
     document.getElementById('qGearBody').innerHTML = qsState.gear.map(it => qsRowHtml(it, 'gear')).join('');
   }
   function qsRecalc() {
-    const servicesSub = qsState.items.reduce((s, it) => s + (Number(it.qty) || 0) * (N
+    const servicesSub = qsState.items.reduce((s, it) => s + (Number(it.qty) || 0) * (Number(it.rate) || 0), 0);
+    const gearSub = qsState.gear.reduce((s, it) => s + (Number(it.qty) || 0) * (Number(it.rate) || 0), 0);
+    const subtotal = servicesSub + gearSub;
+    const tax = subtotal * ((Number(qsState.info.taxRate) || 0) / 100);
+    const total = subtotal + tax;
+    document.getElementById('qServicesSubtotal').textContent = qsFmt(servicesSub);
+    document.getElementById('qGearSubtotal').textContent = qsFmt(gearSub);
+    document.getElementById('qGearSubtotalBand').textContent = qsFmt(gearSub);
+    document.getElementById('qSubtotal').textContent = qsFmt(subtotal);
+    document.getElementById('qTaxAmount').textContent = qsFmt(tax);
+    document.getElementById('qTotal').textContent = qsFmt(total);
+    /* update per-row amounts without full re-render */
+    document.querySelectorAll('#view-quote tbody tr').forEach(tr => {
+      const id = tr.dataset.id;
+      const kind = tr.dataset.kind;
+      const list = kind === 'gear' ? qsState.gear : qsState.items;
+      const it = list.find(x => x.id === id);
+      if (!it) return;
+      const amt = (Number(it.qty) || 0) * (Number(it.rate) || 0);
+      const amtCell = tr.querySelector('td.right:nth-last-child(2)');
+      if (amtCell) {
+        if (kind === 'gear' && amt === 0) amtCell.innerHTML = `<span style="color:#bbb;font-size:12px;font-family:'DM Mono',monospace;">included</span>`;
+        else amtCell.innerHTML = `<span class="line-amount">${qsFmt(amt)}</span>`;
+      }
+    });
+    /* tax label data attr for preview-mode rendering */
+    document.getElementById('qTaxLabel').setAttribute('data-pct', String(qsState.info.taxRate));
+  }
+  function qsUpdate(kind, id, key, val) {
+    const list = kind === 'gear' ? qsState.gear : qsState.items;
+    const it = list.find(x => x.id === id);
+    if (!it) return;
+    it[key] = (key === 'qty' || key === 'rate') ? (parseFloat(val) || 0) : val;
+    qsSave(); qsRecalc();
+  }
+  function qsRemove(kind, id) {
+    if (kind === 'gear') qsState.gear = qsState.gear.filter(x => x.id !== id);
+    else qsState.items = qsState.items.filter(x => x.id !== id);
+    qsSave(); qsRenderRows(); qsRecalc();
+  }
+  function qsAddItem() {
+    qsState.items.push({ id: qsId(), description: 'New Line Item', qty: 1, unit: 'flat', rate: 0 });
+    qsSave(); qsRenderRows(); qsRecalc();
+  }
+  function qsAddGear() {
+    qsState.gear.push({ id: qsId(), description: 'New Gear / Consumable', qty: 1, unit: 'day', rate: 0 });
+    qsSave(); qsRenderRows(); qsRecalc();
+  }
+  function qsRenderFooter() {
+    document.getElementById('qFooterBrand').textContent = qsState.info.freelancerName;
+    document.getElementById('qFooterRight').textContent = `${qsState.info.quoteNumber} · ${qsState.info.issueDate}`;
+  }
+  function fillQuoteInputs() {
+    document.getElementById('qFreelancerName').value = qsState.info.freelancerName;
+    document.getElementById('qFreelancerTitle').value = qsState.info.freelancerTitle;
+    document.getElementById('qFreelancerEmail').value = qsState.info.freelancerEmail;
+    document.getElementById('qFreelancerPhone').value = qsState.info.freelancerPhone;
+    document.getElementById('qFreelancerAddress').value = qsState.info.freelancerAddress;
+    document.getElementById('qClientName').value = qsState.info.clientName;
+    document.getElementById('qClientCompany').value = qsState.info.clientCompany;
+    document.getElementById('qClientEmail').value = qsState.info.clientEmail;
+    document.getElementById('qProjectTitle').value = qsState.info.projectTitle;
+    document.getElementById('qQuoteNumber').value = qsState.info.quoteNumber;
+    document.getElementById('qIssueDate').value = qsState.info.issueDate;
+    document.getElementById('qValidUntil').value = qsState.info.validUntil;
+    document.getElementById('qCurrency').value = qsState.info.currency;
+    document.getElementById('qTaxRate').value = qsState.info.taxRate;
+    document.getElementById('qNotes').value = qsState.info.notes;
+    document.getElementById('qTerms').value = qsState.info.terms;
+  }
+  function initQuoteSheet() {
+    fillQuoteInputs();
+    qsRenderRows();
+    qsRecalc();
+    qsRenderFooter();
+  }
+  function toggleQuoteEdit() {
+    const preview = document.body.classList.toggle('qs-preview');
+    document.getElementById('qsToggleBtn').innerHTML = preview ? '&#9998; Edit Mode' : '&#128065; Preview Mode';
+  }
+  function resetQuote() {
+    if (!confirm('Reset the quote sheet to defaults?')) return;
+    qsState = JSON.parse(JSON.stringify(QS_DEFAULTS));
+    qsSave(); initQuoteSheet(); toast('Quote sheet reset');
+  }
+
+  /* ============ MOBILE-FRIENDLY ADMIN TRIGGER (5 taps on the nav brand) ============ */
+  let brandTapCount = 0;
+  let brandTapTimer = null;
+  (function setupBrandAdminTap() {
+    const brand = document.getElementById('navBrand');
+    if (!brand) return;
+    brand.addEventListener('click', () => {
+      brandTapCount++;
+      clearTimeout(brandTapTimer);
+      brandTapTimer = setTimeout(() => { brandTapCount = 0; }, 3000);
+      if (brandTapCount >= 5) {
+        brandTapCount = 0;
+        if (typeof isAdmin !== 'undefined' && isAdmin) {
+          route('admin');
+        } else {
+          openLogin();
+        }
+      }
+    });
+  })();
+
+  /* ============ SECRET 7-CLICK GLYPH ============ */
+  let glyphClickCount = 0;
+  let glyphClickTimer = null;
+  function setupSecretGlyph() {
+    const g = document.getElementById('heroGlyph');
+    if (!g) return;
+    g.style.cursor = 'pointer';
+    g.style.userSelect = 'none';
+    g.style.transition = 'all 0.18s ease';
+    g.onclick = (e) => {
+      e.stopPropagation();
+      glyphClickCount++;
+      const scale = 1 + glyphClickCount * 0.06;
+      g.style.transform = `scale(${scale})`;
+      g.style.textShadow = `0 0 ${8 + glyphClickCount * 4}px rgba(201, 160, 80, ${0.4 + glyphClickCount * 0.08})`;
+      setTimeout(() => { g.style.transform = ''; }, 180);
+      clearTimeout(glyphClickTimer);
+      glyphClickTimer = setTimeout(() => {
+        glyphClickCount = 0;
+        g.style.textShadow = '';
+      }, 2500);
+      if (glyphClickCount >= 7) {
+        glyphClickCount = 0;
+        g.style.textShadow = '';
+        window.open('manascanner.html', '_blank', 'noopener');
+        toast('The eye sees...');
+      }
+    };
+  }
+
+  /* ============ TOAST ============ */
+  let toastTimer = null;
+  function toast(msg, isErr) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.borderColor = isErr ? 'var(--bad)' : 'var(--good)';
+    t.style.color = isErr ? 'var(--bad)' : 'var(--good)';
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+  }
+
+  /* ============ INIT ============ */
+  if (state.embersEnabled === false) document.body.classList.add('embers-off');
+  render();
+  handleHash();
+  </script>
+</body>
+</html>
