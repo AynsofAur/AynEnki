@@ -5,10 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title id="metaTitle">MALIKEYE — The Watcher Streams</title>
 <meta id="metaDesc" name="description" content="Malikeye — live streams, portfolio, shop. The eye is open.">
-<meta id="metaOg" property="og:image" content="">
+<!-- Open Graph + Twitter Card metadata — populated dynamically from state in applyMeta().
+     This makes links shared on Twitter / Discord / iMessage / Slack unfurl as a
+     proper preview card (brand, tagline, hero image) instead of a blank box. -->
 <meta property="og:type" content="website">
-<meta property="og:title" content="MALIKEYE">
+<meta property="og:title" id="ogTitle" content="MALIKEYE">
+<meta property="og:description" id="ogDesc" content="">
+<meta id="metaOg" property="og:image" content="">
+<meta property="og:image:alt" id="ogImageAlt" content="">
+<meta property="og:url" id="ogUrl" content="">
+<meta property="og:site_name" id="ogSite" content="MALIKEYE">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" id="twTitle" content="MALIKEYE">
+<meta name="twitter:description" id="twDesc" content="">
+<meta name="twitter:image" id="twImage" content="">
+<link rel="canonical" id="metaCanonical" href="">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@400;600;900&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -2691,6 +2702,28 @@
       88%  { opacity: 0.85; }
       100% { opacity: 1;   transform: translateX(0); }
     }
+
+    /* ============ ACCESSIBILITY: REDUCED MOTION ============
+       Honors the visitor's OS-level "Reduce motion" preference. Disables
+       infinite/looping animations and most transitions. Doesn't kill UI
+       affordance transitions (hover states stay snappy) — just calms the
+       ambient brand motion. Bumps Lighthouse a11y score + is the right
+       thing to do for visitors with vestibular sensitivity. */
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+      /* keep entrance transitions snappy but not jarring — 1ms reads as instant */
+      .nv-stage > *,
+      .nv-game-stage > * { animation: none !important; opacity: 1 !important; transform: none !important; }
+      /* embers + ai-particle canvases stay running but the scene scripts can
+         opt-out via window.matchMedia('(prefers-reduced-motion: reduce)').matches */
+    }
   </style>
 
   <!-- ============ NEURAL · STARTING SOON ============ -->
@@ -4571,7 +4604,11 @@
     'neural-ending':  { init: () => initNeuralScene('ending'),   cleanup: () => cleanupNeuralScene('ending') },
     'neural-tech':    { init: () => initNeuralScene('tech'),     cleanup: () => cleanupNeuralScene('tech') },
     'neural-game':    { init: () => initNeuralGame(),            cleanup: () => cleanupNeuralGame() },
-    'admin':          { init: () => { if (typeof restoreAdminTab === 'function') restoreAdminTab(); }, cleanup: () => {} }
+    'admin':          { init: () => {
+      if (typeof restoreAdminTab === 'function') restoreAdminTab();
+      if (typeof _wireAdminDirtyTracking === 'function') _wireAdminDirtyTracking();
+      _adminDirty = false; _updateDirtyIndicator();
+    }, cleanup: () => {} }
   };
 
   /* ============ NEURAL AVATAR PER-SCENE WIRING ============
@@ -4974,11 +5011,25 @@
 
   /* ============ META TAGS ============ */
   function applyMeta() {
-    document.getElementById('metaTitle').textContent = state.siteTitle || DEFAULTS.siteTitle;
-    document.title = state.siteTitle || DEFAULTS.siteTitle;
-    document.getElementById('metaDesc').setAttribute('content', state.siteDesc || DEFAULTS.siteDesc);
-    document.getElementById('metaOg').setAttribute('content', state.ogImage || '');
-    document.querySelector('meta[property="og:title"]').setAttribute('content', state.siteTitle || DEFAULTS.siteTitle);
+    const title = state.siteTitle || DEFAULTS.siteTitle;
+    const desc  = state.siteDesc  || DEFAULTS.siteDesc;
+    const img   = state.ogImage   || '';
+    const brand = state.brand     || DEFAULTS.brand;
+    const url   = location.origin + location.pathname; /* canonical = page without query/hash */
+    document.getElementById('metaTitle').textContent = title;
+    document.title = title;
+    const set = (id, attr, val) => { const el = document.getElementById(id); if (el) el.setAttribute(attr, val); };
+    set('metaDesc',     'content', desc);
+    set('metaOg',       'content', img);
+    set('ogTitle',      'content', title);
+    set('ogDesc',       'content', desc);
+    set('ogImageAlt',   'content', brand + ' — ' + (state.tagline || ''));
+    set('ogUrl',        'content', url);
+    set('ogSite',       'content', brand);
+    set('twTitle',      'content', title);
+    set('twDesc',       'content', desc);
+    set('twImage',      'content', img);
+    set('metaCanonical','href',    url);
   }
 
   /* ============ HOME RENDER (hero eye + featured + schedule + socials) ============ */
@@ -5008,18 +5059,61 @@
     if (!list.length) { grid.innerHTML = `<div class="empty">No featured pieces yet.</div>`; return; }
     grid.innerHTML = list.map(p => pieceCard(p, 'portfolio')).join('');
   }
+  /* Convert a freeform stream time string like "8:00 PM ET" / "9:00 PM EST"
+     to the viewer's local timezone. If parsing fails (unknown format), returns
+     null so the renderer just shows the original ET text. */
+  function convertScheduleTime(raw){
+    if (!raw) return null;
+    /* Match "H[:MM] AM|PM [ET|EST|EDT]" — case-insensitive, tolerant whitespace */
+    const m = raw.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*(et|est|edt|pt|pst|pdt|ct|cst|cdt|mt|mst|mdt|utc|gmt)?/i);
+    if (!m) return null;
+    let hour = parseInt(m[1], 10);
+    const minute = m[2] ? parseInt(m[2], 10) : 0;
+    const ampm = (m[3] || '').toLowerCase();
+    const tz = (m[4] || 'et').toLowerCase();
+    if (ampm === 'pm' && hour < 12) hour += 12;
+    if (ampm === 'am' && hour === 12) hour = 0;
+    /* Build a Date treating the time as TODAY in the source timezone. We
+       approximate the source TZ by its standard offset — fine for "Next
+       stream" purposes, off by an hour during DST edge cases. */
+    const tzOffsetHrs = {
+      et: -5, est: -5, edt: -4,
+      ct: -6, cst: -6, cdt: -5,
+      mt: -7, mst: -7, mdt: -6,
+      pt: -8, pst: -8, pdt: -7,
+      utc: 0, gmt: 0
+    }[tz] ?? -5;
+    const now = new Date();
+    /* construct UTC moment matching the source local time */
+    const utcMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(),
+                           hour - tzOffsetHrs, minute, 0);
+    const dt = new Date(utcMs);
+    try {
+      const localTime = dt.toLocaleTimeString(undefined, {
+        hour: 'numeric', minute: '2-digit', timeZoneName: 'short'
+      });
+      return localTime;
+    } catch(e) { return null; }
+  }
+
   function renderScheduleTable() {
     const body = document.getElementById('scheduleBody');
     if (!state.schedule.length) {
       body.innerHTML = `<tr><td colspan="3" class="empty">No schedule yet.</td></tr>`;
       return;
     }
-    body.innerHTML = state.schedule.map(s => `
-      <tr>
-        <td class="day">${escapeHtml(s.day)}</td>
-        <td class="title">${escapeHtml(s.title)}</td>
-        <td class="time">${escapeHtml(s.time)}</td>
-      </tr>`).join('');
+    body.innerHTML = state.schedule.map(s => {
+      const localTime = convertScheduleTime(s.time);
+      const timeHtml = localTime
+        ? `${escapeHtml(s.time)}<br><span style="font-size:.78em;opacity:.62;font-style:italic;">your time: ${escapeHtml(localTime)}</span>`
+        : escapeHtml(s.time);
+      return `
+        <tr>
+          <td class="day">${escapeHtml(s.day)}</td>
+          <td class="title">${escapeHtml(s.title)}</td>
+          <td class="time">${timeHtml}</td>
+        </tr>`;
+    }).join('');
   }
   function renderSocialGrid() {
     const grid = document.getElementById('socialGrid');
@@ -5040,7 +5134,7 @@
   /* ============ PIECE CARD + GRIDS ============ */
   function pieceCard(piece, kind) {
     const thumb = piece.thumbnail
-      ? `<img src="${escapeAttr(piece.thumbnail)}" alt="${escapeAttr(piece.title)}" onerror="this.style.display='none'">`
+      ? `<img src="${escapeAttr(piece.thumbnail)}" alt="${escapeAttr(piece.title)}" loading="lazy" decoding="async" onerror="this.style.display='none'">`
       : `<div class="glyph">${escapeHtml((piece.title || '?').slice(0, 2).toUpperCase())}</div>`;
     const featuredClass = piece.featured ? ' featured-flag' : '';
     const featuredBadge = piece.featured ? `<div class="featured-badge">&#10070; FEATURED</div>` : '';
@@ -5137,7 +5231,7 @@
     } else if (piece.viewerType === 'iframe' && piece.viewerUrl) {
       viewerHTML = `<iframe src="${escapeAttr(piece.viewerUrl)}" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
     } else if (piece.thumbnail) {
-      viewerHTML = `<img src="${escapeAttr(piece.thumbnail)}" alt="${escapeAttr(piece.title)}">`;
+      viewerHTML = `<img src="${escapeAttr(piece.thumbnail)}" alt="${escapeAttr(piece.title)}" loading="lazy" decoding="async">`;
     } else {
       viewerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;background:linear-gradient(135deg,var(--red-deep),var(--black-2));font-family:'Cinzel Decorative',serif;font-size:80px;color:rgba(237,224,192,0.5);letter-spacing:8px;">${escapeHtml((piece.title || '?').slice(0, 2).toUpperCase())}</div>`;
     }
@@ -5716,6 +5810,62 @@
     document.title = baseBrand + ' &mdash; Portfolio';
   }
 
+  /* ============ ADMIN AUTO-SAVE + UNSAVED-CHANGES GUARD ============
+     - Tracks "dirty" state when any admin input changes
+     - Auto-saves every 30s if dirty (silent, no toast)
+     - beforeunload warning if user tries to close/refresh with unsaved edits
+     - Ctrl/Cmd+S keyboard shortcut to save manually
+     Only active while admin tab is mounted/visible. */
+  let _adminDirty = false;
+  const ADMIN_AUTOSAVE_MS = 30000;
+  let _adminAutoSaveTimer = null;
+
+  function _markAdminDirty(){
+    if (currentRoute !== 'admin') return;
+    _adminDirty = true;
+    _updateDirtyIndicator();
+  }
+  function _updateDirtyIndicator(){
+    const bar = document.querySelector('#view-admin .admin-savebar');
+    if (!bar) return;
+    bar.style.borderTop = _adminDirty ? '2px solid #e8b84b' : '';
+    /* set the save button's text to hint at unsaved state */
+    const saveBtn = bar.querySelector('.btn.primary');
+    if (saveBtn) saveBtn.textContent = _adminDirty ? 'SAVE ALL CHANGES *' : 'SAVE ALL CHANGES';
+  }
+  function _adminAutoSaveTick(){
+    if (currentRoute === 'admin' && _adminDirty) {
+      try { saveAdmin(); _adminDirty = false; _updateDirtyIndicator(); } catch(e) {}
+    }
+  }
+  function _wireAdminDirtyTracking(){
+    /* attach a single change/input listener to the admin container */
+    const root = document.getElementById('adminBody');
+    if (!root || root.dataset.dirtyWired) return;
+    root.dataset.dirtyWired = '1';
+    root.addEventListener('input',  _markAdminDirty, true);
+    root.addEventListener('change', _markAdminDirty, true);
+  }
+  /* global beforeunload — warn if dirty */
+  window.addEventListener('beforeunload', (e) => {
+    if (_adminDirty) {
+      e.preventDefault();
+      e.returnValue = ''; /* required for Chrome */
+      return '';
+    }
+  });
+  /* global Ctrl/Cmd+S */
+  window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's' && currentRoute === 'admin') {
+      e.preventDefault();
+      try { saveAdmin(); _adminDirty = false; _updateDirtyIndicator(); } catch(err) {}
+    }
+  });
+  /* boot the auto-save interval once */
+  if (!_adminAutoSaveTimer) {
+    _adminAutoSaveTimer = setInterval(_adminAutoSaveTick, ADMIN_AUTOSAVE_MS);
+  }
+
   /* ============ PIECE EDITOR ============ */
   let editorCtx = { kind: null, id: null, pendingVideoFile: null, pendingVideoMeta: null, existingVideoMeta: null };
   function onViewerTypeChange() {
@@ -6155,6 +6305,7 @@
       try { saveNeuralScenes({ silent: true }); } catch(e) { console.warn('neural save failed', e); }
     }
     saveState(); render(); toast('Settings saved');
+    if (typeof _updateDirtyIndicator === 'function') { _adminDirty = false; _updateDirtyIndicator(); }
   }
   function resetAll() {
     if (!confirm('Reset everything to defaults? This erases all custom content.')) return;
@@ -6864,159 +7015,4 @@
     document.getElementById('qGearBody').innerHTML = qsState.gear.map(it => qsRowHtml(it, 'gear')).join('');
   }
   function qsRecalc() {
-    const servicesSub = qsState.items.reduce((s, it) => s + (Number(it.qty) || 0) * (Number(it.rate) || 0), 0);
-    const gearSub = qsState.gear.reduce((s, it) => s + (Number(it.qty) || 0) * (Number(it.rate) || 0), 0);
-    const subtotal = servicesSub + gearSub;
-    const tax = subtotal * ((Number(qsState.info.taxRate) || 0) / 100);
-    const total = subtotal + tax;
-    document.getElementById('qServicesSubtotal').textContent = qsFmt(servicesSub);
-    document.getElementById('qGearSubtotal').textContent = qsFmt(gearSub);
-    document.getElementById('qGearSubtotalBand').textContent = qsFmt(gearSub);
-    document.getElementById('qSubtotal').textContent = qsFmt(subtotal);
-    document.getElementById('qTaxAmount').textContent = qsFmt(tax);
-    document.getElementById('qTotal').textContent = qsFmt(total);
-    /* update per-row amounts without full re-render */
-    document.querySelectorAll('#view-quote tbody tr').forEach(tr => {
-      const id = tr.dataset.id;
-      const kind = tr.dataset.kind;
-      const list = kind === 'gear' ? qsState.gear : qsState.items;
-      const it = list.find(x => x.id === id);
-      if (!it) return;
-      const amt = (Number(it.qty) || 0) * (Number(it.rate) || 0);
-      const amtCell = tr.querySelector('td.right:nth-last-child(2)');
-      if (amtCell) {
-        if (kind === 'gear' && amt === 0) amtCell.innerHTML = `<span style="color:#bbb;font-size:12px;font-family:'DM Mono',monospace;">included</span>`;
-        else amtCell.innerHTML = `<span class="line-amount">${qsFmt(amt)}</span>`;
-      }
-    });
-    /* tax label data attr for preview-mode rendering */
-    document.getElementById('qTaxLabel').setAttribute('data-pct', String(qsState.info.taxRate));
-  }
-  function qsUpdate(kind, id, key, val) {
-    const list = kind === 'gear' ? qsState.gear : qsState.items;
-    const it = list.find(x => x.id === id);
-    if (!it) return;
-    it[key] = (key === 'qty' || key === 'rate') ? (parseFloat(val) || 0) : val;
-    qsSave(); qsRecalc();
-  }
-  function qsRemove(kind, id) {
-    if (kind === 'gear') qsState.gear = qsState.gear.filter(x => x.id !== id);
-    else qsState.items = qsState.items.filter(x => x.id !== id);
-    qsSave(); qsRenderRows(); qsRecalc();
-  }
-  function qsAddItem() {
-    qsState.items.push({ id: qsId(), description: 'New Line Item', qty: 1, unit: 'flat', rate: 0 });
-    qsSave(); qsRenderRows(); qsRecalc();
-  }
-  function qsAddGear() {
-    qsState.gear.push({ id: qsId(), description: 'New Gear / Consumable', qty: 1, unit: 'day', rate: 0 });
-    qsSave(); qsRenderRows(); qsRecalc();
-  }
-  function qsRenderFooter() {
-    document.getElementById('qFooterBrand').textContent = qsState.info.freelancerName;
-    document.getElementById('qFooterRight').textContent = `${qsState.info.quoteNumber} · ${qsState.info.issueDate}`;
-  }
-  function fillQuoteInputs() {
-    document.getElementById('qFreelancerName').value = qsState.info.freelancerName;
-    document.getElementById('qFreelancerTitle').value = qsState.info.freelancerTitle;
-    document.getElementById('qFreelancerEmail').value = qsState.info.freelancerEmail;
-    document.getElementById('qFreelancerPhone').value = qsState.info.freelancerPhone;
-    document.getElementById('qFreelancerAddress').value = qsState.info.freelancerAddress;
-    document.getElementById('qClientName').value = qsState.info.clientName;
-    document.getElementById('qClientCompany').value = qsState.info.clientCompany;
-    document.getElementById('qClientEmail').value = qsState.info.clientEmail;
-    document.getElementById('qProjectTitle').value = qsState.info.projectTitle;
-    document.getElementById('qQuoteNumber').value = qsState.info.quoteNumber;
-    document.getElementById('qIssueDate').value = qsState.info.issueDate;
-    document.getElementById('qValidUntil').value = qsState.info.validUntil;
-    document.getElementById('qCurrency').value = qsState.info.currency;
-    document.getElementById('qTaxRate').value = qsState.info.taxRate;
-    document.getElementById('qNotes').value = qsState.info.notes;
-    document.getElementById('qTerms').value = qsState.info.terms;
-  }
-  function initQuoteSheet() {
-    fillQuoteInputs();
-    qsRenderRows();
-    qsRecalc();
-    qsRenderFooter();
-  }
-  function toggleQuoteEdit() {
-    const preview = document.body.classList.toggle('qs-preview');
-    document.getElementById('qsToggleBtn').innerHTML = preview ? '&#9998; Edit Mode' : '&#128065; Preview Mode';
-  }
-  function resetQuote() {
-    if (!confirm('Reset the quote sheet to defaults?')) return;
-    qsState = JSON.parse(JSON.stringify(QS_DEFAULTS));
-    qsSave(); initQuoteSheet(); toast('Quote sheet reset');
-  }
-
-  /* ============ MOBILE-FRIENDLY ADMIN TRIGGER (5 taps on the nav brand) ============ */
-  let brandTapCount = 0;
-  let brandTapTimer = null;
-  (function setupBrandAdminTap() {
-    const brand = document.getElementById('navBrand');
-    if (!brand) return;
-    brand.addEventListener('click', () => {
-      brandTapCount++;
-      clearTimeout(brandTapTimer);
-      brandTapTimer = setTimeout(() => { brandTapCount = 0; }, 3000);
-      if (brandTapCount >= 5) {
-        brandTapCount = 0;
-        if (typeof isAdmin !== 'undefined' && isAdmin) {
-          route('admin');
-        } else {
-          openLogin();
-        }
-      }
-    });
-  })();
-
-  /* ============ SECRET 7-CLICK GLYPH ============ */
-  let glyphClickCount = 0;
-  let glyphClickTimer = null;
-  function setupSecretGlyph() {
-    const g = document.getElementById('heroGlyph');
-    if (!g) return;
-    g.style.cursor = 'pointer';
-    g.style.userSelect = 'none';
-    g.style.transition = 'all 0.18s ease';
-    g.onclick = (e) => {
-      e.stopPropagation();
-      glyphClickCount++;
-      const scale = 1 + glyphClickCount * 0.06;
-      g.style.transform = `scale(${scale})`;
-      g.style.textShadow = `0 0 ${8 + glyphClickCount * 4}px rgba(201, 160, 80, ${0.4 + glyphClickCount * 0.08})`;
-      setTimeout(() => { g.style.transform = ''; }, 180);
-      clearTimeout(glyphClickTimer);
-      glyphClickTimer = setTimeout(() => {
-        glyphClickCount = 0;
-        g.style.textShadow = '';
-      }, 2500);
-      if (glyphClickCount >= 7) {
-        glyphClickCount = 0;
-        g.style.textShadow = '';
-        window.open('manascanner.html', '_blank', 'noopener');
-        toast('The eye sees...');
-      }
-    };
-  }
-
-  /* ============ TOAST ============ */
-  let toastTimer = null;
-  function toast(msg, isErr) {
-    const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.style.borderColor = isErr ? 'var(--bad)' : 'var(--good)';
-    t.style.color = isErr ? 'var(--bad)' : 'var(--good)';
-    t.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
-  }
-
-  /* ============ INIT ============ */
-  if (state.embersEnabled === false) document.body.classList.add('embers-off');
-  render();
-  handleHash();
-  </script>
-</body>
-</html>
+    const servicesSub = qsState.items.reduce((s, it) => s + (Number(it.qty) || 0) * (N
