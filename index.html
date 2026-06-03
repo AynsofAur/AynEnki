@@ -3548,6 +3548,8 @@
                   <option value="5">Bicone</option>
                   <option value="6" selected>Tree of Life</option>
                   <option value="7">Eye</option>
+                  <option value="8">Skull (wireframe)</option>
+                  <option value="9">Liquid (gel)</option>
                 </select>
               </div>
               <div class="field">
@@ -3634,6 +3636,12 @@
                   </label>
                   <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem;">
                     <input type="checkbox" id="aurlStars" checked onchange="aurlBuild()"> Starfield
+                  </label>
+                  <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem;">
+                    <input type="checkbox" id="aurlSpectral" onchange="aurlBuild()"> Spectral mode (pitch → hue)
+                  </label>
+                  <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem;">
+                    <input type="checkbox" id="aurlShockwave" onchange="aurlBuild()"> Shockwave bloom (voice spikes)
                   </label>
                 </div>
               </div>
@@ -4886,6 +4894,10 @@
     if (!document.getElementById('aurlAur').checked) p.set('aur', '0');
     if (document.getElementById('aurlEye').checked) p.set('eye', '1');
     if (!document.getElementById('aurlStars').checked) p.set('stars', '0');
+    const spectralEl = document.getElementById('aurlSpectral');
+    const shockwaveEl = document.getElementById('aurlShockwave');
+    if (spectralEl && spectralEl.checked)   p.set('spectral', '1');
+    if (shockwaveEl && shockwaveEl.checked) p.set('shockwave', '1');
     /* selects + sliders */
     const m = document.getElementById('aurlMorph').value;
     const th = document.getElementById('aurlTheme').value;
@@ -7219,34 +7231,4 @@
       setTimeout(() => { g.style.transform = ''; }, 180);
       clearTimeout(glyphClickTimer);
       glyphClickTimer = setTimeout(() => {
-        glyphClickCount = 0;
-        g.style.textShadow = '';
-      }, 2500);
-      if (glyphClickCount >= 7) {
-        glyphClickCount = 0;
-        g.style.textShadow = '';
-        window.open('manascanner.html', '_blank', 'noopener');
-        toast('The eye sees...');
-      }
-    };
-  }
-
-  /* ============ TOAST ============ */
-  let toastTimer = null;
-  function toast(msg, isErr) {
-    const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.style.borderColor = isErr ? 'var(--bad)' : 'var(--good)';
-    t.style.color = isErr ? 'var(--bad)' : 'var(--good)';
-    t.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
-  }
-
-  /* ============ INIT ============ */
-  if (state.embersEnabled === false) document.body.classList.add('embers-off');
-  render();
-  handleHash();
-  </script>
-</body>
-</html>
+        glyphClickCount 
