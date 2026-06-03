@@ -601,6 +601,14 @@ const URL_SCALE = (()=>{ const v = parseInt(params.get('scale'),10); return (!is
    the small camera preview, even when ?obs=1 is set. Helps verify what's
    actually reaching the network in OBS without yanking the setup panel back. */
 const DEBUG_MODE = params.get('debug') === '1';
+/* SPECTRAL MODE — voice pitch drives a full hue sweep across the network.
+   ?spectral=1 enables. ?spectralintensity=0-100 controls strength (default 100). */
+const URL_SPECTRAL = params.get('spectral') === '1';
+const URL_SPECTRAL_INTENSITY = (()=>{ const v = parseInt(params.get('spectralintensity'),10); return (!isNaN(v) && v>=0 && v<=100) ? v/100 : 1.0; })();
+/* SHOCKWAVE — voice transients fire 3D waves through the network.
+   ?shockwave=1 enables. ?shockspeed=N (units/sec, default 14). */
+const URL_SHOCKWAVE = params.get('shockwave') === '1';
+const URL_SHOCK_SPEED = (()=>{ const v = parseFloat(params.get('shockspeed')); return (!isNaN(v) && v >= 1 && v <= 100) ? v : 14.0; })();
 /* ?camera=substring — picks the first available camera whose label contains
    this substring (case-insensitive). Lets you override the auto-picker if it
    guesses wrong. Example: ?camera=c920 forces a Logitech C920. */
@@ -684,7 +692,7 @@ const config = {
   paused: false,
   activePaletteIndex: STARTING_THEME,
   currentFormation: 0,
-  numFormations: 8,
+  numFormations: 10,
   densityFactor: 1
 };
 
@@ -703,8 +711,17 @@ const AVATAR_STATE = {
   /* reverie tracking: timestamp of last vocal/mouth activity,
      and the last autonomous reverie pulse */
   lastVocalTime: 0,
-  lastReveriePulse: 0
+  lastReveriePulse: 0,
+  /* shockwave bookkeeping — used by the voice-transient detector */
+  lastShockTime: -10,
+  lastVoiceSnapshot: 0
 };
+
+/* Runtime flags for live toggle via postMessage / keyboard. Initial values
+   come from URL params; can be flipped at runtime by the control bridge. */
+let SPECTRAL_ENABLED = URL_SPECTRAL;
+let SPECTRAL_INTENSITY = URL_SPECTRAL_INTENSITY;
+let SHOCKWAVE_ENABLED = URL_SHOCKWAVE;
 
 const colorPalettes = [
   [
@@ -1254,6 +1271,17 @@ const pulseUniforms = {
   /* reactive uniforms */
   uVoiceLevel: { value: 0.0 },
   uVoicePitch: { value: 0.3 },
+  /* Spectral mode — voice pitch drives a full hue sweep across the network.
+     0 = off (just the subtle baseline tint), 1 = full hue shift active. */
+  uSpectral: { value: 0.0 },
+  uSpectralIntensity: { value: 1.0 },
+  /* Shockwave — voice transients trigger a 3D wave radiating from uShockOrigin.
+     uShockTime is the time the wave was fired; the shader computes age from
+     it and brightens nodes inside the expanding shell. */
+  uShockOrigin: { value: new THREE.Vector3(0, 0, 0) },
+  uShockTime: { value: -10.0 },
+  uShockSpeed: { value: 14.0 },
+  uTimeNow: { value: 0.0 },
   uMouthOpen: { value: 0.0 },
   uFaceActive: { value: 0.0 },
   /* per-shell scale uniforms: inner stays near 1.0 (nucleus), middle and
@@ -1421,6 +1449,12 @@ uniform vec3 uShellColorInner;
 uniform vec3 uShellColorMid;
 uniform vec3 uShellColorOuter;
 uniform float uShellColorMix;
+uniform float uSpectral;
+uniform float uSpectralIntensity;
+uniform vec3 uShockOrigin;
+uniform float uShockTime;
+uniform float uShockSpeed;
+uniform float uTimeNow;
 varying vec3 vColor;
 varying float vNodeType;
 varying vec3 vPosition;
@@ -1429,6 +1463,20 @@ varying float vDistanceFromRoot;
 varying float vGlow;
 varying float vVoice;
 varying vec3 vShellWeights;
+/* HSV ↔ RGB — used by spectral mode to shift hue by voice pitch */
+vec3 hsv2rgb(vec3 c){
+  vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
+  vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+  return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
+vec3 rgb2hsv(vec3 c){
+  vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0);
+  vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+  vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+  float d = q.x - min(q.w, q.y);
+  float e = 1.0e-10;
+  return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
 void main(){
   vec2 center=2.0*gl_PointCoord-1.0;
   float dist=length(center);
@@ -1448,7 +1496,29 @@ void main(){
   vec3 baseColor=tinted*breatheColor;
   baseColor.r+=uVoicePitch*0.1;
   baseColor.b+=(1.0-uVoicePitch)*0.05;
+  /* SPECTRAL MODE — sweep the network's hue across the spectrum based on voice
+     pitch. low pitch → warm/red, high pitch → cool/violet. uSpectralIntensity
+     fades between the original color (0) and full pitch-driven hue (1). */
+  if (uSpectral > 0.5) {
+    vec3 hsv = rgb2hsv(baseColor);
+    float targetHue = mix(0.02, 0.78, clamp(uVoicePitch, 0.0, 1.0));
+    hsv.x = mix(hsv.x, targetHue, uSpectralIntensity);
+    hsv.y = max(hsv.y, 0.55 * uSpectralIntensity);
+    baseColor = hsv2rgb(hsv);
+  }
   vec3 finalColor=baseColor;
+  /* SHOCKWAVE — bright shell expanding outward from uShockOrigin. The wavefront
+     radius grows as (now - shockTime) * uShockSpeed; nodes inside a thin shell
+     around that radius get briefly brightened. Decays so the effect fades. */
+  float shockAge = uTimeNow - uShockTime;
+  if (shockAge > 0.0 && shockAge < 1.5) {
+    float waveR = shockAge * uShockSpeed;
+    float distToOrigin = length(vPosition - uShockOrigin);
+    float shellWidth = 2.5 + shockAge * 1.2;
+    float inShell = 1.0 - smoothstep(0.0, shellWidth, abs(distToOrigin - waveR));
+    float decay = 1.0 - shockAge / 1.5;
+    finalColor += vec3(1.0, 0.92, 0.78) * inShell * decay * 1.4;
+  }
   if(vPulseIntensity>0.0){
     vec3 pulseColor=mix(vec3(1.0),uPulseColors[0],0.4);
     finalColor=mix(baseColor,pulseColor,vPulseIntensity*0.8);
@@ -2229,6 +2299,198 @@ function generateNeuralNetwork(formationIndex, densityFactor=1.0){
       lastTear=n;
     }
   }
+  /* ============ SKULL MORPH (#8) ============
+     Procedural skull lattice: cranium dome + eye sockets + nose + jaw.
+     Mandible nodes are tagged with userData.jawAnchor so the animate loop
+     can drop the jaw down based on mouthOpen. */
+  function skull(){
+    rootNode = new Node(new THREE.Vector3(0,0,0), 0, 0);
+    rootNode.size = 1.4;
+    nodes.push(rootNode);
+
+    /* Cranium ellipsoid (upper portion only) */
+    const cW = 11, cH = 12.5, cD = 10.5;
+    const eyeOffX = 4.0, eyeOffY = 1.2, eyeOffZ = 8.5, eyeR = 2.4;
+    const samples = Math.floor(120 * densityFactor);
+    const craniumNodes = [];
+    for (let i = 0; i < samples; i++) {
+      const phi = Math.acos(1 - 1.4 * (i + 0.5) / samples);
+      if (phi > Math.PI * 0.82) continue; /* skip below jaw line */
+      const theta = i * Math.PI * (3 - Math.sqrt(5));
+      const x = cW * Math.sin(phi) * Math.cos(theta);
+      const y = cH * Math.cos(phi) - 1.0;
+      const z = cD * Math.sin(phi) * Math.sin(theta);
+      /* carve eye sockets out of front */
+      if (z > 4) {
+        const dL = Math.hypot(x + eyeOffX, y - eyeOffY, z - eyeOffZ);
+        const dR = Math.hypot(x - eyeOffX, y - eyeOffY, z - eyeOffZ);
+        if (dL < eyeR * 1.05 || dR < eyeR * 1.05) continue;
+      }
+      const pos = new THREE.Vector3(x, y, z);
+      const n = new Node(pos, 1, Math.random() < 0.18 ? 1 : 0);
+      n.distanceFromRoot = pos.length();
+      n.size = THREE.MathUtils.randFloat(0.55, 1.0);
+      craniumNodes.push(n);
+      nodes.push(n);
+    }
+    /* Wireframe lattice — each cranium node links to its 3-4 nearest neighbors */
+    craniumNodes.forEach(n => {
+      const neighbors = craniumNodes
+        .filter(o => o !== n)
+        .map(o => ({ o, d: n.position.distanceTo(o.position) }))
+        .sort((a, b) => a.d - b.d)
+        .slice(0, 4);
+      neighbors.forEach(({ o, d }) => {
+        if (d < 4.8 && !n.isConnectedTo(o)) n.addConnection(o, Math.max(0.3, 1.0 - d / 5.5));
+      });
+    });
+
+    /* Eye socket rings — visible rim around each socket */
+    const ringCount = Math.floor(14 * densityFactor);
+    [-1, 1].forEach(side => {
+      const ring = [];
+      for (let i = 0; i < ringCount; i++) {
+        const a = (i / ringCount) * Math.PI * 2;
+        const x = side * eyeOffX + Math.cos(a) * eyeR;
+        const y = eyeOffY + Math.sin(a) * eyeR * 0.85;
+        const z = eyeOffZ + Math.cos(a) * 0.4;
+        const n = new Node(new THREE.Vector3(x, y, z), 2, 0);
+        n.size = 0.85;
+        n.distanceFromRoot = n.position.length();
+        ring.push(n); nodes.push(n);
+      }
+      for (let i = 0; i < ring.length; i++) ring[i].addConnection(ring[(i + 1) % ring.length], 0.9);
+    });
+
+    /* Nose hollow — inverted triangle of nodes between eyes */
+    const noseY = [-1.5, -2.5, -3.8];
+    const nosePts = [
+      [0, 2.0, 9.0],
+      [-1.4, noseY[0], 9.3], [1.4, noseY[0], 9.3],
+      [-1.6, noseY[1], 9.4], [1.6, noseY[1], 9.4],
+      [0, noseY[2], 9.5],
+    ];
+    const noseNodes = nosePts.map(p => {
+      const n = new Node(new THREE.Vector3(p[0], p[1], p[2]), 2, 0);
+      n.size = 0.55; n.distanceFromRoot = n.position.length();
+      nodes.push(n); return n;
+    });
+    noseNodes[0].addConnection(noseNodes[1], 0.7); noseNodes[0].addConnection(noseNodes[2], 0.7);
+    noseNodes[1].addConnection(noseNodes[3], 0.6); noseNodes[2].addConnection(noseNodes[4], 0.6);
+    noseNodes[3].addConnection(noseNodes[5], 0.5); noseNodes[4].addConnection(noseNodes[5], 0.5);
+    noseNodes[1].addConnection(noseNodes[2], 0.5);
+
+    /* Upper teeth row — stays fixed, marks the upper mouth boundary */
+    const upperCount = Math.floor(13 * densityFactor);
+    const upperNodes = [];
+    for (let i = 0; i < upperCount; i++) {
+      const t = i / (upperCount - 1);
+      const a = (t - 0.5) * Math.PI * 0.95;
+      const x = Math.sin(a) * 6.0;
+      const y = -5.0;
+      const z = Math.cos(a) * 7.2;
+      const n = new Node(new THREE.Vector3(x, y, z), 3, 0);
+      n.size = 0.5; n.distanceFromRoot = n.position.length();
+      upperNodes.push(n); nodes.push(n);
+    }
+    for (let i = 1; i < upperNodes.length; i++) upperNodes[i].addConnection(upperNodes[i-1], 0.85);
+
+    /* Mandible — tagged for jaw-open behaviour */
+    const jawCount = Math.floor(20 * densityFactor);
+    const jawNodes = [];
+    for (let i = 0; i < jawCount; i++) {
+      const t = i / (jawCount - 1);
+      const a = (t - 0.5) * Math.PI * 1.05;
+      const x = Math.sin(a) * 7.5;
+      const y = -7.5 - Math.cos(a) * 1.8;
+      const z = Math.cos(a) * 6.8 - 0.5;
+      const pos = new THREE.Vector3(x, y, z);
+      const n = new Node(pos, 3, 0);
+      n.size = 0.75; n.distanceFromRoot = pos.length();
+      n.jawAnchor = true;            /* flag — animate loop reads this for mouth-open jaw drop */
+      n.basePosition = pos.clone();  /* save baseline for additive offsets */
+      jawNodes.push(n); nodes.push(n);
+    }
+    for (let i = 1; i < jawNodes.length; i++) jawNodes[i].addConnection(jawNodes[i-1], 0.9);
+    /* cross-link cheekbones — connect mandible ends back to cranium sides */
+    [jawNodes[0], jawNodes[jawNodes.length - 1]].forEach(end => {
+      let best = craniumNodes[0], bd = Infinity;
+      for (const c of craniumNodes) {
+        if (c.position.y > 4) continue;
+        const d = end.position.distanceTo(c.position);
+        if (d < bd) { bd = d; best = c; }
+      }
+      if (best && bd < 8) end.addConnection(best, 0.6);
+    });
+    /* link upper teeth to cranium base + nose */
+    upperNodes.forEach(n => {
+      let best = craniumNodes[0], bd = Infinity;
+      for (const c of craniumNodes) {
+        const d = n.position.distanceTo(c.position);
+        if (d < bd) { bd = d; best = c; }
+      }
+      if (best && bd < 5) n.addConnection(best, 0.45);
+    });
+
+    /* Root tendrils */
+    rootNode.addConnection(craniumNodes[0] || jawNodes[0], 0.5);
+  }
+
+  /* ============ LIQUID / FLUID MORPH (#9) ============
+     Soft-body droplet: nodes drift on curl-noise displacement so the lattice
+     reads as gelatinous. Animation loop applies time-based noise for the
+     constant motion; this function just lays the rest field. Voice spikes
+     will ripple through it via the shader. */
+  function liquid(){
+    rootNode = new Node(new THREE.Vector3(0,0,0), 0, 0);
+    rootNode.size = 1.6;
+    nodes.push(rootNode);
+    /* Tear-drop / squashed ellipsoid base */
+    const layers = 6;
+    const layerNodes = [];
+    for (let l = 1; l <= layers; l++) {
+      const t = l / layers;
+      /* radius widens then tapers — droplet profile */
+      const radius = 4 + t * 8 - Math.pow(t - 0.5, 2) * 4;
+      const ySquash = 1 + t * 0.5;
+      const num = Math.floor(l * 14 * densityFactor);
+      const ring = [];
+      for (let i = 0; i < num; i++) {
+        const phi = Math.acos(1 - 2 * (i + 0.5) / num);
+        const theta = 2 * Math.PI * i / ((1 + Math.sqrt(5)) / 2);
+        /* slight randomness so it feels organic rather than precise */
+        const jitter = THREE.MathUtils.randFloat(0.85, 1.15);
+        const x = radius * Math.sin(phi) * Math.cos(theta) * jitter;
+        const y = radius * Math.cos(phi) * ySquash * jitter;
+        const z = radius * Math.sin(phi) * Math.sin(theta) * jitter;
+        const pos = new THREE.Vector3(x, y, z);
+        const n = new Node(pos, l, Math.random() < 0.25 ? 1 : 0);
+        n.distanceFromRoot = pos.length();
+        n.size = THREE.MathUtils.randFloat(0.5, 1.1);
+        n.fluid = true;                  /* tag — animate loop wobbles fluid-tagged nodes */
+        n.basePosition = pos.clone();
+        n.fluidPhase = Math.random() * Math.PI * 2;
+        ring.push(n); layerNodes.push(n); nodes.push(n);
+      }
+      /* connect each ring node to ~3 nearest in previous layer or to root */
+      ring.forEach(n => {
+        if (l === 1) { rootNode.addConnection(n, 0.7); return; }
+        const prev = layerNodes.filter(o => o.level === l - 1);
+        const near = prev
+          .map(o => ({ o, d: n.position.distanceTo(o.position) }))
+          .sort((a, b) => a.d - b.d).slice(0, 3);
+        near.forEach(({ o, d }) => n.addConnection(o, Math.max(0.3, 1.0 - d / 12)));
+      });
+      /* lateral within-ring connections — gives the gel its surface tension feel */
+      ring.forEach(n => {
+        const near = ring.filter(o => o !== n)
+          .map(o => ({ o, d: n.position.distanceTo(o.position) }))
+          .sort((a, b) => a.d - b.d).slice(0, 4);
+        near.forEach(({ o, d }) => { if (d < radius * 0.9 && !n.isConnectedTo(o)) n.addConnection(o, 0.5); });
+      });
+    }
+  }
+
   switch(formationIndex%config.numFormations){
     case 0: sphere(); break;
     case 1: helix(); break;
@@ -2238,6 +2500,8 @@ function generateNeuralNetwork(formationIndex, densityFactor=1.0){
     case 5: bicone(); break;
     case 6: treeOfLife(); break;
     case 7: eyeMorph(); break;
+    case 8: skull(); break;
+    case 9: liquid(); break;
   }
   if(densityFactor<1.0){
     const target=Math.ceil(nodes.length*Math.max(0.3,densityFactor));
@@ -2255,8 +2519,10 @@ function generateNeuralNetwork(formationIndex, densityFactor=1.0){
      Added AFTER pruning so the density slider doesn't kill the nucleus.
      Skipped for formations 6 (Tree of Life) and 7 (Eye) — those have their
      own deliberately-placed inner content that the random nucleus would clutter. */
-  const skipsNucleus = (formationIndex % config.numFormations === 6) ||
-                       (formationIndex % config.numFormations === 7);
+  const skipsNucleus = (formationIndex % config.numFormations === 6) || /* Tree of Life */
+                       (formationIndex % config.numFormations === 7) || /* Eye */
+                       (formationIndex % config.numFormations === 8) || /* Skull — has its own dense structure */
+                       (formationIndex % config.numFormations === 9);   /* Liquid — droplet would muddy with dust */
   if (rootNode && !skipsNucleus) {
     const nucleusCount = Math.max(18, Math.floor(48 * densityFactor));
     const nucleusNodes = [];
@@ -2381,6 +2647,23 @@ function createNetworkVisualization(formationIndex, densityFactor=1.0){
   });
   /* push current shell colours into the freshly-built shader uniforms */
   applyShellColors(false);
+  applySpectralUniforms(); /* push current spectral/shockwave state into the fresh shaders */
+}
+
+/* Push runtime spectral + shockwave settings into the live shader uniforms.
+   Called after every network rebuild and any time the flags change at runtime. */
+function applySpectralUniforms() {
+  const setU = (mesh, key, val) => {
+    if (mesh && mesh.material && mesh.material.uniforms && mesh.material.uniforms[key]) {
+      mesh.material.uniforms[key].value = val;
+    }
+  };
+  setU(nodesMesh,       'uSpectral',          SPECTRAL_ENABLED ? 1.0 : 0.0);
+  setU(nodesMesh,       'uSpectralIntensity', SPECTRAL_INTENSITY);
+  setU(nodesMesh,       'uShockSpeed',        URL_SHOCK_SPEED);
+  setU(connectionsMesh, 'uSpectral',          SPECTRAL_ENABLED ? 1.0 : 0.0);
+  setU(connectionsMesh, 'uSpectralIntensity', SPECTRAL_INTENSITY);
+  setU(connectionsMesh, 'uShockSpeed',        URL_SHOCK_SPEED);
 }
 
 function updateTheme(idx){
@@ -3014,6 +3297,35 @@ window.addEventListener('message', (e) => {
   if (d.pulse === true) actionPulse();
   if (typeof d.paused === 'boolean' && d.paused !== config.paused) actionFreeze();
   if (typeof d.eye === 'boolean' && d.eye !== eyeVisible) actionToggleEye();
+  /* live effect toggles — spectral & shockwave */
+  if (typeof d.spectral === 'boolean') {
+    SPECTRAL_ENABLED = d.spectral;
+    applySpectralUniforms();
+  }
+  if (typeof d.spectralIntensity === 'number') {
+    SPECTRAL_INTENSITY = Math.max(0, Math.min(1, d.spectralIntensity > 1 ? d.spectralIntensity / 100 : d.spectralIntensity));
+    applySpectralUniforms();
+  }
+  if (typeof d.shockwave === 'boolean') {
+    SHOCKWAVE_ENABLED = d.shockwave;
+  }
+  if (d.fireShockwave === true && nodesMesh) {
+    /* manual shockwave trigger — useful for keyboard binding / button press */
+    const now = clock.getElapsedTime();
+    nodesMesh.material.uniforms.uShockTime.value = now;
+    nodesMesh.material.uniforms.uShockOrigin.value.set(d.shockX || 0, d.shockY || 0, d.shockZ || 4);
+    if (connectionsMesh && connectionsMesh.material.uniforms.uShockTime) {
+      connectionsMesh.material.uniforms.uShockTime.value = now;
+      connectionsMesh.material.uniforms.uShockOrigin.value.set(d.shockX || 0, d.shockY || 0, d.shockZ || 4);
+    }
+  }
+  /* live nucleus + halo colour updates — feed into the AinSophAur core */
+  if (d.colors && aurGroup) {
+    const core = aurGroup.userData.core, halo = aurGroup.userData.halo;
+    const setHex = (mat, hex) => { try { mat.color.set(hex); } catch(_){} };
+    if (core && d.colors.nucleus) setHex(core.material, d.colors.nucleus);
+    if (halo && d.colors.halo)    setHex(halo.material, d.colors.halo);
+  }
   if (typeof d.aur === 'boolean' && d.aur !== aurVisible) actionToggleAur();
   if (typeof d.bloom === 'boolean' && d.bloom !== bloomEnabled) actionToggleBloom();
   /* morph + density rebuild the network — slightly heavier */
@@ -3367,6 +3679,89 @@ function animate(){
     }
   }
 
+  /* ============ PER-MORPH PER-FRAME MOTION ============
+     Skull: drop jaw on mouthOpen.
+     Liquid: curl-noise drift + voice ripple.
+     Other morphs leave node positions alone. */
+  if (!config.paused && nodesMesh && neuralNetwork) {
+    const morph = config.currentFormation % config.numFormations;
+    let anyMoved = false;
+    const posAttr = nodesMesh.geometry.attributes.position;
+    if (morph === 8) {
+      /* Skull — jawAnchor nodes drop with mouth open */
+      const mouth = AVATAR_STATE.mouthOpen;
+      const jawDropY = -mouth * 4.5;
+      neuralNetwork.nodes.forEach((n, i) => {
+        if (!n.jawAnchor || !n.basePosition) return;
+        const ny = n.basePosition.y + jawDropY;
+        const nz = n.basePosition.z - mouth * 0.5; /* slight pull toward camera for chin */
+        n.position.set(n.basePosition.x, ny, nz);
+        posAttr.setXYZ(i, n.position.x, n.position.y, n.position.z);
+        anyMoved = true;
+      });
+    } else if (morph === 9) {
+      /* Liquid — soft drift + voice spike ripple */
+      const voice = AVATAR_STATE.voiceLevel;
+      const wave = 1.0 + voice * 1.6;
+      neuralNetwork.nodes.forEach((n, i) => {
+        if (!n.fluid || !n.basePosition) return;
+        const ph = n.fluidPhase || 0;
+        /* layered sinusoids = pseudo-curl-noise; cheap but reads as organic */
+        const dx = Math.sin(t * 0.7 + ph) * 0.45 + Math.cos(t * 1.3 + ph * 1.7) * 0.25;
+        const dy = Math.cos(t * 0.9 + ph * 0.6) * 0.45 + Math.sin(t * 1.5 + ph) * 0.25;
+        const dz = Math.sin(t * 1.1 + ph * 1.2) * 0.45 + Math.cos(t * 0.6 + ph * 0.8) * 0.25;
+        /* voice ripple — outward pulse proportional to distance from origin */
+        const r = n.basePosition.length();
+        const ripple = Math.sin(r * 0.45 - t * 4.0) * voice * 0.9;
+        const ux = n.basePosition.x * (1 / Math.max(r, 0.01));
+        const uy = n.basePosition.y * (1 / Math.max(r, 0.01));
+        const uz = n.basePosition.z * (1 / Math.max(r, 0.01));
+        n.position.set(
+          (n.basePosition.x + dx + ux * ripple) * wave,
+          (n.basePosition.y + dy + uy * ripple) * wave,
+          (n.basePosition.z + dz + uz * ripple) * wave
+        );
+        posAttr.setXYZ(i, n.position.x, n.position.y, n.position.z);
+        anyMoved = true;
+      });
+    }
+    if (anyMoved) {
+      posAttr.needsUpdate = true;
+      /* Also update connection segments — each connection is rendered as 20
+         consecutive vertices sharing the same startPoint+endPoint. We dedupe
+         pairs (matches createNetworkVisualization's done-Set) then write 20
+         entries per pair. */
+      if (connectionsMesh) {
+        const cStart = connectionsMesh.geometry.attributes.startPoint;
+        const cEnd   = connectionsMesh.geometry.attributes.endPoint;
+        if (cStart && cEnd) {
+          const SEG = 20;
+          const done = new Set();
+          let pi = 0;
+          neuralNetwork.nodes.forEach((node, ni) => {
+            node.connections.forEach(conn => {
+              const cni = neuralNetwork.nodes.indexOf(conn.node);
+              if (cni === -1) return;
+              const k = (ni < cni) ? (ni + '-' + cni) : (cni + '-' + ni);
+              if (done.has(k)) return;
+              done.add(k);
+              const sx = node.position.x, sy = node.position.y, sz = node.position.z;
+              const ex = conn.node.position.x, ey = conn.node.position.y, ez = conn.node.position.z;
+              const base = pi * SEG;
+              for (let v = 0; v < SEG; v++) {
+                cStart.setXYZ(base + v, sx, sy, sz);
+                cEnd.setXYZ(base + v,   ex, ey, ez);
+              }
+              pi++;
+            });
+          });
+          cStart.needsUpdate = true;
+          cEnd.needsUpdate = true;
+        }
+      }
+    }
+  }
+
   /* auto-pulse triggers */
   if(!config.paused && nodesMesh){
     /* track vocal activity for the reverie state */
@@ -3382,6 +3777,32 @@ function animate(){
       const angle = Math.random()*Math.PI*2;
       const r = 6 + Math.random()*8;
       triggerPulseAt(new THREE.Vector3(Math.cos(angle)*r, (Math.random()-0.5)*4, Math.sin(angle)*r));
+    }
+    /* SHOCKWAVE TRIGGER — voice TRANSIENT (rate of change) above a threshold
+       fires a 3D wave. We compare current voiceLevel to a 0.1s-ago sample
+       held in AVATAR_STATE.lastVoiceSnapshot. The wave origin is the nucleus
+       (typically near 0,0,0) but offset slightly forward for visual punch. */
+    if (SHOCKWAVE_ENABLED && nodesMesh) {
+      const prev = AVATAR_STATE.lastVoiceSnapshot || 0;
+      const delta = AVATAR_STATE.voiceLevel - prev;
+      if (delta > 0.18 && t - AVATAR_STATE.lastShockTime > 0.35) {
+        AVATAR_STATE.lastShockTime = t;
+        const u = nodesMesh.material.uniforms;
+        if (u.uShockTime) u.uShockTime.value = t;
+        if (u.uShockOrigin) u.uShockOrigin.value.set(0, 0, 4);
+        if (connectionsMesh && connectionsMesh.material.uniforms.uShockTime) {
+          connectionsMesh.material.uniforms.uShockTime.value = t;
+          connectionsMesh.material.uniforms.uShockOrigin.value.set(0, 0, 4);
+        }
+      }
+      AVATAR_STATE.lastVoiceSnapshot = prev * 0.6 + AVATAR_STATE.voiceLevel * 0.4;
+    }
+    /* keep uTimeNow ticking so shockwave shader can compute its age */
+    if (nodesMesh && nodesMesh.material.uniforms.uTimeNow) {
+      nodesMesh.material.uniforms.uTimeNow.value = t;
+      if (connectionsMesh && connectionsMesh.material.uniforms.uTimeNow) {
+        connectionsMesh.material.uniforms.uTimeNow.value = t;
+      }
     }
     /* ============ REVERIE STATE ============
        After ~10 seconds of silence, the network starts dreaming — gentle

@@ -1640,6 +1640,33 @@
                onchange="controlAvatar({scaleSensitivity: parseInt(this.value,10)/100})">
       </div>
       <div class="acp-row"><span class="acp-label"></span><span class="acp-val" id="acpScaleVal">1.00x</span></div>
+      <!-- LIVE EFFECTS — toggle spectral mode and trigger shockwaves mid-stream -->
+      <div class="acp-btn-row" style="margin-top: 6px;">
+        <button id="acpSpectralBtn" onclick="acpToggleSpectral()">Spectral: OFF</button>
+        <button id="acpShockBtn" onclick="acpToggleShockwave()">Shockwave: OFF</button>
+        <button class="acp-action" onclick="controlAvatar({fireShockwave: true})">Burst</button>
+      </div>
+      <!-- LIVE COLOUR PICKERS — change shell, sparkle, nucleus mid-stream -->
+      <div class="acp-row" style="margin-top: 8px;"><span class="acp-label">Inner</span>
+        <input type="color" id="acpColorInner" value="#e8b84b"
+               onchange="acpPushColor('inner', this.value)" style="width: 36px; height: 22px; padding: 0; border: 1px solid var(--gold); background: transparent;">
+      </div>
+      <div class="acp-row"><span class="acp-label">Middle</span>
+        <input type="color" id="acpColorMid" value="#a060e0"
+               onchange="acpPushColor('mid', this.value)" style="width: 36px; height: 22px; padding: 0; border: 1px solid var(--gold); background: transparent;">
+      </div>
+      <div class="acp-row"><span class="acp-label">Outer</span>
+        <input type="color" id="acpColorOuter" value="#6080a0"
+               onchange="acpPushColor('outer', this.value)" style="width: 36px; height: 22px; padding: 0; border: 1px solid var(--gold); background: transparent;">
+      </div>
+      <div class="acp-row"><span class="acp-label">Sparkle</span>
+        <input type="color" id="acpColorSparkle" value="#f5d07a"
+               onchange="acpPushColor('sparkle', this.value)" style="width: 36px; height: 22px; padding: 0; border: 1px solid var(--gold); background: transparent;">
+      </div>
+      <div class="acp-row"><span class="acp-label">Nucleus</span>
+        <input type="color" id="acpColorNucleus" value="#fff4d0"
+               onchange="acpPushColor('nucleus', this.value)" style="width: 36px; height: 22px; padding: 0; border: 1px solid var(--gold); background: transparent;">
+      </div>
     </div>
   </div>
 
@@ -4643,7 +4670,7 @@
   };
 
   /* CONTROL PANEL HELPERS — wire the buttons in #avatarControlPanel */
-  const MORPH_NAMES = ['Sphere','Helix','Fractal','Torus','Lattice','Bicone','Tree of Life','Eye'];
+  const MORPH_NAMES = ['Sphere','Helix','Fractal','Torus','Lattice','Bicone','Tree of Life','Eye','Skull','Liquid'];
   const THEME_NAMES = ['Purple Nebula','Sunset Fire','Ocean Aurora','Malikeye'];
   let _acpMorph = 6; /* matches the default in NEURAL_SCENE_MAP (Tree) */
   let _acpTheme = 3;
@@ -4663,6 +4690,32 @@
     controlAvatar({ paused: _acpFrozen });
     const btn = document.getElementById('acpFreezeBtn');
     if (btn) btn.textContent = _acpFrozen ? 'Resume' : 'Freeze';
+  };
+  /* LIVE EFFECT TOGGLES — flip spectral + shockwave during stream without
+     editing URL or hitting reload. Both feed through the postMessage bridge. */
+  let _acpSpectral = false;
+  let _acpShock = false;
+  window.acpToggleSpectral = function(){
+    _acpSpectral = !_acpSpectral;
+    controlAvatar({ spectral: _acpSpectral });
+    const btn = document.getElementById('acpSpectralBtn');
+    if (btn) btn.textContent = 'Spectral: ' + (_acpSpectral ? 'ON' : 'OFF');
+  };
+  window.acpToggleShockwave = function(){
+    _acpShock = !_acpShock;
+    controlAvatar({ shockwave: _acpShock });
+    const btn = document.getElementById('acpShockBtn');
+    if (btn) btn.textContent = 'Shockwave: ' + (_acpShock ? 'ON' : 'OFF');
+  };
+  /* Live colour push — hex strings with leading # work; we strip it for the
+     existing controlAvatar colors API which expects bare hex. Nucleus + halo
+     route through the same colors block; the iframe applies them additively. */
+  window.acpPushColor = function(slot, hex){
+    if (!hex) return;
+    const v = hex.replace('#', '');
+    const payload = { colors: {} };
+    payload.colors[slot] = v;
+    controlAvatar(payload);
   };
 
   let _neuralHideTimer = null;
