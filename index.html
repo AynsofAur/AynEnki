@@ -7231,4 +7231,29 @@
       setTimeout(() => { g.style.transform = ''; }, 180);
       clearTimeout(glyphClickTimer);
       glyphClickTimer = setTimeout(() => {
-        glyphClickCount 
+        glyphClickCount = 0;
+        g.style.transform = '';
+        g.style.textShadow = '';
+      }, 700);
+      if (glyphClickCount >= 7) {
+        glyphClickCount = 0;
+        g.style.transform = '';
+        g.style.textShadow = '';
+        clearTimeout(glyphClickTimer);
+        if (typeof _openSanctum === 'function') {
+          _openSanctum();
+        } else if (typeof openLogin === 'function') {
+          openLogin();
+        }
+      }
+    };
+  }
+  /* fire as soon as DOM is ready, then once more after hero render */
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupSecretGlyph);
+  } else {
+    setupSecretGlyph();
+  }
+  </script>
+</body>
+</html>
