@@ -581,7 +581,7 @@ function _parseHexParam(name){
   const clean = v.startsWith('#') ? v.slice(1) : v;
   return /^[0-9a-f]{6}$/i.test(clean) ? '#' + clean : null;
 }
-const URL_MORPH = (()=>{ const v = parseInt(params.get('morph'),10); return (!isNaN(v) && v>=0 && v<=7) ? v : null; })();
+const URL_MORPH = (()=>{ const v = parseInt(params.get('morph'),10); return (!isNaN(v) && v>=0 && v<=9) ? v : null; })();
 const URL_DENSITY = (()=>{ const v = parseInt(params.get('density'),10); return (!isNaN(v) && v>=30 && v<=100) ? v/100 : null; })();
 const URL_INNER     = _parseHexParam('inner');
 const URL_MID       = _parseHexParam('mid');
