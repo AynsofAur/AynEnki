@@ -1953,6 +1953,14 @@ function generateNeuralNetwork(formationIndex, densityFactor=1.0){
       const n=new Node(s.pos, s.level, 0);
       n.distanceFromRoot=s.pos.length();
       n.size=s.size;
+      /* Tag sephirot for organic motion — gentler than full liquid morph
+         (amp 0.18 vs 0.45) so the canonical positions remain readable. */
+      n.fluid = true;
+      n.basePosition = s.pos.clone();
+      n.fluidPhase = Math.random() * Math.PI * 2;
+      n.fluidAmp = 0.18;
+      n.fluidWaveScale = 0.4;
+      n.fluidRippleScale = 0.5;
       nodes.push(n); return n;
     });
     /* root anchors to Tiphareth at the heart of the tree */
@@ -2299,141 +2307,231 @@ function generateNeuralNetwork(formationIndex, densityFactor=1.0){
       lastTear=n;
     }
   }
-  /* ============ SKULL MORPH (#8) ============
-     Procedural skull lattice: cranium dome + eye sockets + nose + jaw.
-     Mandible nodes are tagged with userData.jawAnchor so the animate loop
-     can drop the jaw down based on mouthOpen. */
+  /* ============ SKULL MORPH (#8) — v2 ============
+     Reworked to read more clearly as a skull silhouette:
+     - cranium is just the UPPER dome (phi 0..PI/2), no rear/bottom fill
+     - eye sockets are RECESSED (front face curves inward to socket centers)
+     - mandible is much heavier (more nodes, larger drop, U-shape)
+     - cheekbone arches connect cranium sides to upper teeth */
   function skull(){
     rootNode = new Node(new THREE.Vector3(0,0,0), 0, 0);
-    rootNode.size = 1.4;
+    rootNode.size = 1.2;
     nodes.push(rootNode);
 
-    /* Cranium ellipsoid (upper portion only) */
-    const cW = 11, cH = 12.5, cD = 10.5;
-    const eyeOffX = 4.0, eyeOffY = 1.2, eyeOffZ = 8.5, eyeR = 2.4;
-    const samples = Math.floor(120 * densityFactor);
+    /* Skull dimensions */
+    const cW = 9.5, cH = 11.0, cD = 9.5;   /* cranium ellipsoid */
+    const eyeOffX = 3.8, eyeOffY = 0.5;     /* eye center offsets */
+    const eyeR = 2.8;                       /* eye socket hole radius */
+    const eyeRecess = 1.3;                  /* how deep eyes recede into skull */
+
+    /* Cranium dome — phi limited to upper half so we don't fill the back/below */
+    const samples = Math.floor(180 * densityFactor);
     const craniumNodes = [];
     for (let i = 0; i < samples; i++) {
-      const phi = Math.acos(1 - 1.4 * (i + 0.5) / samples);
-      if (phi > Math.PI * 0.82) continue; /* skip below jaw line */
+      const phi = Math.acos(1 - (i + 0.5) / samples);     /* 0..PI/2 (upper hemisphere) */
+      if (phi > Math.PI * 0.55) continue;                  /* hard-cap upper hemisphere only */
       const theta = i * Math.PI * (3 - Math.sqrt(5));
       const x = cW * Math.sin(phi) * Math.cos(theta);
-      const y = cH * Math.cos(phi) - 1.0;
+      const y = cH * Math.cos(phi) + 1.0;                  /* lift dome up */
       const z = cD * Math.sin(phi) * Math.sin(theta);
-      /* carve eye sockets out of front */
-      if (z > 4) {
-        const dL = Math.hypot(x + eyeOffX, y - eyeOffY, z - eyeOffZ);
-        const dR = Math.hypot(x - eyeOffX, y - eyeOffY, z - eyeOffZ);
-        if (dL < eyeR * 1.05 || dR < eyeR * 1.05) continue;
-      }
+      /* skip backs of head — only render visible silhouette + front */
+      if (z < -cD * 0.4) continue;
       const pos = new THREE.Vector3(x, y, z);
-      const n = new Node(pos, 1, Math.random() < 0.18 ? 1 : 0);
+      const n = new Node(pos, 1, Math.random() < 0.15 ? 1 : 0);
       n.distanceFromRoot = pos.length();
-      n.size = THREE.MathUtils.randFloat(0.55, 1.0);
+      n.size = THREE.MathUtils.randFloat(0.45, 0.85);
       craniumNodes.push(n);
       nodes.push(n);
     }
-    /* Wireframe lattice — each cranium node links to its 3-4 nearest neighbors */
+    /* Wireframe lattice — 3-4 nearest neighbors per cranium node */
     craniumNodes.forEach(n => {
-      const neighbors = craniumNodes
+      const near = craniumNodes
         .filter(o => o !== n)
         .map(o => ({ o, d: n.position.distanceTo(o.position) }))
         .sort((a, b) => a.d - b.d)
         .slice(0, 4);
-      neighbors.forEach(({ o, d }) => {
-        if (d < 4.8 && !n.isConnectedTo(o)) n.addConnection(o, Math.max(0.3, 1.0 - d / 5.5));
+      near.forEach(({ o, d }) => {
+        if (d < 4.0 && !n.isConnectedTo(o)) n.addConnection(o, Math.max(0.35, 1.0 - d / 4.5));
       });
     });
 
-    /* Eye socket rings — visible rim around each socket */
-    const ringCount = Math.floor(14 * densityFactor);
+    /* Face plate (between brow and chin) — front sheet of the skull where
+       eye sockets get carved. Nodes here are recessed where the sockets
+       should be, creating the illusion of depth into the head. */
+    const faceCount = Math.floor(90 * densityFactor);
+    const faceNodes = [];
+    for (let i = 0; i < faceCount; i++) {
+      /* uniform sampling of a rectangle in (x, y) at z = ~cD */
+      const fx = (Math.random() - 0.5) * cW * 1.6;
+      const fy = -3.0 + Math.random() * 6.0;     /* y range covers upper-face to maxilla */
+      /* base z curves slightly inward toward the sides (skull is narrower in profile) */
+      const sideTaper = 1.0 - Math.pow(Math.abs(fx) / (cW * 0.95), 2) * 0.35;
+      let fz = cD * 0.88 * sideTaper;
+      /* recess into eye sockets — z dips inward where (fx, fy) lies inside socket */
+      const dL = Math.hypot(fx + eyeOffX, fy - eyeOffY);
+      const dR = Math.hypot(fx - eyeOffX, fy - eyeOffY);
+      const dSocket = Math.min(dL, dR);
+      if (dSocket < eyeR) {
+        /* full carve: skip nodes near socket centers (the hole) */
+        if (dSocket < eyeR * 0.55) continue;
+        /* otherwise recess them inward to form the socket wall */
+        const recess = (1.0 - dSocket / eyeR) * eyeRecess;
+        fz -= recess;
+      }
+      /* check we're inside the cranium silhouette at this height */
+      if (fx*fx / (cW*cW) + fy*fy / (cH*cH) > 1.05) continue;
+      const pos = new THREE.Vector3(fx, fy, fz);
+      const n = new Node(pos, 1, Math.random() < 0.18 ? 1 : 0);
+      n.distanceFromRoot = pos.length();
+      n.size = THREE.MathUtils.randFloat(0.4, 0.75);
+      faceNodes.push(n);
+      nodes.push(n);
+    }
+    /* triangulate face nodes — connect to nearest 3 */
+    faceNodes.forEach(n => {
+      const near = faceNodes
+        .filter(o => o !== n)
+        .map(o => ({ o, d: n.position.distanceTo(o.position) }))
+        .sort((a, b) => a.d - b.d)
+        .slice(0, 3);
+      near.forEach(({ o, d }) => {
+        if (d < 3.0 && !n.isConnectedTo(o)) n.addConnection(o, Math.max(0.3, 1.0 - d / 3.5));
+      });
+    });
+    /* stitch face to cranium dome (top edge) */
+    faceNodes.filter(n => n.position.y > 1.5).forEach(n => {
+      let best = craniumNodes[0], bd = Infinity;
+      for (const c of craniumNodes) {
+        if (c.position.y < n.position.y) continue;
+        const d = n.position.distanceTo(c.position);
+        if (d < bd) { bd = d; best = c; }
+      }
+      if (best && bd < 4.0) n.addConnection(best, 0.5);
+    });
+
+    /* Eye socket rings — sit at the socket boundary, RECESSED inward */
+    const ringCount = Math.floor(16 * densityFactor);
     [-1, 1].forEach(side => {
       const ring = [];
       for (let i = 0; i < ringCount; i++) {
         const a = (i / ringCount) * Math.PI * 2;
         const x = side * eyeOffX + Math.cos(a) * eyeR;
-        const y = eyeOffY + Math.sin(a) * eyeR * 0.85;
-        const z = eyeOffZ + Math.cos(a) * 0.4;
+        const y = eyeOffY + Math.sin(a) * eyeR * 0.9;
+        const z = cD * 0.88 - eyeRecess * 0.8;          /* recessed back of normal face plate */
         const n = new Node(new THREE.Vector3(x, y, z), 2, 0);
-        n.size = 0.85;
+        n.size = 0.9;
         n.distanceFromRoot = n.position.length();
         ring.push(n); nodes.push(n);
       }
-      for (let i = 0; i < ring.length; i++) ring[i].addConnection(ring[(i + 1) % ring.length], 0.9);
+      for (let i = 0; i < ring.length; i++) ring[i].addConnection(ring[(i + 1) % ring.length], 0.95);
     });
 
-    /* Nose hollow — inverted triangle of nodes between eyes */
-    const noseY = [-1.5, -2.5, -3.8];
+    /* Nose triangle — small inverted V between sockets */
     const nosePts = [
-      [0, 2.0, 9.0],
-      [-1.4, noseY[0], 9.3], [1.4, noseY[0], 9.3],
-      [-1.6, noseY[1], 9.4], [1.6, noseY[1], 9.4],
-      [0, noseY[2], 9.5],
+      [0, 1.8, cD * 0.92],
+      [-1.0, -1.0, cD * 0.92], [1.0, -1.0, cD * 0.92],
+      [0, -3.0, cD * 0.92],
     ];
     const noseNodes = nosePts.map(p => {
       const n = new Node(new THREE.Vector3(p[0], p[1], p[2]), 2, 0);
-      n.size = 0.55; n.distanceFromRoot = n.position.length();
+      n.size = 0.6; n.distanceFromRoot = n.position.length();
       nodes.push(n); return n;
     });
     noseNodes[0].addConnection(noseNodes[1], 0.7); noseNodes[0].addConnection(noseNodes[2], 0.7);
-    noseNodes[1].addConnection(noseNodes[3], 0.6); noseNodes[2].addConnection(noseNodes[4], 0.6);
-    noseNodes[3].addConnection(noseNodes[5], 0.5); noseNodes[4].addConnection(noseNodes[5], 0.5);
-    noseNodes[1].addConnection(noseNodes[2], 0.5);
+    noseNodes[1].addConnection(noseNodes[3], 0.65); noseNodes[2].addConnection(noseNodes[3], 0.65);
+    noseNodes[1].addConnection(noseNodes[2], 0.45);
 
-    /* Upper teeth row — stays fixed, marks the upper mouth boundary */
-    const upperCount = Math.floor(13 * densityFactor);
+    /* Upper teeth / maxilla — horizontal arc just below the nose */
+    const upperCount = Math.floor(15 * densityFactor);
     const upperNodes = [];
     for (let i = 0; i < upperCount; i++) {
       const t = i / (upperCount - 1);
-      const a = (t - 0.5) * Math.PI * 0.95;
-      const x = Math.sin(a) * 6.0;
+      const a = (t - 0.5) * Math.PI * 0.85;
+      const x = Math.sin(a) * 5.0;
       const y = -5.0;
-      const z = Math.cos(a) * 7.2;
+      const z = Math.cos(a) * cD * 0.88 - 0.2;
       const n = new Node(new THREE.Vector3(x, y, z), 3, 0);
-      n.size = 0.5; n.distanceFromRoot = n.position.length();
+      n.size = 0.55; n.distanceFromRoot = n.position.length();
       upperNodes.push(n); nodes.push(n);
     }
     for (let i = 1; i < upperNodes.length; i++) upperNodes[i].addConnection(upperNodes[i-1], 0.85);
 
-    /* Mandible — tagged for jaw-open behaviour */
-    const jawCount = Math.floor(20 * densityFactor);
+    /* Cheekbone arches — diagonal chains from outer cranium to upper teeth ends */
+    [-1, 1].forEach(side => {
+      const startCranium = craniumNodes.find(c => Math.abs(c.position.x - side * cW * 0.85) < 1.5 && c.position.y > 0 && c.position.z > 0);
+      const endTeeth = side < 0 ? upperNodes[0] : upperNodes[upperNodes.length - 1];
+      if (!startCranium || !endTeeth) return;
+      const segs = Math.max(3, Math.floor(4 * densityFactor));
+      let prev = startCranium;
+      for (let i = 1; i <= segs; i++) {
+        const t = i / segs;
+        const x = startCranium.position.x * (1-t) + endTeeth.position.x * t;
+        const y = startCranium.position.y * (1-t) + endTeeth.position.y * t;
+        const z = startCranium.position.z * (1-t) + endTeeth.position.z * t + Math.sin(t * Math.PI) * 0.6;
+        const n = new Node(new THREE.Vector3(x, y, z), 2, 0);
+        n.size = 0.55; n.distanceFromRoot = n.position.length();
+        nodes.push(n);
+        n.addConnection(prev, 0.7);
+        prev = n;
+      }
+      prev.addConnection(endTeeth, 0.7);
+    });
+
+    /* Mandible (lower jaw) — heavy U-shape, drops with mouth open */
+    const jawCount = Math.floor(28 * densityFactor);
     const jawNodes = [];
     for (let i = 0; i < jawCount; i++) {
       const t = i / (jawCount - 1);
-      const a = (t - 0.5) * Math.PI * 1.05;
-      const x = Math.sin(a) * 7.5;
-      const y = -7.5 - Math.cos(a) * 1.8;
-      const z = Math.cos(a) * 6.8 - 0.5;
+      const a = (t - 0.5) * Math.PI * 1.0;
+      const x = Math.sin(a) * 6.5;
+      const y = -7.5 - Math.cos(a) * 1.5;
+      const z = Math.cos(a) * cD * 0.78;
       const pos = new THREE.Vector3(x, y, z);
       const n = new Node(pos, 3, 0);
-      n.size = 0.75; n.distanceFromRoot = pos.length();
-      n.jawAnchor = true;            /* flag — animate loop reads this for mouth-open jaw drop */
-      n.basePosition = pos.clone();  /* save baseline for additive offsets */
+      /* base mandible nodes are big and bright so they're unmistakably "jaw" */
+      n.size = THREE.MathUtils.randFloat(0.8, 1.2);
+      n.distanceFromRoot = pos.length();
+      n.jawAnchor = true;
+      n.basePosition = pos.clone();
       jawNodes.push(n); nodes.push(n);
     }
-    for (let i = 1; i < jawNodes.length; i++) jawNodes[i].addConnection(jawNodes[i-1], 0.9);
-    /* cross-link cheekbones — connect mandible ends back to cranium sides */
-    [jawNodes[0], jawNodes[jawNodes.length - 1]].forEach(end => {
-      let best = craniumNodes[0], bd = Infinity;
-      for (const c of craniumNodes) {
-        if (c.position.y > 4) continue;
-        const d = end.position.distanceTo(c.position);
-        if (d < bd) { bd = d; best = c; }
+    /* chain mandible nodes + add a second parallel row for thickness */
+    for (let i = 1; i < jawNodes.length; i++) jawNodes[i].addConnection(jawNodes[i-1], 0.95);
+    /* second chain just behind for a fuller jaw line */
+    const jawBackCount = Math.floor(20 * densityFactor);
+    const jawBackNodes = [];
+    for (let i = 0; i < jawBackCount; i++) {
+      const t = i / (jawBackCount - 1);
+      const a = (t - 0.5) * Math.PI * 0.9;
+      const x = Math.sin(a) * 5.6;
+      const y = -6.6 - Math.cos(a) * 1.0;
+      const z = Math.cos(a) * cD * 0.55 - 0.3;
+      const pos = new THREE.Vector3(x, y, z);
+      const n = new Node(pos, 3, 0);
+      n.size = 0.7;
+      n.distanceFromRoot = pos.length();
+      n.jawAnchor = true;
+      n.basePosition = pos.clone();
+      jawBackNodes.push(n); nodes.push(n);
+    }
+    for (let i = 1; i < jawBackNodes.length; i++) jawBackNodes[i].addConnection(jawBackNodes[i-1], 0.85);
+    /* lattice between the two jaw rows */
+    jawNodes.forEach(n => {
+      let best = jawBackNodes[0], bd = Infinity;
+      for (const b of jawBackNodes) {
+        const d = n.position.distanceTo(b.position);
+        if (d < bd) { bd = d; best = b; }
       }
-      if (best && bd < 8) end.addConnection(best, 0.6);
+      if (best && bd < 4.0) n.addConnection(best, 0.7);
     });
-    /* link upper teeth to cranium base + nose */
-    upperNodes.forEach(n => {
-      let best = craniumNodes[0], bd = Infinity;
-      for (const c of craniumNodes) {
-        const d = n.position.distanceTo(c.position);
-        if (d < bd) { bd = d; best = c; }
-      }
-      if (best && bd < 5) n.addConnection(best, 0.45);
+    /* mandible ends pivot near the cheekbones (the jaw "hinge") */
+    [jawNodes[0], jawNodes[jawNodes.length - 1]].forEach(end => {
+      const target = end.position.x < 0 ? upperNodes[0] : upperNodes[upperNodes.length - 1];
+      if (target) end.addConnection(target, 0.65);
     });
 
-    /* Root tendrils */
-    rootNode.addConnection(craniumNodes[0] || jawNodes[0], 0.5);
+    /* Root tendril */
+    rootNode.addConnection(craniumNodes[0] || jawNodes[0], 0.4);
   }
 
   /* ============ LIQUID / FLUID MORPH (#9) ============
@@ -3679,52 +3777,53 @@ function animate(){
     }
   }
 
-  /* ============ PER-MORPH PER-FRAME MOTION ============
-     Skull: drop jaw on mouthOpen.
-     Liquid: curl-noise drift + voice ripple.
-     Other morphs leave node positions alone. */
+  /* ============ PER-FRAME NODE MOTION (FLAG-DRIVEN) ============
+     We now iterate ALL nodes once and apply behaviour based on the tags they
+     carry. This means a single morph can mix multiple behaviours (e.g. Tree
+     of Life can have organic fluid-tagged sephirot AND a jawAnchor node — see
+     the morph definitions for which tags they apply).
+       jawAnchor → drop on mouthOpen (skull)
+       fluid     → curl-noise drift + voice ripple (liquid + organic tree) */
   if (!config.paused && nodesMesh && neuralNetwork) {
-    const morph = config.currentFormation % config.numFormations;
     let anyMoved = false;
     const posAttr = nodesMesh.geometry.attributes.position;
-    if (morph === 8) {
-      /* Skull — jawAnchor nodes drop with mouth open */
-      const mouth = AVATAR_STATE.mouthOpen;
-      const jawDropY = -mouth * 4.5;
-      neuralNetwork.nodes.forEach((n, i) => {
-        if (!n.jawAnchor || !n.basePosition) return;
-        const ny = n.basePosition.y + jawDropY;
-        const nz = n.basePosition.z - mouth * 0.5; /* slight pull toward camera for chin */
-        n.position.set(n.basePosition.x, ny, nz);
-        posAttr.setXYZ(i, n.position.x, n.position.y, n.position.z);
-        anyMoved = true;
-      });
-    } else if (morph === 9) {
-      /* Liquid — soft drift + voice spike ripple */
-      const voice = AVATAR_STATE.voiceLevel;
-      const wave = 1.0 + voice * 1.6;
-      neuralNetwork.nodes.forEach((n, i) => {
-        if (!n.fluid || !n.basePosition) return;
+    const mouth = AVATAR_STATE.mouthOpen;
+    const voice = AVATAR_STATE.voiceLevel;
+    const jawDropY = -mouth * 6.0;   /* deeper jaw drop than before */
+    neuralNetwork.nodes.forEach((n, i) => {
+      let moved = false;
+      let px = n.position.x, py = n.position.y, pz = n.position.z;
+      if (n.jawAnchor && n.basePosition) {
+        px = n.basePosition.x;
+        py = n.basePosition.y + jawDropY;
+        pz = n.basePosition.z - mouth * 0.7;     /* slight pull forward for chin */
+        moved = true;
+      }
+      if (n.fluid && n.basePosition) {
         const ph = n.fluidPhase || 0;
-        /* layered sinusoids = pseudo-curl-noise; cheap but reads as organic */
-        const dx = Math.sin(t * 0.7 + ph) * 0.45 + Math.cos(t * 1.3 + ph * 1.7) * 0.25;
-        const dy = Math.cos(t * 0.9 + ph * 0.6) * 0.45 + Math.sin(t * 1.5 + ph) * 0.25;
-        const dz = Math.sin(t * 1.1 + ph * 1.2) * 0.45 + Math.cos(t * 0.6 + ph * 0.8) * 0.25;
-        /* voice ripple — outward pulse proportional to distance from origin */
-        const r = n.basePosition.length();
-        const ripple = Math.sin(r * 0.45 - t * 4.0) * voice * 0.9;
-        const ux = n.basePosition.x * (1 / Math.max(r, 0.01));
-        const uy = n.basePosition.y * (1 / Math.max(r, 0.01));
-        const uz = n.basePosition.z * (1 / Math.max(r, 0.01));
-        n.position.set(
-          (n.basePosition.x + dx + ux * ripple) * wave,
-          (n.basePosition.y + dy + uy * ripple) * wave,
-          (n.basePosition.z + dz + uz * ripple) * wave
-        );
-        posAttr.setXYZ(i, n.position.x, n.position.y, n.position.z);
+        const amp = n.fluidAmp || 0.45;
+        /* gentle for organic-tagged tree nodes, full for liquid */
+        const dx = (Math.sin(t * 0.7 + ph) * amp + Math.cos(t * 1.3 + ph * 1.7) * amp * 0.55);
+        const dy = (Math.cos(t * 0.9 + ph * 0.6) * amp + Math.sin(t * 1.5 + ph) * amp * 0.55);
+        const dz = (Math.sin(t * 1.1 + ph * 1.2) * amp + Math.cos(t * 0.6 + ph * 0.8) * amp * 0.55);
+        const baseR = n.basePosition.length();
+        const ripple = Math.sin(baseR * 0.45 - t * 4.0) * voice * (n.fluidRippleScale || 0.9);
+        const inv = 1 / Math.max(baseR, 0.01);
+        const ux = n.basePosition.x * inv;
+        const uy = n.basePosition.y * inv;
+        const uz = n.basePosition.z * inv;
+        const wave = 1.0 + voice * (n.fluidWaveScale || 1.6);
+        px = (n.basePosition.x + dx + ux * ripple) * wave;
+        py = (n.basePosition.y + dy + uy * ripple) * wave;
+        pz = (n.basePosition.z + dz + uz * ripple) * wave;
+        moved = true;
+      }
+      if (moved) {
+        n.position.set(px, py, pz);
+        posAttr.setXYZ(i, px, py, pz);
         anyMoved = true;
-      });
-    }
+      }
+    });
     if (anyMoved) {
       posAttr.needsUpdate = true;
       /* Also update connection segments — each connection is rendered as 20
@@ -4024,106 +4123,4 @@ function animate(){
       m.uniforms.uTime.value = t;
       m.uniforms.uBlink.value = AVATAR_STATE.blink;
       m.uniforms.uGaze.value.set(-AVATAR_STATE.headYaw, -AVATAR_STATE.headPitch);
-      m.uniforms.uVoice.value = voiceEased;
-      m.uniforms.uMouthOpen.value = mouthEased;
-      m.uniforms.uFaceActive.value = AVATAR_STATE.faceActive;
-      /* when no face is tracked, drift the pupil gently so the eye looks
-         alive even when you step away — slow lissajous wander */
-      if (AVATAR_STATE.faceActive < 0.3) {
-        const wx = Math.sin(t * 0.31) * 0.4;
-        const wy = Math.sin(t * 0.23 + 1.2) * 0.2;
-        m.uniforms.uGaze.value.set(wx, wy);
-        /* gentle idle blink every ~6-9s */
-        const blinkPhase = (Math.sin(t * 0.7) + 1) * 0.5;
-        const idleBlink = blinkPhase > 0.985 ? (blinkPhase - 0.985) / 0.015 : 0;
-        m.uniforms.uBlink.value = Math.max(AVATAR_STATE.blink, idleBlink);
-      }
-    }
-  }
-
-  controls.update();
-  composer.render();
-
-  /* FPS */
-  fpsFrames++;
-  if(t - fpsLastT > 0.5){
-    if(fpsEl) fpsEl.textContent = `FPS: ${Math.round(fpsFrames/(t-fpsLastT))}`;
-    fpsLastT = t; fpsFrames = 0;
-  }
-}
-
-/* ============ INIT ============ */
-function init(){
-  /* hydrate from localStorage before building the scene */
-  loadSettings();
-  /* URL params win over localStorage — scene-preset bookmarks override saves */
-  if (URL_MORPH   !== null) config.currentFormation = URL_MORPH;
-  if (URL_DENSITY !== null) config.densityFactor    = URL_DENSITY;
-  if (URL_INNER)   { shellColorInner = URL_INNER;   userShellColors = true; }
-  if (URL_MID)     { shellColorMid   = URL_MID;     userShellColors = true; }
-  if (URL_OUTER)   { shellColorOuter = URL_OUTER;   userShellColors = true; }
-  if (URL_SPARKLE)   { sparkleColor   = URL_SPARKLE;   userSparkleColor = true; }
-  if (URL_BLOOMTINT) { bloomTintColor = URL_BLOOMTINT; userBloomTint   = true; }
-  /* reflect loaded values in the UI controls */
-  const dsl = document.getElementById('density-slider');
-  const dvl = document.getElementById('density-value');
-  if (dsl && dvl) {
-    const pct = Math.round(config.densityFactor * 100);
-    dsl.value = pct;
-    dvl.textContent = `${pct}%`;
-  }
-  /* sync stream-frame sliders to loaded values */
-  const vgs = document.getElementById('voice-gain-slider');
-  const vgv = document.getElementById('voice-gain-val');
-  if (vgs && vgv) { vgs.value = Math.round(voiceGain * 100); vgv.textContent = voiceGain.toFixed(2) + 'x'; }
-  const sss = document.getElementById('scale-sens-slider');
-  const ssv = document.getElementById('scale-sens-val');
-  if (sss && ssv) { sss.value = Math.round(scaleSensitivity * 100); ssv.textContent = scaleSensitivity.toFixed(2) + 'x'; }
-  const fxs = document.getElementById('frame-x-slider');
-  const fxv = document.getElementById('frame-x-val');
-  if (fxs && fxv) { fxs.value = frameOffsetX; fxv.textContent = frameOffsetX; }
-  const fys = document.getElementById('frame-y-slider');
-  const fyv = document.getElementById('frame-y-val');
-  if (fys && fyv) { fys.value = frameOffsetY; fyv.textContent = frameOffsetY; }
-  const fzs = document.getElementById('frame-zoom-slider');
-  const fzv = document.getElementById('frame-zoom-val');
-  if (fzs && fzv) { fzs.value = Math.round(frameZoom * 100); fzv.textContent = frameZoom.toFixed(2) + 'x'; }
-  /* apply persisted frame transform on first paint */
-  applyFrameTransform();
-  /* if user has never picked custom shell colours, align them with the active palette
-     defaults so the look matches the chosen theme right out of the gate. */
-  if (!userShellColors) {
-    const d = SHELL_DEFAULTS_PER_PALETTE[config.activePaletteIndex % SHELL_DEFAULTS_PER_PALETTE.length];
-    if (d) {
-      shellColorInner = d.inner;
-      shellColorMid   = d.mid;
-      shellColorOuter = d.outer;
-    }
-  }
-  /* same for glow colours — adopt theme defaults if no user override */
-  const g = GLOW_DEFAULTS_PER_PALETTE[config.activePaletteIndex % GLOW_DEFAULTS_PER_PALETTE.length];
-  if (g) {
-    if (!userBloomTint) bloomTintColor = g.bloom;
-    if (!userSparkleColor) sparkleColor = g.sparkle;
-  }
-  createNetworkVisualization(config.currentFormation, config.densityFactor);
-  /* push the shell colours into uniforms + sync swatch inputs to current state */
-  applyShellColors(true);
-  applyBloomTint(true);
-  applySparkleColor(true);
-  /* loadSettings may have flipped eyeVisible — sync the actual mesh visibility */
-  if (centerEyeGroup) centerEyeGroup.visible = eyeVisible;
-  document.querySelectorAll('.theme-button').forEach(b => b.classList.remove('active'));
-  document.querySelector(`.theme-button[data-theme="${config.activePaletteIndex}"]`)?.classList.add('active');
-  /* sync toggle pills to reflect loaded/URL-derived state */
-  syncTogglePills();
-  /* IMPORTANT: force-apply the bg mode at the end of init so the body+renderer
-     are reconciled to a known clean state. Otherwise stale inline body.style
-     or partial transparent-class state can leave the iframe with a dark fill. */
-  applyBgMode();
-  animate();
-}
-init();
-</script>
-</body>
-</html>
+      m.uniforms.uVoice.v
