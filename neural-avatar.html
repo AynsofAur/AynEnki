@@ -4123,4 +4123,27 @@ function animate(){
       m.uniforms.uTime.value = t;
       m.uniforms.uBlink.value = AVATAR_STATE.blink;
       m.uniforms.uGaze.value.set(-AVATAR_STATE.headYaw, -AVATAR_STATE.headPitch);
-      m.uniforms.uVoice.v
+      m.uniforms.uVoice.value = AVATAR_STATE.voiceLevel;
+      m.uniforms.uMouthOpen.value = AVATAR_STATE.mouthOpen;
+      m.uniforms.uFaceActive.value = AVATAR_STATE.faceActive;
+    }
+  }
+
+  /* render via the post-process composer (handles bloom + afterimage chain) */
+  if (composer) composer.render(); else renderer.render(scene, camera);
+
+  /* FPS counter — updated once per second */
+  fpsFrames++;
+  if (t - fpsLastT >= 1.0) {
+    const fps = Math.round(fpsFrames / (t - fpsLastT));
+    const el = document.getElementById('fps-indicator');
+    if (el) el.textContent = 'FPS: ' + fps;
+    fpsFrames = 0;
+    fpsLastT = t;
+  }
+}
+
+animate();
+</script>
+</body>
+</html>
