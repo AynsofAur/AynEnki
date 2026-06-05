@@ -4143,6 +4143,20 @@ function animate(){
   }
 }
 
+/* ============ INITIAL SETUP ============
+   Apply URL-driven scene overrides (morph/density/colours/etc.), build the
+   first network, then kick off the animate loop. Without this block, the
+   screen stays empty because neuralNetwork is never created. */
+if (URL_MORPH !== null) config.currentFormation = URL_MORPH;
+if (URL_DENSITY !== null) config.densityFactor = URL_DENSITY;
+if (URL_INNER)     shellColorInner = URL_INNER;
+if (URL_MID)       shellColorMid   = URL_MID;
+if (URL_OUTER)     shellColorOuter = URL_OUTER;
+if (URL_SPARKLE)   sparkleColor    = URL_SPARKLE;
+if (URL_BLOOMTINT) bloomTintColor  = URL_BLOOMTINT;
+
+createNetworkVisualization(config.currentFormation, config.densityFactor);
+if (typeof applyBgMode === 'function') applyBgMode();
 animate();
 </script>
 </body>
