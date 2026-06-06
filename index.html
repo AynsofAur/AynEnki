@@ -2961,6 +2961,19 @@
       #view-quote .q-meta { text-align: right; flex-shrink: 0; }
       #view-quote .q-meta .quote-label { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--qs-accent); margin-bottom: 4px; }
       #view-quote .q-meta .quote-number { font-family: 'Playfair Display', serif; font-size: 22px; color: var(--qs-header-fg); font-weight: 600; }
+      /* invoice # / HST # rows: match the bright Quote-number styling so they read as first-class meta fields */
+      #view-quote .q-meta .quote-extra { display: flex; align-items: baseline; justify-content: flex-end; gap: 8px; font-family: 'Playfair Display', serif; font-size: 18px; color: var(--qs-header-fg); font-weight: 600; }
+      #view-quote .q-meta .quote-extra .quote-label { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--qs-accent); font-weight: 400; margin: 0; }
+      #view-quote .q-meta .quote-extra input { color: var(--qs-header-fg); font-family: inherit; font-size: inherit; font-weight: inherit; text-align: right; }
+      #view-quote .q-meta .quote-extra input.qs-discount-controls { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--qs-accent); }
+      /* HIERARCHY FLIP — when the invoice row is visible, it becomes the lead identifier (22px Playfair)
+         and the Quote number demotes to 18px. The HST row also stays at 18px. Whichever number the
+         recipient actually cites in their books reads as the headline. */
+      #view-quote .q-meta:has(#qInvoiceNumberRow[data-hidden="0"]) .quote-number { font-size: 18px; }
+      #view-quote .q-meta:has(#qInvoiceNumberRow[data-hidden="0"]) #qInvoiceNumberRow { font-size: 22px; }
+      /* compact equivalent */
+      body.qs-compact #view-quote .q-meta:has(#qInvoiceNumberRow[data-hidden="0"]) .quote-number { font-size: 13px; }
+      body.qs-compact #view-quote .q-meta:has(#qInvoiceNumberRow[data-hidden="0"]) #qInvoiceNumberRow { font-size: 15px; }
       #view-quote .q-meta .dates { margin-top: 12px; font-size: 12px; color: #777; line-height: 1.8; }
       #view-quote .q-meta .dates span { color: #aaa; }
       #view-quote .q-divider { height: 1px; background: linear-gradient(to right, var(--qs-accent-divider), var(--qs-accent-soft), transparent); margin: 32px 0; }
@@ -3057,7 +3070,7 @@
       body.qs-compact #view-quote .q-meta .quote-label { font-size: 9px; }
       body.qs-compact #view-quote .q-meta .quote-number { font-size: 15px; }
       body.qs-compact #view-quote .q-meta .dates { margin-top: 4px; font-size: 10px; line-height: 1.4; }
-      body.qs-compact #view-quote .quote-extra { margin-top: 4px !important; font-size: 10.5px; }
+      body.qs-compact #view-quote .q-meta .quote-extra { margin-top: 4px !important; font-size: 13px; gap: 6px; }
       body.qs-compact #view-quote .q-divider { margin: 8px 0; }
       body.qs-compact #view-quote .q-addresses { gap: 20px; }
       body.qs-compact #view-quote .q-address-block h4 { font-size: 9px; margin-bottom: 4px; }
