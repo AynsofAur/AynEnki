@@ -2928,7 +2928,17 @@
   <!-- ============ QUOTE SHEET (admin tool) ============ -->
   <section class="view" id="view-quote">
     <style>
-      #view-quote { padding: 0; background: #111; font-family: 'DM Sans', sans-serif; color: #e0d6c8; }
+      #view-quote {
+        padding: 0; background: #111; font-family: 'DM Sans', sans-serif; color: #e0d6c8;
+        /* customizable brand palette — qs-state can override via inline style on .quote-doc */
+        --qs-accent: #c9a84c;
+        --qs-accent-soft: rgba(201,168,76,0.12);
+        --qs-accent-divider: rgba(201,168,76,0.27);
+        --qs-header-bg: #1a1a1a;
+        --qs-header-fg: #faf8f4;
+        --qs-doc-bg: #faf8f4;
+        --qs-text: #1a1a1a;
+      }
       @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
       #view-quote .qs-app { min-height: 100vh; background: #111; padding: 24px 16px 48px; }
       #view-quote .qs-toolbar { display: flex; justify-content: center; gap: 12px; margin-bottom: 28px; flex-wrap: wrap; }
@@ -2941,23 +2951,23 @@
       #view-quote .qs-btn.qs-ghost:hover { color: #c9a84c; border-color: #c9a84c; }
       #view-quote .qs-btn.qs-danger { background: transparent; color: #666; border: 1px solid #333; font-size: 12px; padding: 6px 10px; }
       #view-quote .qs-btn.qs-danger:hover { color: #e05a5a; border-color: #e05a5a; }
-      #view-quote .quote-doc { max-width: 860px; margin: 0 auto; background: #faf8f4; border-radius: 4px; overflow: hidden; box-shadow: 0 32px 80px rgba(0,0,0,0.6); color: #1a1a1a; }
-      #view-quote .q-header { background: #1a1a1a; padding: 48px 52px 40px; position: relative; overflow: hidden; }
+      #view-quote .quote-doc { max-width: 860px; margin: 0 auto; background: var(--qs-doc-bg); border-radius: 4px; overflow: hidden; box-shadow: 0 32px 80px rgba(0,0,0,0.6); color: #1a1a1a; }
+      #view-quote .q-header { background: var(--qs-header-bg); padding: 48px 52px 40px; position: relative; overflow: hidden; }
       #view-quote .q-header::before { content: ''; position: absolute; top: -60px; right: -60px; width: 280px; height: 280px; border-radius: 50%; background: radial-gradient(circle, rgba(201,168,76,0.12) 0%, transparent 70%); }
       #view-quote .q-header-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 32px; }
-      #view-quote .q-brand h1 { font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 700; color: #faf8f4; letter-spacing: -0.01em; line-height: 1.1; margin: 0; }
-      #view-quote .q-brand .tagline { color: #c9a84c; font-size: 12px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; margin-top: 6px; }
+      #view-quote .q-brand h1 { font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 700; color: var(--qs-header-fg); letter-spacing: -0.01em; line-height: 1.1; margin: 0; }
+      #view-quote .q-brand .tagline { color: var(--qs-accent); font-size: 12px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; margin-top: 6px; }
       #view-quote .q-brand .contact-row { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 6px 20px; color: #888; font-size: 12.5px; }
       #view-quote .q-meta { text-align: right; flex-shrink: 0; }
-      #view-quote .q-meta .quote-label { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: #c9a84c; margin-bottom: 4px; }
-      #view-quote .q-meta .quote-number { font-family: 'Playfair Display', serif; font-size: 22px; color: #faf8f4; font-weight: 600; }
+      #view-quote .q-meta .quote-label { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--qs-accent); margin-bottom: 4px; }
+      #view-quote .q-meta .quote-number { font-family: 'Playfair Display', serif; font-size: 22px; color: var(--qs-header-fg); font-weight: 600; }
       #view-quote .q-meta .dates { margin-top: 12px; font-size: 12px; color: #777; line-height: 1.8; }
       #view-quote .q-meta .dates span { color: #aaa; }
-      #view-quote .q-divider { height: 1px; background: linear-gradient(to right, #c9a84c44, #c9a84c22, transparent); margin: 32px 0; }
+      #view-quote .q-divider { height: 1px; background: linear-gradient(to right, var(--qs-accent-divider), var(--qs-accent-soft), transparent); margin: 32px 0; }
       #view-quote .q-addresses { display: flex; gap: 40px; }
-      #view-quote .q-address-block h4 { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: #c9a84c; margin: 0 0 10px; font-family: 'DM Mono', monospace; }
+      #view-quote .q-address-block h4 { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--qs-accent); margin: 0 0 10px; font-family: 'DM Mono', monospace; }
       #view-quote .q-address-block p { color: #ccc; font-size: 13.5px; line-height: 1.7; margin: 0; }
-      #view-quote .q-project-band { background: #c9a84c; padding: 14px 52px; display: flex; align-items: center; justify-content: space-between; }
+      #view-quote .q-project-band { background: var(--qs-accent); padding: 14px 52px; display: flex; align-items: center; justify-content: space-between; }
       #view-quote .q-project-band .proj-label { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(0,0,0,0.55); font-family: 'DM Mono', monospace; }
       #view-quote .q-project-band .proj-title { font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 600; color: #1a1a1a; flex: 1; margin-left: 24px; }
       #view-quote .q-body { padding: 40px 52px; color: #1a1a1a; }
@@ -3015,15 +3025,30 @@
       body.qs-preview #view-quote .add-row { display: none !important; }
       body.qs-preview #view-quote .tax-edit .pct { display: none; }
       body.qs-preview #view-quote .tax-edit::after { content: '(' attr(data-pct) '%)'; color: #555; }
+      /* discount row: hide editing UI in preview, hide preview label in edit mode */
+      #view-quote .qs-discount-preview { display: none; }
+      body.qs-preview #view-quote .qs-discount-controls { display: none !important; }
+      body.qs-preview #view-quote .qs-discount-preview { display: inline; }
+      body.qs-preview #view-quote .qs-discount-row[data-empty="1"] { display: none; }
       /* print: clean output */
       @media print {
         body * { visibility: hidden; }
         #view-quote, #view-quote * { visibility: visible; }
-        #view-quote { position: absolute; left: 0; top: 0; width: 100%; padding: 0; background: white; }
-        #view-quote .qs-toolbar { display: none !important; }
+        #view-quote {
+          position: absolute; left: 0; top: 0; width: 100%; padding: 0;
+          background: var(--qs-doc-bg);
+          /* keep accent + header colour in the PDF — Chrome strips bg fills by default */
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+          color-adjust: exact !important;
+        }
+        #view-quote * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        #view-quote .qs-toolbar, #view-quote .qs-color-panel { display: none !important; }
         #view-quote .quote-doc { box-shadow: none; border-radius: 0; max-width: 100%; }
         #view-quote .edit-field, #view-quote .item-edit input, #view-quote .tax-edit input { background: transparent !important; border: none !important; padding: 0 !important; }
-        #view-quote .qs-row-remove, #view-quote .add-row { display: none !important; }
+        #view-quote .qs-row-remove, #view-quote .add-row, #view-quote .qs-discount-controls { display: none !important; }
+        /* hide empty-state hints + zero-discount line in print */
+        #view-quote .qs-discount-row[data-empty="1"] { display: none !important; }
       }
     </style>
 
@@ -3031,8 +3056,34 @@
       <div class="qs-toolbar">
         <button class="qs-btn qs-secondary" onclick="route('admin')">&larr; Admin</button>
         <button class="qs-btn qs-secondary" id="qsToggleBtn" onclick="toggleQuoteEdit()">&#128065; Preview Mode</button>
+        <button class="qs-btn qs-secondary" id="qsColorBtn" onclick="qsToggleColorPanel()">&#127912; Brand</button>
         <button class="qs-btn qs-primary" onclick="window.print()">&#128424; Print / Export PDF</button>
         <button class="qs-btn qs-ghost" onclick="resetQuote()">Reset</button>
+      </div>
+      <!-- Brand customisation: persists with the rest of qsState. Hidden by default + in print. -->
+      <div id="qsColorPanel" class="qs-color-panel" style="display:none; max-width:860px; margin:0 auto 24px; background:#1a1a1a; border:1px solid #333; border-radius:8px; padding:16px 20px; color:#e0d6c8; font-family:'DM Sans',sans-serif; font-size:13px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+          <span style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.2em; text-transform:uppercase; color:#c9a84c;">Brand Colours</span>
+          <button class="qs-btn qs-ghost" style="padding:4px 10px;font-size:11px;" onclick="qsResetColors()">Reset colours</button>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px;">
+          <label style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+            <span>Accent <small style="color:#888;">(gold)</small></span>
+            <input type="color" id="qcAccent" oninput="qsUpdateColor('colorAccent',this.value)">
+          </label>
+          <label style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+            <span>Header background</span>
+            <input type="color" id="qcHeaderBg" oninput="qsUpdateColor('colorHeaderBg',this.value)">
+          </label>
+          <label style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+            <span>Header text</span>
+            <input type="color" id="qcHeaderFg" oninput="qsUpdateColor('colorHeaderFg',this.value)">
+          </label>
+          <label style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+            <span>Document background</span>
+            <input type="color" id="qcDocBg" oninput="qsUpdateColor('colorDocBg',this.value)">
+          </label>
+        </div>
       </div>
 
       <div class="quote-doc">
@@ -3136,6 +3187,25 @@
               <div class="total-row" style="font-size:12px;color:#999;"><span>Services</span><span class="val" style="font-size:13px;" id="qServicesSubtotal">$0.00</span></div>
               <div class="total-row" style="font-size:12px;color:#999;"><span>Gear &amp; Consumables</span><span class="val" style="font-size:13px;" id="qGearSubtotal">$0.00</span></div>
               <div class="total-row"><span>Subtotal</span><span class="val" id="qSubtotal">$0.00</span></div>
+              <!-- Discount: hidden in print when value is 0, editable inline in browser. -->
+              <div class="total-row qs-discount-row" id="qDiscountRow" data-empty="1">
+                <span class="tax-edit" id="qDiscountLabel">
+                  <input class="qs-discount-controls" id="qDiscountLabelInput" value="Discount"
+                         oninput="qsState.info.discountLabel=this.value;qsSave();qsRecalc();"
+                         style="width:100px;text-align:left;font:inherit;color:inherit;background:transparent;border:none;border-bottom:1px dashed #ccc;">
+                  <span class="qs-discount-preview" id="qDiscountLabelPreview">Discount</span>
+                  <input type="number" id="qDiscountValue" min="0" step="0.01" value="0"
+                         oninput="qsState.info.discountValue=parseFloat(this.value)||0;qsSave();qsRecalc();"
+                         class="qs-discount-controls" style="width:70px;text-align:right;">
+                  <select id="qDiscountType" class="qs-discount-controls"
+                          onchange="qsState.info.discountType=this.value;qsSave();qsRecalc();"
+                          style="font:inherit;color:inherit;background:transparent;border:none;">
+                    <option value="percent">%</option>
+                    <option value="flat">$</option>
+                  </select>
+                </span>
+                <span class="val" id="qDiscountAmount">&minus;$0.00</span>
+              </div>
               <div class="total-row">
                 <span class="tax-edit" id="qTaxLabel">
                   Tax
@@ -7102,7 +7172,16 @@
     currency: 'CAD',
     taxRate: 13,
     notes: '50% deposit required to begin. Remaining balance due upon delivery. All files delivered via cloud link within 5 business days of final approval.',
-    terms: 'This quote is valid for 30 days from the issue date. Revisions beyond 2 rounds are billed at the hourly rate. Rush fees may apply for turnaround under 72 hours.'
+    terms: 'This quote is valid for 30 days from the issue date. Revisions beyond 2 rounds are billed at the hourly rate. Rush fees may apply for turnaround under 72 hours.',
+    /* discount — applied AFTER subtotal, BEFORE tax. type = 'flat' (currency) or 'percent' (% of subtotal). value = 0 hides the row in the printed PDF. */
+    discountType: 'percent',
+    discountValue: 0,
+    discountLabel: 'Discount',
+    /* brand colour overrides — propagated to CSS variables on the .quote-doc */
+    colorAccent: '#c9a84c',
+    colorHeaderBg: '#1a1a1a',
+    colorHeaderFg: '#faf8f4',
+    colorDocBg: '#faf8f4'
   };
   const QS_DEFAULTS = { info: { ...QS_DEFAULT_INFO }, items: QS_DEFAULT_ITEMS.slice(), gear: QS_DEFAULT_GEAR.slice() };
   let qsState = qsLoad();
@@ -7147,14 +7226,32 @@
     const servicesSub = qsState.items.reduce((s, it) => s + (Number(it.qty) || 0) * (Number(it.rate) || 0), 0);
     const gearSub = qsState.gear.reduce((s, it) => s + (Number(it.qty) || 0) * (Number(it.rate) || 0), 0);
     const subtotal = servicesSub + gearSub;
-    const tax = subtotal * ((Number(qsState.info.taxRate) || 0) / 100);
-    const total = subtotal + tax;
+    /* discount: percent (% of subtotal) or flat ($). clamped so totals can't go negative. */
+    const dType = qsState.info.discountType || 'percent';
+    const dValRaw = Number(qsState.info.discountValue) || 0;
+    let discount = dType === 'percent' ? subtotal * (dValRaw / 100) : dValRaw;
+    if (discount < 0) discount = 0;
+    if (discount > subtotal) discount = subtotal;
+    const afterDiscount = subtotal - discount;
+    const tax = afterDiscount * ((Number(qsState.info.taxRate) || 0) / 100);
+    const total = afterDiscount + tax;
     document.getElementById('qServicesSubtotal').textContent = qsFmt(servicesSub);
     document.getElementById('qGearSubtotal').textContent = qsFmt(gearSub);
     document.getElementById('qGearSubtotalBand').textContent = qsFmt(gearSub);
     document.getElementById('qSubtotal').textContent = qsFmt(subtotal);
     document.getElementById('qTaxAmount').textContent = qsFmt(tax);
     document.getElementById('qTotal').textContent = qsFmt(total);
+    /* discount row: amount + visibility + label preview */
+    const dAmt = document.getElementById('qDiscountAmount');
+    if (dAmt) dAmt.textContent = '\u2212' + qsFmt(discount);
+    const dRow = document.getElementById('qDiscountRow');
+    if (dRow) dRow.setAttribute('data-empty', dValRaw > 0 ? '0' : '1');
+    const dPrev = document.getElementById('qDiscountLabelPreview');
+    if (dPrev) {
+      const labelTxt = qsState.info.discountLabel || 'Discount';
+      const suffix = dType === 'percent' ? ' (' + dValRaw + '%)' : '';
+      dPrev.textContent = labelTxt + suffix;
+    }
     /* update per-row amounts without full re-render */
     document.querySelectorAll('#view-quote tbody tr').forEach(tr => {
       const id = tr.dataset.id;
@@ -7196,6 +7293,51 @@
     document.getElementById('qFooterBrand').textContent = qsState.info.freelancerName;
     document.getElementById('qFooterRight').textContent = `${qsState.info.quoteNumber} · ${qsState.info.issueDate}`;
   }
+  function qsApplyColors(){
+    /* push qsState colours onto the .quote-doc as inline CSS-variable overrides.
+       Keeps the print stylesheet honest and lets the picker live-preview. */
+    const doc = document.querySelector('#view-quote .quote-doc');
+    if (!doc) return;
+    const i = qsState.info || {};
+    doc.style.setProperty('--qs-accent', i.colorAccent || '#c9a84c');
+    doc.style.setProperty('--qs-accent-soft', _qsHexToRgba(i.colorAccent || '#c9a84c', 0.12));
+    doc.style.setProperty('--qs-accent-divider', _qsHexToRgba(i.colorAccent || '#c9a84c', 0.27));
+    doc.style.setProperty('--qs-header-bg', i.colorHeaderBg || '#1a1a1a');
+    doc.style.setProperty('--qs-header-fg', i.colorHeaderFg || '#faf8f4');
+    doc.style.setProperty('--qs-doc-bg', i.colorDocBg || '#faf8f4');
+  }
+  function _qsHexToRgba(hex, alpha){
+    const m = (hex || '').replace('#','').match(/^([0-9a-f]{6}|[0-9a-f]{3})$/i);
+    if (!m) return 'rgba(201,168,76,' + alpha + ')';
+    let h = m[1];
+    if (h.length === 3) h = h.split('').map(c => c+c).join('');
+    const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+  }
+  window.qsUpdateColor = function(key, value){
+    qsState.info[key] = value;
+    qsSave();
+    qsApplyColors();
+  };
+  window.qsResetColors = function(){
+    qsState.info.colorAccent   = '#c9a84c';
+    qsState.info.colorHeaderBg = '#1a1a1a';
+    qsState.info.colorHeaderFg = '#faf8f4';
+    qsState.info.colorDocBg    = '#faf8f4';
+    qsSave();
+    qsApplyColors();
+    /* re-sync the colour pickers */
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+    set('qcAccent',   qsState.info.colorAccent);
+    set('qcHeaderBg', qsState.info.colorHeaderBg);
+    set('qcHeaderFg', qsState.info.colorHeaderFg);
+    set('qcDocBg',    qsState.info.colorDocBg);
+  };
+  window.qsToggleColorPanel = function(){
+    const el = document.getElementById('qsColorPanel');
+    if (!el) return;
+    el.style.display = (el.style.display === 'none' || !el.style.display) ? 'block' : 'none';
+  };
   function fillQuoteInputs() {
     document.getElementById('qFreelancerName').value = qsState.info.freelancerName;
     document.getElementById('qFreelancerTitle').value = qsState.info.freelancerTitle;
@@ -7213,6 +7355,17 @@
     document.getElementById('qTaxRate').value = qsState.info.taxRate;
     document.getElementById('qNotes').value = qsState.info.notes;
     document.getElementById('qTerms').value = qsState.info.terms;
+    /* discount UI sync */
+    const setVal = (id, v) => { const el = document.getElementById(id); if (el != null && v != null) el.value = v; };
+    setVal('qDiscountValue', qsState.info.discountValue);
+    setVal('qDiscountType',  qsState.info.discountType || 'percent');
+    setVal('qDiscountLabelInput', qsState.info.discountLabel || 'Discount');
+    /* colour picker sync + apply */
+    setVal('qcAccent',   qsState.info.colorAccent);
+    setVal('qcHeaderBg', qsState.info.colorHeaderBg);
+    setVal('qcHeaderFg', qsState.info.colorHeaderFg);
+    setVal('qcDocBg',    qsState.info.colorDocBg);
+    qsApplyColors();
   }
   function initQuoteSheet() {
     fillQuoteInputs();
