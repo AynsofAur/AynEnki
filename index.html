@@ -3044,33 +3044,50 @@
       body.qs-preview #view-quote .quote-extra .qs-discount-controls { display: none !important; }
       /* COMPACT MODE: tightens everything so the document fits on one page.
          Applied as a transient body class — does NOT persist, must opt in each session. */
-      body.qs-compact #view-quote .quote-doc { box-shadow: none; }
-      body.qs-compact #view-quote .q-header { padding: 20px 28px 14px; }
-      body.qs-compact #view-quote .q-header::before { width: 140px; height: 140px; top: -30px; right: -30px; }
-      body.qs-compact #view-quote .q-brand h1 { font-size: 22px; }
-      body.qs-compact #view-quote .q-brand .tagline { font-size: 11px; margin-top: 3px; }
-      body.qs-compact #view-quote .q-brand .contact-row { margin-top: 8px; font-size: 11px; gap: 4px 14px; }
-      body.qs-compact #view-quote .q-meta .quote-number { font-size: 17px; }
-      body.qs-compact #view-quote .q-meta .dates { margin-top: 6px; font-size: 11px; line-height: 1.5; }
-      body.qs-compact #view-quote .q-divider { margin: 14px 0; }
-      body.qs-compact #view-quote .q-addresses { gap: 24px; }
-      body.qs-compact #view-quote .q-address-block p { font-size: 12px; line-height: 1.4; }
-      body.qs-compact #view-quote .q-project-band { padding: 8px 28px; }
-      body.qs-compact #view-quote .q-project-band .proj-title { font-size: 15px; }
-      body.qs-compact #view-quote .q-body { padding: 18px 28px; }
-      body.qs-compact #view-quote .services-header-band { margin: 14px 0 8px; }
-      body.qs-compact #view-quote .q-table thead th { padding: 0 6px 6px; }
-      body.qs-compact #view-quote .q-table tbody td { padding: 7px 6px; font-size: 12.5px; }
-      body.qs-compact #view-quote .add-row { padding: 4px 0; }
-      body.qs-compact #view-quote .add-row .qs-btn { padding: 4px 10px; font-size: 11px; }
-      body.qs-compact #view-quote .q-totals { margin-top: 14px; }
-      body.qs-compact #view-quote .q-totals-box { width: 240px; }
-      body.qs-compact #view-quote .total-row { padding: 4px 0; font-size: 12.5px; }
-      body.qs-compact #view-quote .q-notes { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 18px; }
+      /* COMPACT MODE v2 — tightened to maximise single-page fit.
+         Every contributor to height (paddings, margins, font sizes, line heights) gets squeezed.
+         Designed to land typical content (12-ish line items + gear + notes) on one Letter page. */
+      body.qs-compact #view-quote .quote-doc { box-shadow: none; border-radius: 0; }
+      body.qs-compact #view-quote .q-header { padding: 14px 24px 10px; }
+      body.qs-compact #view-quote .q-header::before { width: 110px; height: 110px; top: -28px; right: -28px; }
+      body.qs-compact #view-quote .q-header-top { gap: 18px; }
+      body.qs-compact #view-quote .q-brand h1 { font-size: 19px; line-height: 1.05; }
+      body.qs-compact #view-quote .q-brand .tagline { font-size: 10px; margin-top: 2px; letter-spacing: 0.1em; }
+      body.qs-compact #view-quote .q-brand .contact-row { margin-top: 6px; font-size: 10.5px; gap: 2px 12px; line-height: 1.3; }
+      body.qs-compact #view-quote .q-meta .quote-label { font-size: 9px; }
+      body.qs-compact #view-quote .q-meta .quote-number { font-size: 15px; }
+      body.qs-compact #view-quote .q-meta .dates { margin-top: 4px; font-size: 10px; line-height: 1.4; }
+      body.qs-compact #view-quote .quote-extra { margin-top: 4px !important; font-size: 10.5px; }
+      body.qs-compact #view-quote .q-divider { margin: 8px 0; }
+      body.qs-compact #view-quote .q-addresses { gap: 20px; }
+      body.qs-compact #view-quote .q-address-block h4 { font-size: 9px; margin-bottom: 4px; }
+      body.qs-compact #view-quote .q-address-block p { font-size: 11.5px; line-height: 1.35; }
+      body.qs-compact #view-quote .q-project-band { padding: 6px 24px; }
+      body.qs-compact #view-quote .q-project-band .proj-label { font-size: 9px; letter-spacing: 0.14em; }
+      body.qs-compact #view-quote .q-project-band .proj-title { font-size: 13px; margin-left: 16px; }
+      body.qs-compact #view-quote .q-body { padding: 14px 24px 8px; }
+      body.qs-compact #view-quote .services-header-band { margin: 8px 0 4px; gap: 10px; }
+      body.qs-compact #view-quote .services-header-band .section-label { font-size: 9px; padding: 3px 10px; letter-spacing: 0.14em; }
+      body.qs-compact #view-quote .q-table thead th { padding: 0 5px 4px; font-size: 9px; }
+      body.qs-compact #view-quote .q-table tbody td { padding: 4px 5px; font-size: 11.5px; line-height: 1.25; }
+      body.qs-compact #view-quote .q-table tbody td.muted { font-size: 10.5px; }
+      body.qs-compact #view-quote .line-amount { font-size: 11.5px; }
+      body.qs-compact #view-quote .item-edit input { padding: 1px 4px !important; font-size: 11.5px; }
+      body.qs-compact #view-quote .add-row { padding: 2px 0; }
+      body.qs-compact #view-quote .add-row .qs-btn { padding: 3px 8px; font-size: 10px; }
+      body.qs-compact #view-quote .q-totals { margin-top: 8px; }
+      body.qs-compact #view-quote .q-totals-box { width: 220px; }
+      body.qs-compact #view-quote .total-row { padding: 2px 0; font-size: 11.5px; }
+      body.qs-compact #view-quote .total-row.grand { font-size: 13px; padding-top: 4px; }
+      body.qs-compact #view-quote .q-notes { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 10px; }
       body.qs-compact #view-quote .q-note-block { margin: 0; }
-      body.qs-compact #view-quote .q-note-block h5 { font-size: 10px; margin-bottom: 4px; }
-      body.qs-compact #view-quote .q-note-block p, body.qs-compact #view-quote .q-note-block textarea { font-size: 11px; line-height: 1.4; }
-      body.qs-compact #view-quote .q-footer { padding: 12px 28px; font-size: 11px; }
+      body.qs-compact #view-quote .q-note-block h5 { font-size: 9px; margin-bottom: 3px; letter-spacing: 0.14em; }
+      body.qs-compact #view-quote .q-note-block p, body.qs-compact #view-quote .q-note-block textarea { font-size: 10.5px; line-height: 1.35; }
+      body.qs-compact #view-quote .q-footer { padding: 6px 24px; margin-top: 12px; font-size: 10px; }
+      body.qs-compact #view-quote .q-footer .footer-brand { font-size: 12px; }
+      body.qs-compact #view-quote .q-footer .footer-right { font-size: 9.5px; line-height: 1.45; }
+      /* the hidden "+ Add discount" affordance shouldn't add height when compact and master-off */
+      body.qs-compact #view-quote .qs-add-discount { padding: 2px 0; font-size: 10px; }
       /* page size for print — letter is the default, A4 swaps via the page-size dropdown */
       @page { size: letter; margin: 0.4in; }
       @page.qs-a4 { size: A4; margin: 12mm; }
@@ -7472,16 +7489,21 @@
     const lbl = document.getElementById('qHstLabelPreview');
     if (lbl) lbl.textContent = qsState.info.hstLabel || 'HST #';
   };
-  /* Compact mode — transient body class, never saved. Reset on each visit. */
+  /* Compact mode — transient body class, never saved. Reset on each visit.
+     Toggling compact also tightens the @page margin so the printer reclaims
+     ~0.3in vertical breathing room from each side. */
   window.qsToggleCompact = function(){
     const on = !document.body.classList.contains('qs-compact');
     document.body.classList.toggle('qs-compact', on);
     const btn = document.getElementById('qsCompactBtn');
     if (btn) btn.innerHTML = '\u279A Compact: ' + (on ? 'ON' : 'OFF');
+    /* re-apply page size so margins follow compact state */
+    const sel = document.getElementById('qsPageSize');
+    qsApplyPageSize(sel ? sel.value : 'letter');
   };
-  /* Page size — adds a class to the document body so @page rules pick up A4 vs Letter.
-     Browsers also expect the dropdown choice to be reflected in the print dialog, so we
-     swap a <style> tag at runtime with the chosen @page declaration. */
+  /* Page size — swaps the @page declaration at runtime.
+     Margins are tighter when Compact is on (0.25in / 8mm) so a fully spacious
+     edit view stays comfortable, but the printed PDF reclaims max usable area. */
   let _qsPageStyleEl = null;
   window.qsApplyPageSize = function(size){
     if (!_qsPageStyleEl) {
@@ -7489,9 +7511,14 @@
       _qsPageStyleEl.id = 'qsPageSizeStyle';
       document.head.appendChild(_qsPageStyleEl);
     }
-    _qsPageStyleEl.textContent = (size === 'a4')
-      ? '@page { size: A4; margin: 12mm; }'
-      : '@page { size: letter; margin: 0.4in; }';
+    const compact = document.body.classList.contains('qs-compact');
+    let css;
+    if (size === 'a4') {
+      css = compact ? '@page { size: A4; margin: 8mm; }' : '@page { size: A4; margin: 12mm; }';
+    } else {
+      css = compact ? '@page { size: letter; margin: 0.25in; }' : '@page { size: letter; margin: 0.4in; }';
+    }
+    _qsPageStyleEl.textContent = css;
   };
   function fillQuoteInputs() {
     document.getElementById('qFreelancerName').value = qsState.info.freelancerName;
