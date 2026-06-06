@@ -1295,6 +1295,11 @@ const pulseUniforms = {
   uShellColorInner: { value: new THREE.Color(0xe8b84b) },
   uShellColorMid:   { value: new THREE.Color(0xa060e0) },
   uShellColorOuter: { value: new THREE.Color(0x6080a0) },
+  /* shell-band radii — distanceFromRoot thresholds for the inner→mid and
+     mid→outer transitions. Defaults match the legacy 7/14 baked values, but
+     live postMessage can scrub them. */
+  uShellInnerEnd: { value: 7.0 },
+  uShellMidEnd:   { value: 14.0 },
   /* how strongly shell-colour overrides the baked per-node colour. 1.0 = pure
      shell tint, 0.0 = legacy per-node palette. We keep a hint of the legacy tint
      so each node still has slight unique variation instead of flat blocks. */
@@ -1368,6 +1373,8 @@ uniform float uFaceActive;
 uniform float uShellScaleInner;
 uniform float uShellScaleMid;
 uniform float uShellScaleOuter;
+uniform float uShellInnerEnd;
+uniform float uShellMidEnd;
 uniform vec3  uNucleusOffset;
 varying vec3 vColor;
 varying float vNodeType;
@@ -1380,8 +1387,10 @@ varying vec3 vShellWeights; /* (inner, mid, outer) blend weights for fragment sh
 /* shell blend: ~7 = inner/middle boundary, ~14 = middle/outer boundary,
    smoothstep so transitions are gradient rather than stepped. */
 vec3 shellWeightsAt(float d){
-  float innerW = 1.0 - smoothstep(0.0, 7.0, d);
-  float outerW = smoothstep(7.0, 14.0, d);
+  float ie = uShellInnerEnd;
+  float me = uShellMidEnd;
+  float innerW = 1.0 - smoothstep(0.0, ie, d);
+  float outerW = smoothstep(ie, me, d);
   float midW   = 1.0 - innerW - outerW;
   return vec3(innerW, midW, outerW);
 }
@@ -1567,6 +1576,8 @@ uniform float uVoiceLevel;
 uniform float uShellScaleInner;
 uniform float uShellScaleMid;
 uniform float uShellScaleOuter;
+uniform float uShellInnerEnd;
+uniform float uShellMidEnd;
 uniform vec3  uNucleusOffset;
 varying vec3 vColor;
 varying float vConnectionStrength;
@@ -1578,8 +1589,10 @@ varying float vRadialDist; /* distance from origin in object space, for bloom fa
 varying vec3 vShellWeights; /* matches the node shader so colour blends in lockstep */
 /* identical shell-blend helper as the node shader — keeps the two meshes in lockstep */
 vec3 shellWeightsAt(float d){
-  float innerW = 1.0 - smoothstep(0.0, 7.0, d);
-  float outerW = smoothstep(7.0, 14.0, d);
+  float ie = uShellInnerEnd;
+  float me = uShellMidEnd;
+  float innerW = 1.0 - smoothstep(0.0, ie, d);
+  float outerW = smoothstep(ie, me, d);
   float midW   = 1.0 - innerW - outerW;
   return vec3(innerW, midW, outerW);
 }
@@ -2337,7 +2350,7 @@ function generateNeuralNetwork(formationIndex, densityFactor=1.0){
       /* skip backs of head — only render visible silhouette + front */
       if (z < -cD * 0.4) continue;
       const pos = new THREE.Vector3(x, y, z);
-      const n = new Node(pos, 1, Math.random() < 0.15 ? 1 : 0);
+      const n = new Node(pos, 1, Math.random() < 0.35 ? 1 : 0);
       n.distanceFromRoot = pos.length();
       n.size = THREE.MathUtils.randFloat(0.45, 0.85);
       craniumNodes.push(n);
@@ -2381,7 +2394,7 @@ function generateNeuralNetwork(formationIndex, densityFactor=1.0){
       /* check we're inside the cranium silhouette at this height */
       if (fx*fx / (cW*cW) + fy*fy / (cH*cH) > 1.05) continue;
       const pos = new THREE.Vector3(fx, fy, fz);
-      const n = new Node(pos, 1, Math.random() < 0.18 ? 1 : 0);
+      const n = new Node(pos, 1, Math.random() < 0.35 ? 1 : 0);
       n.distanceFromRoot = pos.length();
       n.size = THREE.MathUtils.randFloat(0.4, 0.75);
       faceNodes.push(n);
@@ -2529,6 +2542,63 @@ function generateNeuralNetwork(formationIndex, densityFactor=1.0){
       const target = end.position.x < 0 ? upperNodes[0] : upperNodes[upperNodes.length - 1];
       if (target) end.addConnection(target, 0.65);
     });
+
+    /* Chin point — bright apex at front-bottom of mandible (gives the jaw a clear silhouette) */
+    {
+      const chinPos = new THREE.Vector3(0, -9.2, cD * 0.82);
+      const chin = new Node(chinPos, 3, 1);
+      chin.size = 1.4;
+      chin.distanceFromRoot = chinPos.length();
+      chin.jawAnchor = true;
+      chin.basePosition = chinPos.clone();
+      nodes.push(chin);
+      const midJ = jawNodes[Math.floor(jawNodes.length / 2)];
+      const midJL = jawNodes[Math.floor(jawNodes.length / 2) - 1] || midJ;
+      if (midJ) chin.addConnection(midJ, 0.95);
+      if (midJL && midJL !== midJ) chin.addConnection(midJL, 0.9);
+    }
+
+    /* Jaw ramus — vertical hinge columns up to the cheekbone/temporal area */
+    [-1, 1].forEach(side => {
+      const endJaw = side < 0 ? jawNodes[0] : jawNodes[jawNodes.length - 1];
+      if (!endJaw) return;
+      const targetTeeth = side < 0 ? upperNodes[0] : upperNodes[upperNodes.length - 1];
+      const ramusSegs = Math.max(3, Math.floor(4 * densityFactor));
+      let prev = endJaw;
+      for (let i = 1; i <= ramusSegs; i++) {
+        const t = i / ramusSegs;
+        const rx = endJaw.position.x * (1 - t * 0.15);
+        const ry = endJaw.position.y + t * 4.5;
+        const rz = endJaw.position.z - t * 0.6;
+        const pos = new THREE.Vector3(rx, ry, rz);
+        const n = new Node(pos, 3, i === ramusSegs ? 1 : 0);
+        n.size = THREE.MathUtils.randFloat(0.7, 1.0);
+        n.distanceFromRoot = pos.length();
+        n.jawAnchor = true;
+        n.basePosition = pos.clone();
+        nodes.push(n);
+        n.addConnection(prev, 0.85);
+        prev = n;
+      }
+      if (targetTeeth) prev.addConnection(targetTeeth, 0.55);
+    });
+
+    /* Remap distanceFromRoot across all skull nodes so shell-band colors span
+       inner / mid / outer (otherwise everything clusters in the middle band). */
+    {
+      const skullNodes = nodes.filter(n => n !== rootNode);
+      let minD = Infinity, maxD = -Infinity;
+      for (const n of skullNodes) {
+        const d = n.position.length();
+        if (d < minD) minD = d;
+        if (d > maxD) maxD = d;
+      }
+      const range = (maxD - minD) || 1;
+      for (const n of skullNodes) {
+        const d = n.position.length();
+        n.distanceFromRoot = ((d - minD) / range) * 20;
+      }
+    }
 
     /* Root tendril */
     rootNode.addConnection(craniumNodes[0] || jawNodes[0], 0.4);
@@ -3388,6 +3458,9 @@ function actionToggleEye(){
    Supported keys: morph, density, theme, pulse, paused, eye, aur, bloom,
    colors:{inner,mid,outer,sparkle,bloomtint}, voiceGain, scaleSensitivity,
    frame:{x,y,zoom}. */
+/* sparkleDensity — postMessage-tunable. Scales voice-pulse threshold +
+   reverie cadence so the avatar can be calmed or pushed louder live. */
+let sparkleDensity = 1.0;
 window.addEventListener('message', (e) => {
   const d = e.data;
   if (!d || d.type !== 'malikeye-control') return;
@@ -3478,6 +3551,40 @@ window.addEventListener('message', (e) => {
     if (s) s.value = Math.round(scaleSensitivity*100);
     if (v) v.textContent = scaleSensitivity.toFixed(2) + 'x';
     saveSettings();
+  }
+  /* live shell-band radii — scrub the inner/mid and mid/outer transition
+     distances without rebuilding the network. Writes to both materials. */
+  if (typeof d.shellInnerEnd === 'number' && d.shellInnerEnd > 0 && d.shellInnerEnd < 40) {
+    if (nodesMesh && nodesMesh.material.uniforms.uShellInnerEnd) {
+      nodesMesh.material.uniforms.uShellInnerEnd.value = d.shellInnerEnd;
+    }
+    if (connectionsMesh && connectionsMesh.material.uniforms.uShellInnerEnd) {
+      connectionsMesh.material.uniforms.uShellInnerEnd.value = d.shellInnerEnd;
+    }
+  }
+  if (typeof d.shellMidEnd === 'number' && d.shellMidEnd > 0 && d.shellMidEnd < 60) {
+    if (nodesMesh && nodesMesh.material.uniforms.uShellMidEnd) {
+      nodesMesh.material.uniforms.uShellMidEnd.value = d.shellMidEnd;
+    }
+    if (connectionsMesh && connectionsMesh.material.uniforms.uShellMidEnd) {
+      connectionsMesh.material.uniforms.uShellMidEnd.value = d.shellMidEnd;
+    }
+  }
+  /* shell-mix — how much shell colour overrides the per-node baked colour.
+     0 = pure node palette, 1 = pure shell tint. */
+  if (typeof d.shellColorMix === 'number') {
+    const v = Math.max(0, Math.min(1, d.shellColorMix > 1 ? d.shellColorMix/100 : d.shellColorMix));
+    if (nodesMesh && nodesMesh.material.uniforms.uShellColorMix) {
+      nodesMesh.material.uniforms.uShellColorMix.value = v;
+    }
+    if (connectionsMesh && connectionsMesh.material.uniforms.uShellColorMix) {
+      connectionsMesh.material.uniforms.uShellColorMix.value = v;
+    }
+  }
+  /* sparkle density — multiplier on auto-pulse + reverie cadence. 0.2..3.0 */
+  if (typeof d.sparkleDensity === 'number') {
+    const v = Math.max(0.2, Math.min(3, d.sparkleDensity > 3 ? d.sparkleDensity/100 : d.sparkleDensity));
+    sparkleDensity = v;
   }
   /* frame transform */
   if (d.frame) {
@@ -3871,7 +3978,7 @@ function animate(){
        blink pulses removed (they were firing bright white pulses from the
        centre whenever you opened your mouth or blinked, regardless of
        whether you were actually talking). */
-    if(AVATAR_STATE.voiceLevel > 0.35 && t - AVATAR_STATE.lastVoicePulse > 0.4){
+    if(AVATAR_STATE.voiceLevel > 0.35 && t - AVATAR_STATE.lastVoicePulse > (0.4 / Math.max(0.2, sparkleDensity))){
       AVATAR_STATE.lastVoicePulse = t;
       const angle = Math.random()*Math.PI*2;
       const r = 6 + Math.random()*8;
@@ -3909,7 +4016,7 @@ function animate(){
        shell with cool, desaturated colors. Reads as the avatar meditating
        between conversations rather than going dead. */
     const silenceSec = t - AVATAR_STATE.lastVocalTime;
-    if (silenceSec > 10 && t - AVATAR_STATE.lastReveriePulse > 3 + Math.random() * 4) {
+    if (silenceSec > 10 && t - AVATAR_STATE.lastReveriePulse > (3 + Math.random() * 4) / Math.max(0.2, sparkleDensity)) {
       AVATAR_STATE.lastReveriePulse = t;
       const angle = Math.random() * Math.PI * 2;
       const r = 7 + Math.random() * 5; /* middle shell radius range */
