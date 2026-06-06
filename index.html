@@ -3123,7 +3123,7 @@
           <option value="letter">Letter</option>
           <option value="a4">A4</option>
         </select>
-        <button class="qs-btn qs-primary" onclick="window.print()">&#128424; Print / Export PDF</button>
+        <button class="qs-btn qs-primary" onclick="qsPrintWithTip()">&#128424; Print / Export PDF</button>
         <button class="qs-btn qs-ghost" onclick="resetQuote()">Reset</button>
       </div>
       <!-- Brand customisation: persists with the rest of qsState. Hidden by default + in print. -->
@@ -7505,6 +7505,21 @@
      Margins are tighter when Compact is on (0.25in / 8mm) so a fully spacious
      edit view stays comfortable, but the printed PDF reclaims max usable area. */
   let _qsPageStyleEl = null;
+  /* Print wrapper — fires the print dialog AND shows a tip the first time per
+     session about Chrome's "Headers and footers" checkbox, in case the @page margin:0
+     trick didn't suppress them in the user's browser. */
+  window.qsPrintWithTip = function(){
+    try {
+      const seen = sessionStorage.getItem('qsPrintTipShown') === '1';
+      if (!seen) {
+        sessionStorage.setItem('qsPrintTipShown', '1');
+        if (typeof toast === 'function') {
+          toast('Tip: in the print dialog, More settings \u2192 uncheck Headers and footers');
+        }
+      }
+    } catch(e) {}
+    setTimeout(() => window.print(), 50);
+  };
   window.qsApplyPageSize = function(size){
     if (!_qsPageStyleEl) {
       _qsPageStyleEl = document.createElement('style');
@@ -7512,13 +7527,17 @@
       document.head.appendChild(_qsPageStyleEl);
     }
     const compact = document.body.classList.contains('qs-compact');
-    let css;
-    if (size === 'a4') {
-      css = compact ? '@page { size: A4; margin: 8mm; }' : '@page { size: A4; margin: 12mm; }';
-    } else {
-      css = compact ? '@page { size: letter; margin: 0.25in; }' : '@page { size: letter; margin: 0.4in; }';
-    }
-    _qsPageStyleEl.textContent = css;
+    /* @page margin: 0 makes Chrome (and most modern browsers) skip rendering the
+       date/title header + URL/page footer they normally inject. The visible margin
+       comes from an internal @media print rule on #view-quote so the document still
+       has visible breathing room. Letter and A4 each get the same trick. */
+    const pageSize = (size === 'a4') ? 'A4' : 'letter';
+    const innerPad = compact
+      ? (size === 'a4' ? '8mm' : '0.25in')
+      : (size === 'a4' ? '12mm' : '0.4in');
+    _qsPageStyleEl.textContent =
+      '@page { size: ' + pageSize + '; margin: 0; }' +
+      '@media print { #view-quote { padding: ' + innerPad + ' !important; box-sizing: border-box; } }';
   };
   function fillQuoteInputs() {
     document.getElementById('qFreelancerName').value = qsState.info.freelancerName;
