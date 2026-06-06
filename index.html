@@ -3030,6 +3030,50 @@
       body.qs-preview #view-quote .qs-discount-controls { display: none !important; }
       body.qs-preview #view-quote .qs-discount-preview { display: inline; }
       body.qs-preview #view-quote .qs-discount-row[data-empty="1"] { display: none; }
+      /* discount master switch — hide row entirely when disabled, replace with "+ Add discount" affordance */
+      #view-quote .qs-discount-row[data-disabled="1"] { display: none; }
+      #view-quote .qs-add-discount {
+        font-size: 11px; color: var(--qs-accent); cursor: pointer;
+        font-family: 'DM Mono', monospace; letter-spacing: 0.12em; text-transform: uppercase;
+        padding: 6px 0; display: none;
+      }
+      #view-quote .qs-add-discount[data-show="1"] { display: block; }
+      body.qs-preview #view-quote .qs-add-discount { display: none !important; }
+      /* optional meta rows (invoice #, HST #) — hidden when toggle is off */
+      #view-quote .quote-extra[data-hidden="1"] { display: none; }
+      body.qs-preview #view-quote .quote-extra .qs-discount-controls { display: none !important; }
+      /* COMPACT MODE: tightens everything so the document fits on one page.
+         Applied as a transient body class — does NOT persist, must opt in each session. */
+      body.qs-compact #view-quote .quote-doc { box-shadow: none; }
+      body.qs-compact #view-quote .q-header { padding: 20px 28px 14px; }
+      body.qs-compact #view-quote .q-header::before { width: 140px; height: 140px; top: -30px; right: -30px; }
+      body.qs-compact #view-quote .q-brand h1 { font-size: 22px; }
+      body.qs-compact #view-quote .q-brand .tagline { font-size: 11px; margin-top: 3px; }
+      body.qs-compact #view-quote .q-brand .contact-row { margin-top: 8px; font-size: 11px; gap: 4px 14px; }
+      body.qs-compact #view-quote .q-meta .quote-number { font-size: 17px; }
+      body.qs-compact #view-quote .q-meta .dates { margin-top: 6px; font-size: 11px; line-height: 1.5; }
+      body.qs-compact #view-quote .q-divider { margin: 14px 0; }
+      body.qs-compact #view-quote .q-addresses { gap: 24px; }
+      body.qs-compact #view-quote .q-address-block p { font-size: 12px; line-height: 1.4; }
+      body.qs-compact #view-quote .q-project-band { padding: 8px 28px; }
+      body.qs-compact #view-quote .q-project-band .proj-title { font-size: 15px; }
+      body.qs-compact #view-quote .q-body { padding: 18px 28px; }
+      body.qs-compact #view-quote .services-header-band { margin: 14px 0 8px; }
+      body.qs-compact #view-quote .q-table thead th { padding: 0 6px 6px; }
+      body.qs-compact #view-quote .q-table tbody td { padding: 7px 6px; font-size: 12.5px; }
+      body.qs-compact #view-quote .add-row { padding: 4px 0; }
+      body.qs-compact #view-quote .add-row .qs-btn { padding: 4px 10px; font-size: 11px; }
+      body.qs-compact #view-quote .q-totals { margin-top: 14px; }
+      body.qs-compact #view-quote .q-totals-box { width: 240px; }
+      body.qs-compact #view-quote .total-row { padding: 4px 0; font-size: 12.5px; }
+      body.qs-compact #view-quote .q-notes { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 18px; }
+      body.qs-compact #view-quote .q-note-block { margin: 0; }
+      body.qs-compact #view-quote .q-note-block h5 { font-size: 10px; margin-bottom: 4px; }
+      body.qs-compact #view-quote .q-note-block p, body.qs-compact #view-quote .q-note-block textarea { font-size: 11px; line-height: 1.4; }
+      body.qs-compact #view-quote .q-footer { padding: 12px 28px; font-size: 11px; }
+      /* page size for print — letter is the default, A4 swaps via the page-size dropdown */
+      @page { size: letter; margin: 0.4in; }
+      @page.qs-a4 { size: A4; margin: 12mm; }
       /* print: clean output */
       @media print {
         body * { visibility: hidden; }
@@ -3057,6 +3101,11 @@
         <button class="qs-btn qs-secondary" onclick="route('admin')">&larr; Admin</button>
         <button class="qs-btn qs-secondary" id="qsToggleBtn" onclick="toggleQuoteEdit()">&#128065; Preview Mode</button>
         <button class="qs-btn qs-secondary" id="qsColorBtn" onclick="qsToggleColorPanel()">&#127912; Brand</button>
+        <button class="qs-btn qs-secondary" id="qsCompactBtn" onclick="qsToggleCompact()" title="Tighten spacing so the quote fits on a single page (does NOT persist)">&#10138; Compact: OFF</button>
+        <select class="qs-btn qs-secondary" id="qsPageSize" onchange="qsApplyPageSize(this.value)" style="padding:8px 12px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;" title="Print page size">
+          <option value="letter">Letter</option>
+          <option value="a4">A4</option>
+        </select>
         <button class="qs-btn qs-primary" onclick="window.print()">&#128424; Print / Export PDF</button>
         <button class="qs-btn qs-ghost" onclick="resetQuote()">Reset</button>
       </div>
@@ -3084,6 +3133,22 @@
             <input type="color" id="qcDocBg" oninput="qsUpdateColor('colorDocBg',this.value)">
           </label>
         </div>
+        <div style="border-top:1px solid #333; margin:14px 0 10px;"></div>
+        <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.2em; text-transform:uppercase; color:#c9a84c; margin-bottom:10px;">Optional Fields</div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px 16px;">
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" id="qcShowInvoiceNumber" onchange="qsToggleMeta('showInvoiceNumber',this.checked)">
+            <span>Show invoice #</span>
+          </label>
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" id="qcShowHstNumber" onchange="qsToggleMeta('showHstNumber',this.checked)">
+            <span>Show HST / tax #</span>
+          </label>
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" id="qcShowDiscount" onchange="qsToggleMeta('showDiscount',this.checked)">
+            <span>Show discount row</span>
+          </label>
+        </div>
       </div>
 
       <div class="quote-doc">
@@ -3102,7 +3167,23 @@
             <div class="q-meta">
               <div class="quote-label">Quote</div>
               <div class="quote-number"><input class="edit-field" id="qQuoteNumber" oninput="qsState.info.quoteNumber=this.value;qsSave();qsRenderFooter();" style="text-align:right;"></div>
-              <div class="dates">
+              <!-- Invoice number row — visibility controlled by qsState.info.showInvoiceNumber -->
+              <div class="quote-extra" id="qInvoiceNumberRow" data-hidden="1" style="margin-top:8px;">
+                <span class="quote-label" style="margin-right:6px;">Invoice</span>
+                <input class="edit-field" id="qInvoiceNumber" oninput="qsState.info.invoiceNumber=this.value;qsSave();" style="text-align:right;width:auto;min-width:120px;">
+                <button type="button" class="qs-discount-controls" title="Increment trailing number"
+                        onclick="qsBumpInvoiceNumber()"
+                        style="margin-left:4px;background:transparent;border:1px dashed var(--qs-accent);border-radius:3px;color:var(--qs-accent);font-size:10px;padding:2px 6px;cursor:pointer;">+1</button>
+              </div>
+              <!-- HST / tax-registration number row -->
+              <div class="quote-extra" id="qHstNumberRow" data-hidden="1" style="margin-top:6px;">
+                <span class="quote-label" id="qHstLabelPreview" style="margin-right:6px;">HST #</span>
+                <input class="edit-field qs-discount-controls" id="qHstLabelInput"
+                       oninput="qsState.info.hstLabel=this.value;qsSave();qsApplyMetaPreview();"
+                       style="width:60px;text-align:left;font-size:11px;">
+                <input class="edit-field" id="qHstNumber" oninput="qsState.info.hstNumber=this.value;qsSave();" style="text-align:right;width:auto;min-width:120px;">
+              </div>
+              <div class="dates" style="margin-top:12px;">
                 Issued: <span><input class="edit-field" id="qIssueDate" type="date" oninput="qsState.info.issueDate=this.value;qsSave();qsRenderFooter();" style="width:auto;"></span><br>
                 Valid Until: <span><input class="edit-field" id="qValidUntil" type="date" oninput="qsState.info.validUntil=this.value;qsSave();" style="width:auto;"></span>
               </div>
@@ -3187,6 +3268,8 @@
               <div class="total-row" style="font-size:12px;color:#999;"><span>Services</span><span class="val" style="font-size:13px;" id="qServicesSubtotal">$0.00</span></div>
               <div class="total-row" style="font-size:12px;color:#999;"><span>Gear &amp; Consumables</span><span class="val" style="font-size:13px;" id="qGearSubtotal">$0.00</span></div>
               <div class="total-row"><span>Subtotal</span><span class="val" id="qSubtotal">$0.00</span></div>
+              <!-- "+ Add discount" — appears only when showDiscount is false, click to enable -->
+              <div class="qs-add-discount" id="qDiscountAddBtn" onclick="qsToggleMeta('showDiscount', true); document.getElementById('qcShowDiscount').checked = true;">+ Add discount</div>
               <!-- Discount: hidden in print when value is 0, editable inline in browser. -->
               <div class="total-row qs-discount-row" id="qDiscountRow" data-empty="1">
                 <span class="tax-edit" id="qDiscountLabel">
@@ -7181,7 +7264,15 @@
     colorAccent: '#c9a84c',
     colorHeaderBg: '#1a1a1a',
     colorHeaderFg: '#faf8f4',
-    colorDocBg: '#faf8f4'
+    colorDocBg: '#faf8f4',
+    /* optional meta rows — hidden by default so the layout stays clean */
+    showInvoiceNumber: false,
+    invoiceNumber: 'INV-2026-001',
+    showHstNumber: false,
+    hstNumber: '',
+    hstLabel: 'HST #',
+    /* whether the discount row appears at all — distinct from the 0%-hide rule */
+    showDiscount: false
   };
   const QS_DEFAULTS = { info: { ...QS_DEFAULT_INFO }, items: QS_DEFAULT_ITEMS.slice(), gear: QS_DEFAULT_GEAR.slice() };
   let qsState = qsLoad();
@@ -7338,6 +7429,70 @@
     if (!el) return;
     el.style.display = (el.style.display === 'none' || !el.style.display) ? 'block' : 'none';
   };
+  /* Optional-meta visibility — flips data-hidden on the row + updates discount/invoice/hst show flags */
+  window.qsToggleMeta = function(key, on){
+    qsState.info[key] = !!on;
+    qsSave();
+    qsApplyMetaVisibility();
+  };
+  function qsApplyMetaVisibility(){
+    const i = qsState.info || {};
+    const row = (id, flag) => {
+      const el = document.getElementById(id);
+      if (el) el.setAttribute('data-hidden', flag ? '0' : '1');
+    };
+    row('qInvoiceNumberRow', i.showInvoiceNumber);
+    row('qHstNumberRow',     i.showHstNumber);
+    /* discount row + "+ Add discount" affordance toggle */
+    const dRow = document.getElementById('qDiscountRow');
+    if (dRow) dRow.setAttribute('data-disabled', i.showDiscount ? '0' : '1');
+    const dAdd = document.getElementById('qDiscountAddBtn');
+    if (dAdd) dAdd.setAttribute('data-show', i.showDiscount ? '0' : '1');
+  }
+  /* Invoice number "+1" — increments the trailing digit sequence (preserves zero-padding) */
+  window.qsBumpInvoiceNumber = function(){
+    const el = document.getElementById('qInvoiceNumber');
+    if (!el) return;
+    const cur = String(qsState.info.invoiceNumber || el.value || '');
+    const m = cur.match(/^(.*?)(\d+)(\D*)$/);
+    let next;
+    if (m) {
+      const prefix = m[1], digits = m[2], suffix = m[3];
+      const n = String(parseInt(digits, 10) + 1).padStart(digits.length, '0');
+      next = prefix + n + suffix;
+    } else {
+      next = (cur || '') + '-001';
+    }
+    qsState.info.invoiceNumber = next;
+    el.value = next;
+    qsSave();
+  };
+  /* Live-preview the HST label as the user types it (between input + visible label spans) */
+  window.qsApplyMetaPreview = function(){
+    const lbl = document.getElementById('qHstLabelPreview');
+    if (lbl) lbl.textContent = qsState.info.hstLabel || 'HST #';
+  };
+  /* Compact mode — transient body class, never saved. Reset on each visit. */
+  window.qsToggleCompact = function(){
+    const on = !document.body.classList.contains('qs-compact');
+    document.body.classList.toggle('qs-compact', on);
+    const btn = document.getElementById('qsCompactBtn');
+    if (btn) btn.innerHTML = '\u279A Compact: ' + (on ? 'ON' : 'OFF');
+  };
+  /* Page size — adds a class to the document body so @page rules pick up A4 vs Letter.
+     Browsers also expect the dropdown choice to be reflected in the print dialog, so we
+     swap a <style> tag at runtime with the chosen @page declaration. */
+  let _qsPageStyleEl = null;
+  window.qsApplyPageSize = function(size){
+    if (!_qsPageStyleEl) {
+      _qsPageStyleEl = document.createElement('style');
+      _qsPageStyleEl.id = 'qsPageSizeStyle';
+      document.head.appendChild(_qsPageStyleEl);
+    }
+    _qsPageStyleEl.textContent = (size === 'a4')
+      ? '@page { size: A4; margin: 12mm; }'
+      : '@page { size: letter; margin: 0.4in; }';
+  };
   function fillQuoteInputs() {
     document.getElementById('qFreelancerName').value = qsState.info.freelancerName;
     document.getElementById('qFreelancerTitle').value = qsState.info.freelancerTitle;
@@ -7360,12 +7515,29 @@
     setVal('qDiscountValue', qsState.info.discountValue);
     setVal('qDiscountType',  qsState.info.discountType || 'percent');
     setVal('qDiscountLabelInput', qsState.info.discountLabel || 'Discount');
+    /* invoice + HST sync */
+    setVal('qInvoiceNumber', qsState.info.invoiceNumber);
+    setVal('qHstNumber',     qsState.info.hstNumber);
+    setVal('qHstLabelInput', qsState.info.hstLabel || 'HST #');
+    qsApplyMetaPreview();
+    /* visibility checkboxes */
+    const setChk = (id, v) => { const el = document.getElementById(id); if (el) el.checked = !!v; };
+    setChk('qcShowInvoiceNumber', qsState.info.showInvoiceNumber);
+    setChk('qcShowHstNumber',     qsState.info.showHstNumber);
+    setChk('qcShowDiscount',      qsState.info.showDiscount);
+    qsApplyMetaVisibility();
     /* colour picker sync + apply */
     setVal('qcAccent',   qsState.info.colorAccent);
     setVal('qcHeaderBg', qsState.info.colorHeaderBg);
     setVal('qcHeaderFg', qsState.info.colorHeaderFg);
     setVal('qcDocBg',    qsState.info.colorDocBg);
     qsApplyColors();
+    /* Compact toggle does NOT persist — always start spacious */
+    document.body.classList.remove('qs-compact');
+    const cBtn = document.getElementById('qsCompactBtn');
+    if (cBtn) cBtn.innerHTML = '\u279A Compact: OFF';
+    /* default page size */
+    qsApplyPageSize('letter');
   }
   function initQuoteSheet() {
     fillQuoteInputs();
