@@ -62,10 +62,15 @@ Stinger transition (for screen recording into MP4):
 All params are query-string. Multiple combine with `&`.
 
 ### Visual presets
-- `morph=N` — formation 0-7 (Sphere/Helix/Fractal/Torus/Lattice/Bicone/**Tree of Life**/Eye). Default: 0
+- `morph=N` — formation 0-13 (Sphere/Helix/Fractal/Torus/Lattice/Bicone/**Tree of Life**/Eye/Skull/Liquid/Construct/Construct Hybrid/Tree-Construct/**Sephiroth**). Default: 0
 - `theme=N` — palette 0-3 (Purple Nebula / Sunset Fire / Ocean Aurora / **Malikeye**). Default: 0
 - `density=N` — node density % (30-100). Default: 100
 - `intensity=low|med|high` — overall effect intensity. `low` is leaner for older hardware
+
+### Canvas framing (v2)
+- `framex=N` / `framey=N` — shift the rendered canvas by N px (-400 to 400) inside the OBS frame
+- `framezoom=N` — zoom the canvas % (40-200). Default 100
+- `adaptive=0` — disable adaptive resolution (on by default: render scale steps down 100→85→70→60% to hold ~58fps)
 
 ### Color overrides (all hex without #)
 - `inner=hex` — inner shell color
@@ -75,6 +80,7 @@ All params are query-string. Multiple combine with `&`.
 - `bloomtint=hex` — bloom post-process color
 - `nucleus=hex` — bright central core sphere color (the pulsing dot)
 - `halo=hex` — soft halo around nucleus
+- `veil1c=hex` / `veil2c=hex` / `veil3c=hex` — veil ring colors, outer/mid/inner (v2; defaults a8b4ff / e8b84b / fff4d0)
 
 ### Veil glyphs (ARG layer)
 - `veil1=set` — outer veil glyph set (hebrew/runes/greek/arabic/sanskrit/alchemy/astro/latin/mixed)

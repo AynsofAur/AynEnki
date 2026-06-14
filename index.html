@@ -20,6 +20,7 @@
 <meta name="twitter:description" id="twDesc" content="">
 <meta name="twitter:image" id="twImage" content="">
 <link rel="canonical" id="metaCanonical" href="">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2316161D'/%3E%3Ctext x='32' y='45' font-size='38' text-anchor='middle' fill='%23C9A050'%3E%E2%9D%96%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Bungee&family=VT323&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -83,7 +84,7 @@
   }
   @keyframes grain {
     0% { transform: translate(0, 0); }
-    50% { transform: translate(-2%, 2%); }
+    50% { transform: translate(-0.4%, 0.4%); }
     100% { transform: translate(0, 0); }
   }
   .bg-vignette {
@@ -1589,6 +1590,439 @@
   #view-ae-character .ae-char-note-text strong { color: var(--ae-c-ivory); font-weight: 500; }
   #view-ae-character .ae-char-divider { height: 1px; background: linear-gradient(to right, transparent, rgba(144,200,232,0.15), transparent); }
   @keyframes ae-char-fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ============ STYLE POLISH PASS ============
+     Late-sheet overrides: same Reverie palette, sharper execution.
+     Order matters — these intentionally win over the base rules above. */
+
+  /* selection + page scrollbar — small touches that read as intentional */
+  ::selection { background: rgba(201, 160, 80, 0.35); color: var(--moonspill); }
+  html { scrollbar-width: thin; scrollbar-color: rgba(201, 160, 80, 0.4) var(--void); }
+  body::-webkit-scrollbar { width: 10px; }
+  body::-webkit-scrollbar-track { background: var(--void); }
+  body::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, var(--amber-mist), var(--reverie));
+    border: 2px solid var(--void);
+  }
+
+  /* nav — animated underline that grows from center on hover / locks on active */
+  .tab { position: relative; }
+  .tab::after {
+    content: ''; position: absolute; bottom: 0; left: 50%; right: 50%; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold-bright), transparent);
+    box-shadow: 0 0 6px rgba(201, 160, 80, 0.6);
+    transition: left 0.28s ease, right 0.28s ease;
+  }
+  .tab:hover::after { left: 12%; right: 12%; }
+  .tab.active::after { left: 0; right: 0; }
+
+  /* hero — staggered entrance + soft gold aura behind the wordmark */
+  .hero::before {
+    content: ''; position: absolute; left: 50%; top: 44%;
+    width: min(72vw, 920px); height: min(54vh, 460px);
+    transform: translate(-50%, -50%);
+    background: radial-gradient(ellipse, rgba(201, 160, 80, 0.12), transparent 68%);
+    pointer-events: none;
+  }
+  @keyframes heroRise {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .hero > * { animation: heroRise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+  .hero > :nth-child(2) { animation-delay: 0.10s; }
+  .hero > :nth-child(3) { animation-delay: 0.22s; }
+  .hero > :nth-child(4) { animation-delay: 0.32s; }
+  .hero > :nth-child(5) { animation-delay: 0.45s; }
+  /* h1 keeps its flicker — chained after the entrance so they don't fight */
+  .hero h1 { animation: heroRise 0.9s 0.10s cubic-bezier(0.2, 0.7, 0.2, 1) both, flicker 6s 1.4s ease-in-out infinite; }
+
+  /* buttons — light sweep on hover (layered onto the existing gradient so the
+     corner-bracket pseudos stay free), plus a 1px lift */
+  .btn {
+    background-image:
+      linear-gradient(110deg, transparent 42%, rgba(237, 224, 192, 0.16) 50%, transparent 58%),
+      linear-gradient(180deg, rgba(74, 58, 28, 0.35), rgba(22, 22, 29, 0.6));
+    background-size: 260% 100%, 100% 100%;
+    background-position: 125% 0, 0 0;
+    transition: background-position 0.55s ease, border-color 0.25s, box-shadow 0.25s, transform 0.25s, color 0.25s;
+  }
+  .btn:hover {
+    background-image:
+      linear-gradient(110deg, transparent 42%, rgba(237, 224, 192, 0.16) 50%, transparent 58%),
+      linear-gradient(180deg, rgba(201, 160, 80, 0.5), rgba(22, 22, 29, 0.7));
+    background-position: -35% 0, 0 0;
+    background-size: 260% 100%, 100% 100%;
+    transform: translateY(-2px);
+    border-color: var(--gold-bright);
+  }
+  .btn.primary {
+    background-image:
+      linear-gradient(110deg, transparent 42%, rgba(237, 224, 192, 0.2) 50%, transparent 58%),
+      linear-gradient(180deg, rgba(201, 160, 80, 0.55), rgba(74, 58, 28, 0.7));
+    background-size: 260% 100%, 100% 100%;
+    background-position: 125% 0, 0 0;
+  }
+  .btn.primary:hover { background-position: -35% 0, 0 0; }
+  .btn.ghost { background-image: none; }
+  .btn.ghost:hover { transform: translateY(-2px); }
+
+  /* section headers — kicker rule under the gradient text */
+  .section-block h2 { position: relative; padding-bottom: 1rem; }
+  .section-block h2::after {
+    content: ''; position: absolute; bottom: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 130px; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    box-shadow: 0 0 10px rgba(201, 160, 80, 0.55);
+  }
+
+  /* cards — image zoom, deeper lift, title glow */
+  .piece-thumb img { transition: transform 0.5s cubic-bezier(0.2, 0.7, 0.2, 1); }
+  .piece:hover .piece-thumb img { transform: scale(1.06); }
+  .piece { transition: transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1), border-color 0.3s, box-shadow 0.3s; }
+  .piece:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 16px 44px rgba(0, 0, 0, 0.55), 0 0 26px rgba(201, 160, 80, 0.16);
+  }
+  .piece-title { transition: color 0.25s, text-shadow 0.25s; }
+  .piece:hover .piece-title { color: var(--moonspill); text-shadow: 0 0 10px rgba(201, 160, 80, 0.45); }
+
+  /* schedule + social — row hover, card lift */
+  .schedule-table tbody tr { transition: background 0.2s; }
+  .schedule-table tbody tr:hover { background: rgba(201, 160, 80, 0.05); }
+  .social-grid a { transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1), border-color 0.25s, background 0.25s, box-shadow 0.25s; }
+  .social-grid a:hover { transform: translateY(-3px); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45), 0 0 18px rgba(201, 160, 80, 0.14); }
+
+  /* scroll-reveal — sections rise in as they enter the viewport (JS adds .in) */
+  .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1); }
+  .reveal.in { opacity: 1; transform: none; }
+
+  /* HERO NEURAL BACKDROP — the v2 construct living behind the wordmark.
+     Full-viewport fixed iframe, radially masked into the void, fades out as
+     you scroll past the hero (inline opacity from JS). Content stacks above
+     via #view-home { z-index } below. */
+  #neuralAvatarFrame.hero {
+    top: 0; left: 0; transform: none;
+    width: 100vw; height: 100vh;
+    z-index: 0;
+    /* annular mask — hollow calm zone behind the wordmark, the network lives
+       in a ring around it, fading to nothing at the viewport edges */
+    -webkit-mask-image: radial-gradient(ellipse 72% 60% at 50% 44%,
+      transparent 0 17%, rgba(0,0,0,0.5) 32%, #000 45% 58%, transparent 80%);
+    mask-image: radial-gradient(ellipse 72% 60% at 50% 44%,
+      transparent 0 17%, rgba(0,0,0,0.5) 32%, #000 45% 58%, transparent 80%);
+  }
+  /* frame, not centerpiece — cap brightness so the wordmark owns the frame
+     (the JS scroll-fade multiplies against this same cap) */
+  #neuralAvatarFrame.hero.visible { opacity: 0.45; }
+  #view-home { position: relative; z-index: 1; }
+  /* dark halo keeps the small hero text legible over the moving network */
+  .hero-eyebrow, .hero .tagline {
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95), 0 0 16px rgba(0, 0, 0, 0.85), 0 0 32px rgba(0, 0, 0, 0.7);
+  }
+  .hero h1 { filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.85)); }
+  /* lean mode: no hero construct on small screens or for reduced-motion users */
+  @media (max-width: 760px) {
+    #neuralAvatarFrame.hero { display: none !important; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #neuralAvatarFrame.hero { display: none !important; }
+    .hero > *, .hero h1 { animation: none; }
+    .reveal { opacity: 1; transform: none; transition: none; }
+    .bg-grain { animation: none; }
+  }
+
+  /* ============ SIGNAL SWEEP · TAB TRANSITION ============
+     A scanline curtain drops over the old page, the route swaps underneath,
+     then the curtain continues off the bottom with a glitch jitter — like a
+     broadcast signal re-locking onto a new feed. Public tabs only; OBS hash
+     routes and admin never see it (gated in _shouldSweep). */
+  #routeSweep {
+    position: fixed; inset: 0; z-index: 90; pointer-events: none;
+    transform: translateY(-103%);
+    background:
+      repeating-linear-gradient(0deg, rgba(201, 160, 80, 0.05) 0 1px, transparent 1px 3px),
+      radial-gradient(ellipse at 50% 30%, #1a1825 0%, transparent 70%),
+      linear-gradient(180deg, #0d0d12, #16161D);
+  }
+  /* gold signal edges — bottom leads the cover, top trails the reveal.
+     The offset violet/amber shadows give the edge a misconverged-tube fringe. */
+  #routeSweep::before, #routeSweep::after {
+    content: ''; position: absolute; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent 4%, var(--gold-bright) 30%, var(--moonspill) 50%, var(--gold-bright) 70%, transparent 96%);
+    box-shadow: 0 0 16px rgba(201, 160, 80, 0.8), 0 0 42px rgba(201, 160, 80, 0.35),
+      0 3px 0 rgba(160, 96, 224, 0.3), 0 -3px 0 rgba(122, 96, 48, 0.35);
+  }
+  #routeSweep::before { top: -1px; }
+  #routeSweep::after  { bottom: -1px; }
+  /* between-channels static — jittering turbulence noise riding the curtain */
+  #routeSweep .sweep-noise {
+    position: absolute; inset: -8%; opacity: 0.16;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='sn'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/></filter><rect width='100%' height='100%' filter='url(%23sn)' opacity='1'/></svg>");
+    animation: sweepStatic 0.22s steps(3) infinite;
+  }
+  @keyframes sweepStatic {
+    0%   { transform: translate(0, 0); }
+    50%  { transform: translate(-0.7%, 0.5%); }
+    100% { transform: translate(0.5%, -0.5%); }
+  }
+  /* channel OSD — VT323 readout, top-right, slight chromatic ghost */
+  #sweepOsd {
+    position: fixed; top: 72px; right: 28px; z-index: 95;
+    font-family: 'VT323', 'Courier New', monospace;
+    font-size: 1.45rem; letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--moonspill);
+    text-shadow: 0 0 10px rgba(201, 160, 80, 0.6),
+      -2px 0 0 rgba(160, 96, 224, 0.3), 2px 0 0 rgba(122, 96, 48, 0.35);
+    opacity: 0; transform: translateY(-4px);
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    pointer-events: none;
+  }
+  #sweepOsd.show { opacity: 1; transform: none; }
+  body.overlay-active #sweepOsd { display: none; }
+  #routeSweep.cover  { animation: sweepCover 0.19s cubic-bezier(0.35, 0, 0.75, 1) forwards; }
+  #routeSweep.reveal { animation: sweepReveal 0.34s cubic-bezier(0.25, 0, 0.4, 1) forwards; }
+  @keyframes sweepCover {
+    from { transform: translateY(-103%); }
+    to   { transform: translateY(0); }
+  }
+  @keyframes sweepReveal {
+    0%   { transform: translate(0, 0); }
+    22%  { transform: translate(-1px, 24%); }
+    25%  { transform: translate(1px, 27%); }
+    28%  { transform: translate(0, 30%); }
+    58%  { transform: translate(1px, 62%); }
+    61%  { transform: translate(0, 65%); }
+    100% { transform: translate(0, 103%); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #routeSweep { display: none; }
+  }
+
+  /* ============ RETRO-FUTURE CHROME ============
+     90s CRT / broadcast-terminal layer pack. Decorative, palette-native,
+     pointer-transparent, and fully hidden on OBS overlay routes. */
+
+  /* CRT layers — rolling scan band + occasional VHS tracking glitch */
+  #crtLayers { position: fixed; inset: 0; z-index: 80; pointer-events: none; overflow: hidden; }
+  body.overlay-active #crtLayers { display: none; }
+  .crt-roll {
+    position: absolute; left: 0; right: 0; top: -160px; height: 130px;
+    background: linear-gradient(180deg, transparent,
+      rgba(237, 224, 192, 0.035) 38%, rgba(201, 160, 80, 0.055) 50%,
+      rgba(237, 224, 192, 0.035) 62%, transparent);
+    animation: crtRoll 9s linear infinite;
+  }
+  @keyframes crtRoll {
+    from { transform: translateY(0); }
+    to   { transform: translateY(calc(100vh + 320px)); }
+  }
+  .crt-vhs {
+    position: absolute; left: -4%; right: -4%; top: 0; height: 26px; opacity: 0;
+    background: repeating-linear-gradient(0deg,
+      rgba(160, 96, 224, 0.12) 0 2px, rgba(201, 160, 80, 0.09) 2px 4px, transparent 4px 6px);
+    animation: vhsTrack 13s linear infinite;
+  }
+  @keyframes vhsTrack {
+    0%, 90.4% { opacity: 0; transform: translateY(8vh) skewX(0deg); }
+    90.8%     { opacity: 0.28; transform: translateY(14vh) skewX(-2deg); }
+    91.6%     { opacity: 0.22; transform: translateY(36vh) skewX(1deg); }
+    92.4%     { opacity: 0.16; transform: translateY(58vh) skewX(-1deg); }
+    93.0%, 100% { opacity: 0; transform: translateY(78vh) skewX(0deg); }
+  }
+
+  /* chromatic aberration — misconverged-tube fringe on section headers only.
+     Kept OFF the hero wordmark: the ghosts bleed into the letter gaps and
+     muddy the gold, and the branding must stay pristine. */
+  .section-block h2 {
+    text-shadow: -1px 0 0 rgba(160, 96, 224, 0.18), 1px 0 0 rgba(122, 96, 48, 0.2);
+  }
+
+  /* type-on cursor (hero eyebrow, driven by JS) */
+  .type-cursor { color: var(--gold-bright); animation: blink 0.85s steps(1) infinite; }
+
+  /* nav — terminal channel indices on the tabs (data-idx set by JS) */
+  .tab::before {
+    content: attr(data-idx);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px; letter-spacing: 0;
+    color: var(--gold); opacity: 0.55;
+    margin-right: 6px; vertical-align: 2px;
+  }
+  .tab.active::before, .tab:hover::before { opacity: 0.95; }
+
+  /* bottom wire ticker — 90s news crawl. Hidden on overlays + work routes. */
+  #retroTicker {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+    height: 30px; overflow: hidden;
+    display: flex; align-items: center;
+    background: linear-gradient(180deg, rgba(13, 13, 18, 0.88), rgba(22, 22, 29, 0.96));
+    border-top: 1px solid var(--border);
+    backdrop-filter: blur(6px);
+  }
+  body.overlay-active #retroTicker,
+  body[data-route="admin"] #retroTicker,
+  body[data-route="quote"] #retroTicker { display: none; }
+  .ticker-track {
+    display: flex; white-space: nowrap; flex-shrink: 0;
+    font-family: 'VT323', 'Courier New', monospace;
+    font-size: 1.05rem; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--vellum);
+    animation: tickerScroll 38s linear infinite;
+  }
+  .ticker-track span { padding-left: 3rem; }
+  .ticker-track span::after { content: '\2756'; margin-left: 3rem; color: var(--gold); opacity: 0.6; font-size: 0.8em; }
+  @keyframes tickerScroll { to { transform: translateX(-50%); } }
+  /* breathing room so page bottoms never hide under the ticker */
+  body:not(.overlay-active) .view.active:not(.fullscreen-view) { padding-bottom: 6rem; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .crt-roll, .crt-vhs { display: none; }
+    .ticker-track { animation: none; }
+  }
+
+  /* ============ BOOT SEQUENCE ============
+     First-visit-only BIOS power-on. Typed system log, then a CRT line-collapse
+     reveal. Gated in JS: home landings only, never OBS hash routes, never
+     reduced-motion; replay with ?boot=1. Click/keypress skips. */
+  #bootScreen {
+    display: none; position: fixed; inset: 0; z-index: 200;
+    background:
+      repeating-linear-gradient(0deg, rgba(201, 160, 80, 0.04) 0 1px, transparent 1px 3px),
+      radial-gradient(ellipse at 50% 40%, #14121c 0%, #0d0d12 75%);
+    cursor: pointer;
+  }
+  #bootScreen pre {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    margin: 0; width: min(620px, 86vw);
+    font-family: 'VT323', 'Courier New', monospace;
+    font-size: clamp(1rem, 2.2vw, 1.3rem); line-height: 2;
+    color: var(--gold-pale); letter-spacing: 0.12em;
+    text-shadow: 0 0 8px rgba(201, 160, 80, 0.4);
+    white-space: pre-wrap;
+  }
+  #bootScreen .boot-ok  { color: var(--good); text-shadow: 0 0 8px rgba(176, 201, 122, 0.5); }
+  #bootScreen .boot-eye { color: var(--gold-bright); text-shadow: 0 0 14px rgba(201, 160, 80, 0.8); letter-spacing: 0.3em; }
+  #bootScreen .boot-skip {
+    position: absolute; bottom: 22px; right: 26px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    letter-spacing: 0.25em; text-transform: uppercase;
+    color: var(--vellum); opacity: 0.45;
+  }
+  #bootScreen.boot-collapse { animation: bootCollapse 0.55s cubic-bezier(0.7, 0, 0.9, 0.4) forwards; }
+  @keyframes bootCollapse {
+    0%   { transform: scaleY(1);     filter: brightness(1);   opacity: 1; }
+    55%  { transform: scaleY(0.012); filter: brightness(2.6); opacity: 1; }
+    100% { transform: scaleY(0.001); filter: brightness(3);   opacity: 0; }
+  }
+
+  /* ============ ARCHIVE POLISH ============
+     Empty states with intent, piece counts on the filter chips, and a
+     staggered materialize when the grid refilters. */
+  .archive-empty {
+    grid-column: 1 / -1;
+    position: relative;
+    margin: 1.5rem auto 0; padding: 2.6rem 2rem;
+    max-width: 520px; width: 100%;
+    border: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(74, 58, 28, 0.12), rgba(22, 22, 29, 0.45));
+    text-align: center; font-style: normal;
+  }
+  .archive-empty::before, .archive-empty::after {
+    content: ''; position: absolute; width: 10px; height: 10px; border: 1px solid var(--gold);
+  }
+  .archive-empty::before { top: -5px; left: -5px; border-right: none; border-bottom: none; }
+  .archive-empty::after { bottom: -5px; right: -5px; border-left: none; border-top: none; }
+  .archive-empty .ae-glyph {
+    color: var(--gold); font-size: 1.4rem; margin-bottom: 0.9rem;
+    text-shadow: 0 0 12px rgba(201, 160, 80, 0.5);
+    animation: blink 2.5s ease-in-out infinite;
+  }
+  .archive-empty .ae-title {
+    font-family: 'Black Ops One', sans-serif;
+    font-size: 0.95rem; letter-spacing: 0.3em; text-transform: uppercase;
+    color: var(--gold-bright); margin-bottom: 0.7rem;
+  }
+  .archive-empty .ae-sub {
+    font-family: 'VT323', 'Courier New', monospace; font-style: italic;
+    font-size: 1.02rem; line-height: 1.7; color: var(--vellum);
+  }
+  .chip .chip-count {
+    font-style: normal; font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; margin-left: 6px; opacity: 0.6; letter-spacing: 0;
+  }
+  .chip.active .chip-count, .chip:hover .chip-count { opacity: 0.95; }
+  @keyframes pieceIn {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: none; }
+  }
+  .piece-grid .piece.piece-in { animation: pieceIn 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+  @media (prefers-reduced-motion: reduce) {
+    .piece-grid .piece.piece-in { animation: none; }
+    .archive-empty .ae-glyph { animation: none; }
+  }
+
+  /* ============ MOBILE AUDIT ============
+     The site is desktop-first (built for OBS), but the public pages should
+     hold up on a phone. Tightens spacing, drops the channel indices, and
+     shrinks the chrome at narrow widths. The hero construct is already off
+     below 760px. */
+  @media (max-width: 760px) {
+    .view { padding: 2.5rem 1rem; }
+    .section-block { padding: 2.5rem 1rem; }
+    .nav { padding: 0.65rem 0.9rem; }
+    .tab::before { display: none; } /* channel indices steal width on phones */
+    .tabs { column-gap: 0.85rem; }
+    .tab { letter-spacing: 0.14em; padding: 6px 2px; }
+    .brand { letter-spacing: 0.22em; }
+    .hero { min-height: 78vh; padding: 1.5rem 1rem 2.5rem; }
+    .hero-actions .btn { padding: 0.75rem 1.1rem; }
+    .schedule-table th, .schedule-table td { padding: 0.7rem 0.7rem; font-size: 0.76rem; letter-spacing: 0.08em; }
+    .schedule-table td.title { font-size: 0.92rem; }
+    .detail-close { top: 12px; right: 12px; }
+    .detail-body { padding: 1.4rem 1.2rem 1.6rem; }
+    #sweepOsd { top: 60px; right: 14px; font-size: 1.1rem; }
+    .ticker-track { font-size: 0.92rem; }
+    .commissions-form { padding: 1.2rem; }
+  }
+
+  /* ============ REVERIE MODE (Konami code) ============
+     ↑↑↓↓←→←→BA flips the site into the dream: the warm gold recedes and the
+     arcane violet wakes. Same structure, inverted mood. Toggle to exit. */
+  html.reverie {
+    --reverie: #a060e0;
+    --moonspill: #efe6ff;
+    --amber-mist: #5b4a82;
+    --gold: #a060e0;
+    --gold-bright: #b07fe8;
+    --gold-pale: #e8ddf7;
+    --vellum: #b3a3d6;
+    --muted: #5b4a82;
+    --border: rgba(160, 96, 224, 0.25);
+    --border-strong: rgba(160, 96, 224, 0.55);
+    --red: #5b4a82;
+    --red-deep: #3a2f54;
+    --red-glow: #a060e0;
+  }
+  html.reverie .bg-base {
+    background: radial-gradient(ellipse at center, #221a33 0%, #171221 60%, #000 100%);
+  }
+  html.reverie .hero h1,
+  html.reverie .section-block h2,
+  html.reverie .detail-body h2 {
+    background: linear-gradient(180deg, #efe6ff 0%, #b07fe8 45%, #5b4a82 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  html.reverie .brand { text-shadow: 0 0 12px rgba(160, 96, 224, 0.5); }
+  html.reverie .btn {
+    border-color: rgba(160, 96, 224, 0.5);
+    background-image:
+      linear-gradient(110deg, transparent 42%, rgba(239, 230, 255, 0.16) 50%, transparent 58%),
+      linear-gradient(180deg, rgba(58, 47, 84, 0.4), rgba(22, 22, 29, 0.6));
+  }
+  html.reverie .hero::before {
+    background: radial-gradient(ellipse, rgba(160, 96, 224, 0.13), transparent 68%);
+  }
 </style>
 </head>
 <body>
@@ -1596,13 +2030,33 @@
   <div class="bg-grain"></div>
   <div class="bg-vignette"></div>
 
+  <!-- signal-sweep curtain for tab transitions (driven by _sweepRoute in JS) -->
+  <div id="routeSweep" aria-hidden="true"><div class="sweep-noise"></div></div>
+  <!-- channel OSD — pops up like an old TV confirming the channel change -->
+  <div id="sweepOsd" aria-hidden="true"></div>
+
+  <!-- retro-future chrome: CRT scan layers + bottom wire ticker (public pages only) -->
+  <div id="crtLayers" aria-hidden="true">
+    <div class="crt-roll"></div>
+    <div class="crt-vhs"></div>
+  </div>
+  <div id="retroTicker" aria-hidden="true">
+    <div class="ticker-track" id="tickerTrack"></div>
+  </div>
+
+  <!-- first-visit boot sequence (gated + driven in JS; click to skip) -->
+  <div id="bootScreen" aria-hidden="true">
+    <pre id="bootLog"></pre>
+    <div class="boot-skip">click to skip</div>
+  </div>
+
   <!-- shared hidden webcam + debug canvas for face tracking -->
   <video id="cam" playsinline autoplay muted></video>
   <canvas id="debugCanvas" width="160" height="120"></canvas>
 
   <!-- shared neural-avatar iframe (per-scene src is set in JS route() handler).
        runs ONE instance across all scenes so webcam permission only fires once. -->
-  <iframe id="neuralAvatarFrame" src="" title="Malikeye neural avatar"
+  <iframe id="neuralAvatarFrame" src="about:blank" title="Malikeye neural avatar"
           allow="microphone; camera; autoplay"></iframe>
 
   <!-- avatar control panel — only shown on scene routes via body.neural-on CSS -->
@@ -3762,6 +4216,10 @@
                   <option value="7">Eye</option>
                   <option value="8">Skull (wireframe)</option>
                   <option value="9">Liquid (gel)</option>
+                  <option value="10">Construct (energy cage)</option>
+                  <option value="11">Construct Hybrid</option>
+                  <option value="12">Tree-Construct</option>
+                  <option value="13">Sephiroth (full Tree of Life)</option>
                 </select>
               </div>
               <div class="field">
@@ -3806,6 +4264,21 @@
                   <option value="magenta">Magenta chroma key</option>
                 </select>
               </div>
+              <div class="field">
+                <label>Frame X offset: <span id="aurlFrameXVal">0</span>px  <span style="opacity:0.5; font-size:0.75rem;">(shift canvas in OBS frame)</span></label>
+                <input type="range" id="aurlFrameX" min="-400" max="400" value="0"
+                       oninput="document.getElementById('aurlFrameXVal').textContent=this.value; aurlBuild()">
+              </div>
+              <div class="field">
+                <label>Frame Y offset: <span id="aurlFrameYVal">0</span>px</label>
+                <input type="range" id="aurlFrameY" min="-400" max="400" value="0"
+                       oninput="document.getElementById('aurlFrameYVal').textContent=this.value; aurlBuild()">
+              </div>
+              <div class="field">
+                <label>Frame zoom: <span id="aurlFrameZoomVal">1.00</span>x</label>
+                <input type="range" id="aurlFrameZoom" min="40" max="200" value="100"
+                       oninput="document.getElementById('aurlFrameZoomVal').textContent=(this.value/100).toFixed(2); aurlBuild()">
+              </div>
             </div>
 
             <!-- RIGHT COLUMN — colors + toggles -->
@@ -3835,6 +4308,14 @@
                 <input type="color" id="aurlHalo" value="#c8952a" onchange="aurlBuild()">
               </div>
               <div class="field">
+                <label>Veil ring colors (outer / middle / inner)</label>
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px;">
+                  <input type="color" id="aurlVeil1c" value="#a8b4ff" onchange="aurlBuild()">
+                  <input type="color" id="aurlVeil2c" value="#e8b84b" onchange="aurlBuild()">
+                  <input type="color" id="aurlVeil3c" value="#fff4d0" onchange="aurlBuild()">
+                </div>
+              </div>
+              <div class="field">
                 <label>Toggles</label>
                 <div style="display:flex; flex-direction:column; gap:4px;">
                   <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem;">
@@ -3854,6 +4335,9 @@
                   </label>
                   <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem;">
                     <input type="checkbox" id="aurlShockwave" onchange="aurlBuild()"> Shockwave bloom (voice spikes)
+                  </label>
+                  <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem;">
+                    <input type="checkbox" id="aurlAdaptive" checked onchange="aurlBuild()"> Adaptive resolution (auto FPS guard)
                   </label>
                 </div>
               </div>
@@ -4868,7 +5352,16 @@
      cutting through their title / social-link / countdown chrome. */
   const NEURAL_SCENE_MAP = {
     'avatar':     { mode: 'showcase', params: '?obs=1&morph=6&theme=3&density=100&intensity=high' },
-    'game-scene': { mode: 'corner',   params: '?obs=1&morph=6&theme=3&density=60&intensity=low' }
+    'game-scene': { mode: 'corner',   params: '?obs=1&morph=6&theme=3&density=60&intensity=low' },
+    /* HOME HERO — the construct lives behind the wordmark. test=1 self-animates
+       (no cam/mic prompt for visitors), obs=1 hides the avatar's own UI. Low
+       density + intensity keep the landing page light; v2 adaptive resolution
+       guards FPS on weaker machines. */
+    'home':       { mode: 'hero', params: '?obs=1&test=1&morph=6&theme=3&density=50&intensity=low&stars=0&gain=60&scale=50'
+      /* dusk-violet tint — gold belongs to the branding, the net recedes into
+         the palette's arcane end. Sparkle + bloom pulled violet so voice pulses
+         never bloom white over the wordmark. */
+      + '&inner=a060e0&mid=6e48aa&outer=6080a0&sparkle=8a7bd8&bloomtint=7a5bb5&nucleus=a060e0&halo=6e48aa' }
   };
   /* PUBLIC API — drive the avatar live from the master site or console.
      Examples:
@@ -4890,7 +5383,7 @@
   };
 
   /* CONTROL PANEL HELPERS — wire the buttons in #avatarControlPanel */
-  const MORPH_NAMES = ['Sphere','Helix','Fractal','Torus','Lattice','Bicone','Tree of Life','Eye','Skull','Liquid'];
+  const MORPH_NAMES = ['Sphere','Helix','Fractal','Torus','Lattice','Bicone','Tree of Life','Eye','Skull','Liquid','Construct','Construct Hybrid','Tree-Construct','Sephiroth'];
   const THEME_NAMES = ['Purple Nebula','Sunset Fire','Ocean Aurora','Malikeye'];
   let _acpMorph = 6; /* matches the default in NEURAL_SCENE_MAP (Tree) */
   let _acpTheme = 3;
@@ -4946,8 +5439,9 @@
     if (scene) {
       if (_neuralHideTimer) { clearTimeout(_neuralHideTimer); _neuralHideTimer = null; }
       frame.style.display = 'block';
+      frame.style.opacity = ''; /* clear any hero scroll-fade from a previous route */
       /* clear all mode classes then apply the one we want */
-      frame.classList.remove('slot', 'showcase', 'watermark', 'corner');
+      frame.classList.remove('slot', 'showcase', 'watermark', 'corner', 'hero');
       frame.classList.add(scene.mode);
       const targetSrc = 'neural-avatar.html' + scene.params;
       /* only reload if params actually changed — avoids re-prompting webcam */
@@ -4955,24 +5449,67 @@
         frame.src = targetSrc;
       }
       requestAnimationFrame(() => frame.classList.add('visible'));
-      /* hide the legacy SVG eyes — see body.neural-on CSS rules */
-      document.body.classList.add('neural-on');
+      /* hide the legacy SVG eyes — see body.neural-on CSS rules. The home hero
+         is decorative only: skip neural-on so the Watcher Controls panel never
+         shows to plain visitors. */
+      if (scene.mode !== 'hero') document.body.classList.add('neural-on');
+      else document.body.classList.remove('neural-on');
     } else {
       frame.classList.remove('visible');
+      frame.style.opacity = '';
       document.body.classList.remove('neural-on');
       /* leave iframe alive briefly so quick re-entries don't reload+reprompt;
-         after 4s of being out-of-scene, clear src to free GPU/mic. */
+         after 4s of being out-of-scene, clear src to free GPU/mic.
+         about:blank, NOT '' — an empty src resolves to the page's own URL and
+         silently reloads the entire site inside the hidden iframe. */
       if (_neuralHideTimer) clearTimeout(_neuralHideTimer);
       _neuralHideTimer = setTimeout(() => {
         frame.style.display = 'none';
-        frame.src = '';
+        frame.src = 'about:blank';
         _neuralHideTimer = null;
       }, 4000);
     }
   }
 
   let currentRoute = null;
+  /* ============ SIGNAL SWEEP · DRIVER ============
+     Public-tab navigation goes through the curtain: cover (190ms) → swap the
+     route underneath → reveal (340ms, with glitch jitter). Everything else —
+     OBS hash routes, admin, first load, repeat clicks — routes instantly. */
+  function _shouldSweep(name, opts) {
+    return !opts._swept && !opts.fromHash
+      && currentRoute && currentRoute !== name
+      && PUBLIC_VIEWS.includes(name) && PUBLIC_VIEWS.includes(currentRoute)
+      && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+  let _sweepBusy = false;
+  function _sweepRoute(name, opts) {
+    const el = document.getElementById('routeSweep');
+    if (!el || _sweepBusy) { route(name, Object.assign({}, opts, { _swept: true })); return; }
+    _sweepBusy = true;
+    /* channel OSD — mirrors the nav's channel indices ("CH 03 · SHOP"),
+       lingers a beat after the sweep like an old set confirming the change */
+    const osd = document.getElementById('sweepOsd');
+    if (osd) {
+      const idx = PUBLIC_VIEWS.indexOf(name);
+      osd.textContent = 'CH ' + String(idx + 1).padStart(2, '0') + ' · ' + name.toUpperCase();
+      osd.classList.add('show');
+      clearTimeout(osd._osdTimer);
+      osd._osdTimer = setTimeout(() => osd.classList.remove('show'), 1600);
+    }
+    el.classList.remove('cover', 'reveal');
+    void el.offsetWidth; /* reflow so re-adding the class restarts the animation */
+    el.classList.add('cover');
+    setTimeout(() => {
+      route(name, Object.assign({}, opts, { _swept: true }));
+      el.classList.remove('cover');
+      void el.offsetWidth;
+      el.classList.add('reveal');
+      setTimeout(() => { el.classList.remove('reveal'); _sweepBusy = false; }, 360);
+    }, 190);
+  }
   function route(name, opts = {}) {
+    if (_shouldSweep(name, opts)) { _sweepRoute(name, opts); return; }
     if (name === 'admin' && !isAdmin) { openLogin(); return; }
     /* cleanup previous overlay */
     if (currentRoute && ROUTE_HOOKS[currentRoute] && ROUTE_HOOKS[currentRoute].cleanup) {
@@ -5004,6 +5541,7 @@
     /* init the new route — neural avatar FIRST so its iframe wins the
        camera/mic permission grab over the master site's face-tracking. */
     currentRoute = name;
+    document.body.dataset.route = name; /* lets CSS gate retro chrome per-route */
     updateNeuralAvatar(name);
     if (ROUTE_HOOKS[name] && ROUTE_HOOKS[name].init) ROUTE_HOOKS[name].init();
     window.scrollTo({ top: 0, behavior: 'auto' });
@@ -5025,6 +5563,194 @@
   } else {
     setTimeout(handleHash, 0);
   }
+
+  /* ============ STYLE POLISH · BEHAVIOR ============ */
+  /* hero construct fades out as the visitor scrolls past the fold, so it never
+     muddies the content sections below (it's position:fixed). */
+  window.addEventListener('scroll', () => {
+    const frame = document.getElementById('neuralAvatarFrame');
+    if (frame && frame.classList.contains('hero') && frame.classList.contains('visible')) {
+      /* 0.45 mirrors the #neuralAvatarFrame.hero.visible opacity cap */
+      frame.style.opacity = (0.45 * Math.max(0, 1 - window.scrollY / 650)).toFixed(3);
+    }
+  }, { passive: true });
+  /* scroll-reveal — public content blocks rise in once as they enter view.
+     Overlay scenes don't use these classes, so OBS sources are unaffected. */
+  const _revealIO = ('IntersectionObserver' in window) ? new IntersectionObserver((entries) => {
+    entries.forEach(en => {
+      if (en.isIntersecting) { en.target.classList.add('in'); _revealIO.unobserve(en.target); }
+    });
+  }, { threshold: 0.12 }) : null;
+  if (_revealIO) {
+    document.querySelectorAll('.view .section-block, .view .about-grid, .view .commissions-wrap').forEach(el => {
+      el.classList.add('reveal');
+      _revealIO.observe(el);
+    });
+  }
+  /* ============ RETRO CHROME · BEHAVIOR ============ */
+  /* terminal channel indices on the nav tabs */
+  document.querySelectorAll('.tabs .tab').forEach((t, i) => {
+    t.dataset.idx = String(i + 1).padStart(2, '0');
+  });
+  /* bottom wire ticker — phrases pulled from saved site state, doubled for a
+     seamless loop (the keyframe scrolls exactly half the track width) */
+  (function buildTicker(){
+    const track = document.getElementById('tickerTrack');
+    if (!track) return;
+    const s = (typeof state === 'object' && state) ? state : {};
+    const esc = v => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    const bits = [
+      s.brand || 'MALIKEYE',
+      s.tagline || 'The watcher streams — the order grows',
+      s.motto || '',
+      (s.socials && s.socials.twitch && s.socials.twitch.label) ? 'Twitch ' + s.socials.twitch.label : '',
+      s.commissionsOpen ? 'Commissions: OPEN' : 'Commissions: by request',
+      'Broadcasting from the dark · est. in the order'
+    ].filter(Boolean);
+    const half = bits.map(b => '<span>' + esc(b) + '</span>').join('');
+    track.innerHTML = half + half;
+  })();
+  /* ============ BOOT SEQUENCE · DRIVER ============
+     First visit landing on home (or ?boot=1 to replay): typed BIOS log, then
+     a CRT line-collapse into the site. Click/keypress skips straight to the
+     collapse. Sets window._bootActive so the hero type-on waits its turn. */
+  (function bootSequence(){
+    try {
+      const force = /[?&]boot=1\b/.test(location.search);
+      const hash = location.hash.replace('#', '');
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const seen = localStorage.getItem('malikeye-boot-seen');
+      if (reduce) return;
+      if (!force && (seen || (hash && hash !== 'home'))) return;
+      const screen = document.getElementById('bootScreen');
+      const log = document.getElementById('bootLog');
+      if (!screen || !log) return;
+      try { localStorage.setItem('malikeye-boot-seen', '1'); } catch(e) {}
+      window._bootActive = true;
+      screen.style.display = 'block';
+      /* [prefix typed char-by-char, status popped in whole, line class] */
+      const LINES = [
+        ['MALIKEYE.SYS v3.7 — REVERIE CORE', '', ''],
+        ['VOID MEMORY ........ ', '640K OK', 'boot-ok'],
+        ['SIGIL INTEGRITY .... ', 'VERIFIED', 'boot-ok'],
+        ['VEILS .............. ', '3/3 WOVEN', 'boot-ok'],
+        ['NEURAL LINK ........ ', 'ESTABLISHED', 'boot-ok'],
+        ['AUDIENCE ........... ', 'DETECTED', 'boot-ok'],
+        ['THE EYE OPENS', '', 'boot-eye']
+      ];
+      let li = 0, ci = 0, done = false, timer = null;
+      let lineSpan = null;
+      const cur = document.createElement('span');
+      cur.className = 'type-cursor';
+      cur.textContent = '▌';
+      log.appendChild(cur);
+      function finish(){
+        if (done) return;
+        done = true;
+        if (timer) clearTimeout(timer);
+        screen.classList.add('boot-collapse');
+        setTimeout(() => {
+          screen.style.display = 'none';
+          screen.classList.remove('boot-collapse');
+          window._bootActive = false;
+          window.dispatchEvent(new Event('malikeye-boot-done'));
+        }, 560);
+      }
+      function tick(){
+        if (done) return;
+        if (li >= LINES.length) { timer = setTimeout(finish, 520); return; }
+        const [prefix, status, cls] = LINES[li];
+        if (!lineSpan) {
+          lineSpan = document.createElement('span');
+          if (cls === 'boot-eye') lineSpan.className = cls;
+          cur.before(lineSpan);
+        }
+        if (ci < prefix.length) {
+          lineSpan.append(prefix.charAt(ci++));
+          timer = setTimeout(tick, 7 + Math.random() * 9);
+        } else {
+          if (status) {
+            const st = document.createElement('span');
+            st.className = cls;
+            st.textContent = status;
+            cur.before(st);
+          }
+          cur.before(document.createTextNode('\n'));
+          lineSpan = null; ci = 0; li++;
+          timer = setTimeout(tick, li === LINES.length ? 300 : 90 + Math.random() * 110);
+        }
+      }
+      screen.addEventListener('click', finish);
+      window.addEventListener('keydown', finish, { once: true });
+      timer = setTimeout(tick, 420);
+    } catch(e) {
+      /* the front door must never jam — bail to the plain site */
+      const s = document.getElementById('bootScreen');
+      if (s) s.style.display = 'none';
+      window._bootActive = false;
+    }
+  })();
+  /* hero eyebrow types itself out on first load with a block cursor.
+     If the boot sequence is running, wait for it so the moments read in order:
+     boot collapse → page reveal → eyebrow types in. */
+  (function heroTypeOn(){
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const start = () => {
+      if (currentRoute !== 'home') return;
+      const el = document.getElementById('heroEyebrowTop');
+      if (!el || !el.textContent.trim()) return;
+      const full = el.textContent;
+      el.textContent = '';
+      const cur = document.createElement('span');
+      cur.className = 'type-cursor';
+      cur.textContent = '▌';
+      el.appendChild(cur);
+      let i = 0;
+      (function tick(){
+        if (i < full.length) {
+          cur.before(document.createTextNode(full.charAt(i++)));
+          setTimeout(tick, 24 + Math.random() * 36);
+        } else {
+          setTimeout(() => cur.remove(), 2400);
+        }
+      })();
+    };
+    if (window._bootActive) {
+      window.addEventListener('malikeye-boot-done', () => setTimeout(start, 300), { once: true });
+    } else {
+      setTimeout(start, 650);
+    }
+  })();
+  /* ============ REVERIE MODE · KONAMI LISTENER ============
+     ↑↑↓↓←→←→BA toggles html.reverie (the violet dream) and retunes the hero
+     construct to the Sephiroth with spectral mode. Same code exits. */
+  (function konami(){
+    const SEQ = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+    let pos = 0;
+    window.addEventListener('keydown', (e) => {
+      if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+      const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      pos = (k === SEQ[pos]) ? pos + 1 : (k === SEQ[0] ? 1 : 0);
+      if (pos < SEQ.length) return;
+      pos = 0;
+      const on = document.documentElement.classList.toggle('reverie');
+      const osd = document.getElementById('sweepOsd');
+      if (osd) {
+        osd.textContent = on ? 'REVERIE MODE · THE DREAM WAKES' : 'REVERIE MODE · OFF';
+        osd.classList.add('show');
+        clearTimeout(osd._osdTimer);
+        osd._osdTimer = setTimeout(() => osd.classList.remove('show'), 2600);
+      }
+      /* retune the live hero construct if it's on screen */
+      if (currentRoute === 'home') {
+        try {
+          controlAvatar(on
+            ? { morph: 13, spectral: true,  colors: { inner: 'b07fe8', mid: '8a6cc8', outer: '5b4a82', sparkle: 'd0baf5', bloomtint: '8a5fd0' } }
+            : { morph: 6,  spectral: false, colors: { inner: 'a060e0', mid: '6e48aa', outer: '6080a0', sparkle: '8a7bd8', bloomtint: '7a5bb5' } });
+        } catch (err) {}
+      }
+    });
+  })();
 
   function goFullscreen(name) {
     if (currentRoute && ROUTE_HOOKS[currentRoute] && ROUTE_HOOKS[currentRoute].cleanup) {
@@ -5102,6 +5828,15 @@
     if (document.getElementById('aurlVeil3text')) document.getElementById('aurlVeil3text').value = '';
     if (document.getElementById('aurlVeilLegible')) document.getElementById('aurlVeilLegible').checked = false;
     if (document.getElementById('aurlGlitchset')) document.getElementById('aurlGlitchset').value = '';
+    /* v2 fields — presets restore avatar defaults (no framing, default veils) */
+    if (document.getElementById('aurlVeil1c')) document.getElementById('aurlVeil1c').value = '#a8b4ff';
+    if (document.getElementById('aurlVeil2c')) document.getElementById('aurlVeil2c').value = '#e8b84b';
+    if (document.getElementById('aurlVeil3c')) document.getElementById('aurlVeil3c').value = '#fff4d0';
+    const _fx = document.getElementById('aurlFrameX'), _fy = document.getElementById('aurlFrameY'), _fz = document.getElementById('aurlFrameZoom');
+    if (_fx) { _fx.value = 0;   const e = document.getElementById('aurlFrameXVal');    if (e) e.textContent = '0'; }
+    if (_fy) { _fy.value = 0;   const e = document.getElementById('aurlFrameYVal');    if (e) e.textContent = '0'; }
+    if (_fz) { _fz.value = 100; const e = document.getElementById('aurlFrameZoomVal'); if (e) e.textContent = '1.00'; }
+    if (document.getElementById('aurlAdaptive')) document.getElementById('aurlAdaptive').checked = true;
     aurlBuild();
     toast(`Preset loaded: ${name}`);
   }
@@ -5119,6 +5854,9 @@
     const shockwaveEl = document.getElementById('aurlShockwave');
     if (spectralEl && spectralEl.checked)   p.set('spectral', '1');
     if (shockwaveEl && shockwaveEl.checked) p.set('shockwave', '1');
+    /* adaptive resolution is ON by default in the avatar — only emit the opt-out */
+    const adaptiveEl = document.getElementById('aurlAdaptive');
+    if (adaptiveEl && !adaptiveEl.checked) p.set('adaptive', '0');
     /* selects + sliders */
     const m = document.getElementById('aurlMorph').value;
     const th = document.getElementById('aurlTheme').value;
@@ -5137,6 +5875,14 @@
     const scale = document.getElementById('aurlScale')?.value;
     if (gain && gain !== '100') p.set('gain', gain);
     if (scale && scale !== '100') p.set('scale', scale);
+    /* canvas framing — bakes the v2 frame offset/zoom into the URL so OBS
+       sources reproduce the exact framing without touching in-page sliders */
+    const fx = document.getElementById('aurlFrameX')?.value;
+    const fy = document.getElementById('aurlFrameY')?.value;
+    const fz = document.getElementById('aurlFrameZoom')?.value;
+    if (fx && fx !== '0') p.set('framex', fx);
+    if (fy && fy !== '0') p.set('framey', fy);
+    if (fz && fz !== '100') p.set('framezoom', fz);
     /* colours — drop the # for URL friendliness; only emit if non-default */
     const hexNoHash = el => (el.value || '').replace('#','').toLowerCase();
     const inner = hexNoHash(document.getElementById('aurlInner'));
@@ -5153,6 +5899,13 @@
     const halo    = hexNoHash(document.getElementById('aurlHalo'));
     if (nucleus && nucleus !== 'fff4d0') p.set('nucleus', nucleus);
     if (halo    && halo    !== 'c8952a') p.set('halo', halo);
+    /* veil ring colours (v2) — outer/mid/inner, only emit non-defaults */
+    const veil1c = hexNoHash(document.getElementById('aurlVeil1c'));
+    const veil2c = hexNoHash(document.getElementById('aurlVeil2c'));
+    const veil3c = hexNoHash(document.getElementById('aurlVeil3c'));
+    if (veil1c && veil1c !== 'a8b4ff') p.set('veil1c', veil1c);
+    if (veil2c && veil2c !== 'e8b84b') p.set('veil2c', veil2c);
+    if (veil3c && veil3c !== 'fff4d0') p.set('veil3c', veil3c);
     /* veil glyph customization (ARG) — per-veil set + custom text */
     const v1set = document.getElementById('aurlVeil1')?.value;
     const v2set = document.getElementById('aurlVeil2')?.value;
@@ -5213,6 +5966,13 @@
       veil3text:   get('aurlVeil3text'),
       veillegible: chk('aurlVeilLegible'),
       glitchset:   get('aurlGlitchset'),
+      veil1c:      get('aurlVeil1c'),
+      veil2c:      get('aurlVeil2c'),
+      veil3c:      get('aurlVeil3c'),
+      framex:      get('aurlFrameX'),
+      framey:      get('aurlFrameY'),
+      framezoom:   get('aurlFrameZoom'),
+      adaptive:    chk('aurlAdaptive'),
       obs:         chk('aurlObs'),
       aur:         chk('aurlAur'),
       eye:         chk('aurlEye'),
@@ -5240,6 +6000,14 @@
     setV('aurlVeil1', b.veil1); setV('aurlVeil2', b.veil2); setV('aurlVeil3', b.veil3);
     setV('aurlVeil1text', b.veil1text); setV('aurlVeil2text', b.veil2text); setV('aurlVeil3text', b.veil3text);
     setC('aurlVeilLegible', b.veillegible); setV('aurlGlitchset', b.glitchset);
+    setV('aurlVeil1c', b.veil1c); setV('aurlVeil2c', b.veil2c); setV('aurlVeil3c', b.veil3c);
+    setV('aurlFrameX', b.framex);
+    if (b.framex) { const e = document.getElementById('aurlFrameXVal'); if (e) e.textContent = b.framex; }
+    setV('aurlFrameY', b.framey);
+    if (b.framey) { const e = document.getElementById('aurlFrameYVal'); if (e) e.textContent = b.framey; }
+    setV('aurlFrameZoom', b.framezoom);
+    if (b.framezoom) { const e = document.getElementById('aurlFrameZoomVal'); if (e) e.textContent = (b.framezoom/100).toFixed(2); }
+    setC('aurlAdaptive', b.adaptive);
     setC('aurlObs', b.obs); setC('aurlAur', b.aur); setC('aurlEye', b.eye); setC('aurlStars', b.stars);
   }
   /* Build the appearance-only query fragment used by embedded neural scenes.
@@ -5264,6 +6032,11 @@
     if (b.veil3text) p.set('veil3text', b.veil3text);
     if (b.veillegible) p.set('veillegible', '1');
     if (b.glitchset) p.set('glitchset', b.glitchset);
+    /* v2 veil ring colours propagate to scenes like the other appearance params.
+       Frame offset/zoom and adaptive do NOT — each scene controls its own layout. */
+    if (hex(b.veil1c) && hex(b.veil1c) !== 'a8b4ff') p.set('veil1c', hex(b.veil1c));
+    if (hex(b.veil2c) && hex(b.veil2c) !== 'e8b84b') p.set('veil2c', hex(b.veil2c));
+    if (hex(b.veil3c) && hex(b.veil3c) !== 'fff4d0') p.set('veil3c', hex(b.veil3c));
     if (b.gain && b.gain !== '100') p.set('gain', b.gain);
     if (b.scale && b.scale !== '100') p.set('scale', b.scale);
     return p.toString();
@@ -5342,8 +6115,12 @@
     let list = state.portfolio.filter(p => p.featured);
     if (!list.length) list = state.portfolio.slice(0, 3);
     list = list.slice(0, 3);
-    if (!list.length) { grid.innerHTML = `<div class="empty">No featured pieces yet.</div>`; return; }
+    if (!list.length) {
+      grid.innerHTML = emptyArchive('THE ARCHIVE AWAITS', 'Featured works will manifest here once the first pieces are catalogued.');
+      return;
+    }
     grid.innerHTML = list.map(p => pieceCard(p, 'portfolio')).join('');
+    animateGridIn(grid);
   }
   /* Convert a freeform stream time string like "8:00 PM ET" / "9:00 PM EST"
      to the viewer's local timezone. If parsing fails (unknown format), returns
@@ -5446,15 +6223,33 @@
     list.forEach(p => { if (p.tag) tags.add(p.tag.toLowerCase()); });
     return [...tags].sort();
   }
+  /* on-brand empty block — knows the difference between "nothing catalogued
+     at all" and "nothing under this filter" */
+  function emptyArchive(title, sub) {
+    return `<div class="empty archive-empty">
+              <div class="ae-glyph">&#10070;</div>
+              <div class="ae-title">${title}</div>
+              <div class="ae-sub">${sub}</div>
+            </div>`;
+  }
+  /* staggered materialize for freshly rendered grids */
+  function animateGridIn(grid) {
+    grid.querySelectorAll('.piece').forEach((card, i) => {
+      card.classList.add('piece-in');
+      card.style.animationDelay = (i * 45) + 'ms';
+    });
+  }
   function renderFilters(kind) {
     const list = kind === 'shop' ? state.shop : state.portfolio;
     const tags = getTags(list);
     const current = kind === 'shop' ? shopFilter : portfolioFilter;
     const target = document.getElementById(kind + 'Filters');
     if (tags.length < 2) { target.innerHTML = ''; return; }
+    const counts = {};
+    list.forEach(p => { const t = (p.tag || '').toLowerCase(); if (t) counts[t] = (counts[t] || 0) + 1; });
     target.innerHTML = [
-      `<button class="chip ${current === 'all' ? 'active' : ''}" onclick="setFilter('${kind}','all')">All</button>`,
-      ...tags.map(t => `<button class="chip ${current === t ? 'active' : ''}" onclick="setFilter('${kind}','${t}')">${escapeHtml(t)}</button>`)
+      `<button class="chip ${current === 'all' ? 'active' : ''}" onclick="setFilter('${kind}','all')">All<span class="chip-count">${list.length}</span></button>`,
+      ...tags.map(t => `<button class="chip ${current === t ? 'active' : ''}" onclick="setFilter('${kind}','${t}')">${escapeHtml(t)}<span class="chip-count">${counts[t]}</span></button>`)
     ].join('');
   }
   function setFilter(kind, val) {
@@ -5466,15 +6261,27 @@
     const grid = document.getElementById('portfolioGrid');
     let list = state.portfolio;
     if (portfolioFilter !== 'all') list = list.filter(p => (p.tag || '').toLowerCase() === portfolioFilter);
-    if (!list.length) { grid.innerHTML = `<div class="empty">No pieces match this filter.</div>`; return; }
+    if (!list.length) {
+      grid.innerHTML = state.portfolio.length
+        ? emptyArchive('NO TRACE IN THIS CATEGORY', `Nothing catalogued under &ldquo;${escapeHtml(portfolioFilter)}&rdquo; yet &mdash; the other veils hold more.`)
+        : emptyArchive('THE ARCHIVE AWAITS', 'Works will be catalogued here soon &mdash; the eye is still sculpting.');
+      return;
+    }
     grid.innerHTML = list.map(p => pieceCard(p, 'portfolio')).join('');
+    animateGridIn(grid);
   }
   function renderShop() {
     const grid = document.getElementById('shopGrid');
     let list = state.shop;
     if (shopFilter !== 'all') list = list.filter(p => (p.tag || '').toLowerCase() === shopFilter);
-    if (!list.length) { grid.innerHTML = `<div class="empty">No items match this filter.</div>`; return; }
+    if (!list.length) {
+      grid.innerHTML = state.shop.length
+        ? emptyArchive('NO TRACE IN THIS CATEGORY', `Nothing on offer under &ldquo;${escapeHtml(shopFilter)}&rdquo; right now.`)
+        : emptyArchive('THE VAULT IS SEALED', 'No relics on offer yet &mdash; new works surface after the streams.');
+      return;
+    }
     grid.innerHTML = list.map(p => pieceCard(p, 'shop')).join('');
+    animateGridIn(grid);
   }
 
   /* ============ DETAIL MODAL ============ */
@@ -6050,6 +6857,19 @@
     renderAbout();
     fillCommissionsForm();
     applyPortfolioMode();
+  }
+  /* STARTUP RENDER — render() was only ever invoked from admin save/import
+     paths, so on a fresh page load the schedule, socials, featured works,
+     portfolio, and shop grids all sat empty until the owner saved something
+     in admin. Latent since v1; every public visitor saw blank grids. */
+  function _startupRender() {
+    try { render(); window._renderRan = true; }
+    catch (e) { window._renderErr = e.message + ' @ ' + ((e.stack || '').split('\n')[1] || '').trim(); }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _startupRender);
+  } else {
+    _startupRender();
   }
 
   /* ============ PORTFOLIO MODE ============

@@ -184,6 +184,18 @@ body.debug video#cam { width: 160px; height: 120px; opacity: 1; top: 8px; right:
   grid-template-columns: repeat(2, 1fr);
   gap: 8px;
 }
+#veil-colors {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+#core-colors {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
 .shell-color-pick {
   display: flex;
   flex-direction: column;
@@ -343,6 +355,49 @@ body.debug video#cam { width: 160px; height: 120px; opacity: 1; top: 8px; right:
   letter-spacing: 0.1em;
 }
 
+/* ============ COLLAPSIBLE PANEL SECTIONS ============ */
+#setup-panel { max-height: calc(100vh - 64px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.15) transparent; }
+#setup-panel::-webkit-scrollbar { width: 5px; }
+#setup-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 100px; }
+details.panel-section { margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 8px; }
+details.panel-section summary {
+  list-style: none; cursor: pointer;
+  font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-muted); user-select: none;
+  display: flex; align-items: center; gap: 6px;
+  transition: color 0.2s;
+}
+details.panel-section summary:hover { color: var(--text-main); }
+details.panel-section summary::-webkit-details-marker { display: none; }
+details.panel-section summary::before { content: '\25B8'; font-size: 9px; transition: transform 0.2s; }
+details.panel-section[open] summary::before { transform: rotate(90deg); }
+
+/* ============ PRESET SLOTS + OBS URL ============ */
+#preset-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
+#copy-obs-btn { grid-column: 1 / -1; }
+.preset-hint { font-size: 9px; letter-spacing: 0.08em; color: var(--text-muted); opacity: 0.7; margin-top: 6px; }
+
+/* ============ HOTKEY CHEAT-SHEET OVERLAY ============ */
+#hotkey-overlay {
+  display: none; position: fixed; inset: 0; z-index: 50;
+  background: rgba(5,5,8,0.55); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  align-items: center; justify-content: center;
+}
+#hotkey-overlay.open { display: flex; }
+#hotkey-card {
+  width: min(520px, calc(100vw - 48px)); max-height: 80vh; overflow-y: auto;
+  padding: 24px 28px; border-radius: 24px;
+  background: linear-gradient(145deg, rgba(30,30,45,0.92), rgba(12,12,20,0.92));
+  border: 1px solid var(--glass-border); border-top: 1px solid var(--glass-highlight);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+}
+#hotkey-card h3 { font-size: 14px; font-weight: 500; letter-spacing: 0.06em; margin-bottom: 14px; }
+.hk-grid { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 12px; color: var(--text-muted); align-items: center; }
+.hk-grid kbd {
+  background: rgba(255,255,255,0.08); padding: 1px 8px; border-radius: 4px;
+  font-family: inherit; font-size: 11px; color: #fff; justify-self: start; white-space: nowrap;
+}
+
 @media (max-width: 700px) {
   #setup-panel { top: 12px; left: 12px; right: 12px; width: auto; }
   #theme-selector { display: none; }
@@ -388,6 +443,8 @@ body.debug video#cam { width: 160px; height: 120px; opacity: 1; top: 8px; right:
   <div class="setup-row"><span>Mouth open</span><div class="meter"><div class="meter-fill" id="mouthMeter" style="background:linear-gradient(90deg,#f093fb,#f5576c);"></div></div></div>
   <button id="start-btn">Awaken the Network</button>
 
+  <details class="panel-section" open>
+  <summary>Reactivity &amp; Framing</summary>
   <!-- streamer sliders: gain + frame position + zoom. all persist to localStorage. -->
   <div id="stream-sliders">
     <div class="slider-row">
@@ -417,6 +474,10 @@ body.debug video#cam { width: 160px; height: 120px; opacity: 1; top: 8px; right:
     </div>
   </div>
 
+  </details>
+
+  <details class="panel-section">
+  <summary>Colors</summary>
   <!-- shell colour pickers — independent control of inner / middle / outer.
        Picking a theme presets these; live changes override and persist. -->
   <div id="shell-colors">
@@ -447,6 +508,39 @@ body.debug video#cam { width: 160px; height: 120px; opacity: 1; top: 8px; right:
     </label>
   </div>
 
+  <!-- veil ring colours — Ain (outer), Ain Soph (mid), Ain Soph Aur (inner).
+       Picking re-bakes the orbiting glyph textures live (debounced). -->
+  <div id="veil-colors">
+    <label class="shell-color-pick" title="Ain — outermost veil ring + glyphs">
+      <input type="color" id="veil-color-outer" value="#a8b4ff">
+      <span>Ain</span>
+    </label>
+    <label class="shell-color-pick" title="Ain Soph — middle veil ring + glyphs">
+      <input type="color" id="veil-color-mid" value="#e8b84b">
+      <span>Soph</span>
+    </label>
+    <label class="shell-color-pick" title="Ain Soph Aur — innermost veil ring + glyphs">
+      <input type="color" id="veil-color-inner" value="#fff4d0">
+      <span>Aur</span>
+    </label>
+  </div>
+
+  <!-- nucleus + halo — the radiant core at the centre of the veils -->
+  <div id="core-colors">
+    <label class="shell-color-pick" title="The bright pulsing nucleus at the centre">
+      <input type="color" id="core-color-nucleus" value="#fff4d0">
+      <span>Core</span>
+    </label>
+    <label class="shell-color-pick" title="The soft halo around the nucleus">
+      <input type="color" id="core-color-halo" value="#c8952a">
+      <span>Halo</span>
+    </label>
+  </div>
+
+  </details>
+
+  <details class="panel-section" open>
+  <summary>Toggles</summary>
   <!-- streamer toggles: click equivalents of the M/F/T/B hotkeys + chroma bg cycle.
        handy when you can't remember the keys or you're remoting in. -->
   <div id="stream-toggles">
@@ -473,11 +567,28 @@ body.debug video#cam { width: 160px; height: 120px; opacity: 1; top: 8px; right:
     </button>
   </div>
 
+  </details>
+
+  <details class="panel-section" open>
+  <summary>Presets &amp; OBS</summary>
+  <div id="preset-row">
+    <button class="toggle-pill" id="preset-1" type="button" title="Click: load preset 1 · Shift-click: save current look">P1 <span class="pill-state" id="preset-1-state">empty</span></button>
+    <button class="toggle-pill" id="preset-2" type="button" title="Click: load preset 2 · Shift-click: save current look">P2 <span class="pill-state" id="preset-2-state">empty</span></button>
+    <button class="toggle-pill" id="preset-3" type="button" title="Click: load preset 3 · Shift-click: save current look">P3 <span class="pill-state" id="preset-3-state">empty</span></button>
+    <button class="toggle-pill action" id="copy-obs-btn" type="button" title="Copy a URL that recreates this exact look — paste into an OBS browser source">Copy OBS URL</button>
+  </div>
+  <div class="preset-hint">Click a slot to load · Shift-click to save · hotkeys 1/2/3 (Shift saves)</div>
+  </details>
+
+  <details class="panel-section">
+  <summary>Help</summary>
   <div class="setup-hint">
     First time: grant camera + mic permission. In OBS: load with <kbd>?obs=1</kbd> for clean output. Add <kbd>?aur=0</kbd> to hide veils, <kbd>?eye=1</kbd> to show the (hidden-by-default) center eye, <kbd>?intensity=low</kbd> for older hardware, <kbd>?bg=green</kbd> for chroma key, <kbd>?test=1</kbd> to preview without webcam.<br>
-    Scene presets: <kbd>?morph=N</kbd> formation (0-7), <kbd>?density=N</kbd> density % (30-100), <kbd>?inner=hex</kbd> <kbd>?mid=hex</kbd> <kbd>?outer=hex</kbd> shell colours, <kbd>?sparkle=hex</kbd>, <kbd>?bloomtint=hex</kbd>.<br>
-    <strong>Hotkeys:</strong> <kbd>H</kbd> hide panels · <kbd>M</kbd> pulse · <kbd>F</kbd> freeze · <kbd>T</kbd> cycle theme · <kbd>B</kbd> toggle bloom · <kbd>D</kbd> debug
+    Scene presets: <kbd>?morph=N</kbd> formation (0-7), <kbd>?density=N</kbd> density % (30-100), <kbd>?inner=hex</kbd> <kbd>?mid=hex</kbd> <kbd>?outer=hex</kbd> shell colours, <kbd>?sparkle=hex</kbd>, <kbd>?bloomtint=hex</kbd>, <kbd>?veil1c/2c/3c=hex</kbd> veil rings, <kbd>?nucleus=hex</kbd> <kbd>?halo=hex</kbd> core.<br>
+    <strong>Hotkeys:</strong> <kbd>?</kbd> full list · <kbd>1-3</kbd> presets · <kbd>H</kbd> hide panels · <kbd>M</kbd> pulse · <kbd>F</kbd> freeze · <kbd>T</kbd> cycle theme · <kbd>B</kbd> toggle bloom · <kbd>D</kbd> debug<br>
+    <strong>Merge:</strong> <kbd>N</kbd> next form / blend · <kbd>C</kbd> Construct · <kbd>G</kbd> Hybrid · <kbd>Y</kbd> Tree-Construct · <kbd>K</kbd> Sephiroth · <kbd>[</kbd> <kbd>]</kbd> density -/+ · morph 10/11/12/13 = Construct / Hybrid / Tree-Construct / Sephiroth
   </div>
+  </details>
 </div>
 
 <!-- theme + density -->
@@ -504,6 +615,30 @@ body.debug video#cam { width: 160px; height: 120px; opacity: 1; top: 8px; right:
 </div>
 
 <div id="fps-indicator">FPS: --</div>
+
+<!-- "?" hotkey cheat-sheet overlay — click backdrop or press Esc to close -->
+<div id="hotkey-overlay">
+  <div id="hotkey-card">
+    <h3>Hotkeys</h3>
+    <div class="hk-grid">
+      <kbd>?</kbd><span>Show / hide this help</span>
+      <kbd>H</kbd><span>Hide / show all panels</span>
+      <kbd>M</kbd><span>Fire a pulse</span>
+      <kbd>F</kbd><span>Freeze / unfreeze</span>
+      <kbd>T</kbd><span>Cycle theme</span>
+      <kbd>B</kbd><span>Toggle bloom</span>
+      <kbd>D</kbd><span>Debug readout + camera preview</span>
+      <kbd>N</kbd><span>Next formation</span>
+      <kbd>C</kbd><span>Jump to Construct</span>
+      <kbd>G</kbd><span>Jump to Hybrid</span>
+      <kbd>Y</kbd><span>Jump to Tree-Construct</span>
+      <kbd>K</kbd><span>Jump to Sephiroth — full Tree of Life</span>
+      <kbd>[ / ]</kbd><span>Density down / up</span>
+      <kbd>1 / 2 / 3</kbd><span>Load preset · with <kbd>Shift</kbd> saves the current look</span>
+      <kbd>Esc</kbd><span>Close this help</span>
+    </div>
+  </div>
+</div>
 
 <script type="importmap">
 {
@@ -542,6 +677,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { AfterimagePass } from 'three/addons/postprocessing/AfterimagePass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 /* ============ URL PARAMS ============ */
@@ -581,7 +717,7 @@ function _parseHexParam(name){
   const clean = v.startsWith('#') ? v.slice(1) : v;
   return /^[0-9a-f]{6}$/i.test(clean) ? '#' + clean : null;
 }
-const URL_MORPH = (()=>{ const v = parseInt(params.get('morph'),10); return (!isNaN(v) && v>=0 && v<=9) ? v : null; })();
+const URL_MORPH = (()=>{ const v = parseInt(params.get('morph'),10); return (!isNaN(v) && v>=0 && v<=13) ? v : null; })();
 const URL_DENSITY = (()=>{ const v = parseInt(params.get('density'),10); return (!isNaN(v) && v>=30 && v<=100) ? v/100 : null; })();
 const URL_INNER     = _parseHexParam('inner');
 const URL_MID       = _parseHexParam('mid');
@@ -592,11 +728,23 @@ const URL_BLOOMTINT = _parseHexParam('bloomtint');
    at the center of the AinSophAur. Default keeps the existing gold look. */
 const URL_NUCLEUS   = _parseHexParam('nucleus');
 const URL_HALO      = _parseHexParam('halo');
+/* veil ring colours — ?veil1c (outer / Ain), ?veil2c (mid / Ain Soph),
+   ?veil3c (inner / Ain Soph Aur). Numbering matches the ?veil1/?veil1text
+   glyph params. */
+const URL_VEIL1C = _parseHexParam('veil1c');
+const URL_VEIL2C = _parseHexParam('veil2c');
+const URL_VEIL3C = _parseHexParam('veil3c');
 /* ?gain=N and ?scale=N (N as integer percent, e.g. ?gain=250 = 2.5x).
    These override both the default AND any localStorage-saved value so you can
    bake mic-specific calibration into the OBS URL. Range clamped to 50–500. */
 const URL_GAIN = (()=>{ const v = parseInt(params.get('gain'),10); return (!isNaN(v) && v>=50 && v<=500) ? v/100 : null; })();
 const URL_SCALE = (()=>{ const v = parseInt(params.get('scale'),10); return (!isNaN(v) && v>=0 && v<=500) ? v/100 : null; })();
+/* ?framex / ?framey (px) and ?framezoom (percent) — bake the canvas framing
+   into the URL so an OBS source reproduces position/zoom without relying on
+   the machine's localStorage. Emitted by the Copy OBS URL button. */
+const URL_FRAMEX = (()=>{ const v = parseInt(params.get('framex'),10); return (!isNaN(v) && Math.abs(v)<=2000) ? v : null; })();
+const URL_FRAMEY = (()=>{ const v = parseInt(params.get('framey'),10); return (!isNaN(v) && Math.abs(v)<=2000) ? v : null; })();
+const URL_FRAMEZOOM = (()=>{ const v = parseInt(params.get('framezoom'),10); return (!isNaN(v) && v>=40 && v<=300) ? v/100 : null; })();
 /* ?debug=1 — shows a persistent live-values readout (voice/mouth/yaw/pitch) AND
    the small camera preview, even when ?obs=1 is set. Helps verify what's
    actually reaching the network in OBS without yanking the setup panel back. */
@@ -676,6 +824,19 @@ let sparkleColor   = GLOW_DEFAULTS_PER_PALETTE[3].sparkle;
 let userBloomTint = false;
 let userSparkleColor = false;
 
+/* ============ VEIL + CORE COLOURS ============
+   The three Ain Soph Aur veil rings (tube + orbiting glyphs), the radiant
+   nucleus and its halo — all user-pickable. Veil picks re-bake the glyph
+   canvas textures live. URL params win over saved values. */
+const VEIL_DEFAULT_OUTER = '#a8b4ff', VEIL_DEFAULT_MID = '#e8b84b', VEIL_DEFAULT_INNER = '#fff4d0';
+const NUCLEUS_DEFAULT_HEX = '#fff4d0', HALO_DEFAULT_HEX = '#c8952a';
+let veilColorOuter = URL_VEIL1C || VEIL_DEFAULT_OUTER;
+let veilColorMid   = URL_VEIL2C || VEIL_DEFAULT_MID;
+let veilColorInner = URL_VEIL3C || VEIL_DEFAULT_INNER;
+let nucleusColor   = URL_NUCLEUS || NUCLEUS_DEFAULT_HEX;
+let haloColor      = URL_HALO    || HALO_DEFAULT_HEX;
+let _appliedVeilKey = null; /* skip needless texture re-bakes */
+
 if (OBS_MODE) document.body.classList.add('obs-clean');
 if (DEBUG_MODE) document.body.classList.add('debug');
 if (STINGER_MODE) {
@@ -692,7 +853,7 @@ const config = {
   paused: false,
   activePaletteIndex: STARTING_THEME,
   currentFormation: 0,
-  numFormations: 10,
+  numFormations: 14,
   densityFactor: 1
 };
 
@@ -963,15 +1124,17 @@ function createAurOverlay(){
   const group = new THREE.Group();
   /* veils sit INSIDE the neural network (outer layer ~radius 20) so they
      orbit through the lattice rather than around the whole composition. */
+  /* colours come from the user-pickable veilColor* state (URL / saved /
+     picker). Ring tube renders slightly darker than the glyphs for depth. */
   const veilDefs = [
-    /* outermost: Ain — nothingness, cool void-violet, faintest */
-    { radius: 17, tube: 0.035, color: 0x7a8cff, cssColor: '#a8b4ff', opacity: 0.18,
+    /* outermost: Ain — nothingness, faintest */
+    { radius: 17, tube: 0.035, css: veilColorOuter, opacity: 0.18,
       axis: new THREE.Vector3(1, 0.18, 0.06).normalize(), maxGlyphs: 12, speed: -0.04 },
-    /* middle: Ain Soph — limitlessness, gold */
-    { radius: 12, tube: 0.040, color: 0xc8952a, cssColor: '#e8b84b', opacity: 0.30,
+    /* middle: Ain Soph — limitlessness */
+    { radius: 12, tube: 0.040, css: veilColorMid, opacity: 0.30,
       axis: new THREE.Vector3(0.1, 1, 0.22).normalize(), maxGlyphs: 14, speed: 0.06 },
-    /* innermost: Ain Soph Aur — limitless light, bright gold-ivory, brightest */
-    { radius: 7, tube: 0.045, color: 0xf5d07a, cssColor: '#fff4d0', opacity: 0.46,
+    /* innermost: Ain Soph Aur — limitless light, brightest */
+    { radius: 7, tube: 0.045, css: veilColorInner, opacity: 0.46,
       axis: new THREE.Vector3(0.22, 0.1, 1).normalize(), maxGlyphs: 16, speed: -0.09 }
   ];
   group.userData.veils = [];
@@ -987,7 +1150,7 @@ function createAurOverlay(){
 
     const ringGeo = new THREE.TorusGeometry(v.radius, v.tube, 14, 256);
     const ringMat = new THREE.MeshBasicMaterial({
-      color: v.color, transparent: true, opacity: v.opacity,
+      color: new THREE.Color(v.css).multiplyScalar(0.85), transparent: true, opacity: v.opacity,
       blending: THREE.AdditiveBlending, depthWrite: false
     });
     const ring = new THREE.Mesh(ringGeo, ringMat);
@@ -996,14 +1159,14 @@ function createAurOverlay(){
     group.add(ring);
     /* shared per-veil glitch pool — random chars from this veil's set (so the
        glitch flicker still feels thematic). Used by all sprites in this veil. */
-    const glyphPool = makeGlitchPool(chars, v.cssColor, 10);
+    const glyphPool = makeGlitchPool(chars, v.css, 10);
     const glyphSprites = [];
     for (let i = 0; i < spriteCount; i++){
       const baseChar = chars[i % chars.length];
       /* each sprite gets its OWN clean texture showing its assigned char.
          That's what makes custom-text spell out readable messages around
          the ring (sprite 0 = first char, sprite 1 = second char, ...). */
-      const cleanTex = makeCleanGlyphTexture(baseChar, v.cssColor);
+      const cleanTex = makeCleanGlyphTexture(baseChar, v.css);
       const mat = new THREE.SpriteMaterial({
         map: cleanTex, transparent: true, opacity: 0, /* fades in during reveal */
         blending: THREE.AdditiveBlending, depthWrite: false
@@ -1019,7 +1182,7 @@ function createAurOverlay(){
       glyphSprites.push(s);
     }
     group.userData.veils.push({
-      ring, speed: v.speed, baseOpacity: v.opacity, mat: ringMat, glyphSprites,
+      ring, speed: v.speed, baseOpacity: v.opacity, mat: ringMat, glyphSprites, chars,
       baseGlyphOpacity: v.opacity * 1.4, glyphPool,
       /* cleanTex retained at veil level for backwards compat with the reveal
          loop — but each sprite now has its own s.userData.cleanTex */
@@ -1029,13 +1192,9 @@ function createAurOverlay(){
   /* radiant central point — "Limitless Light" itself.
      ?nucleus=hex overrides the default ivory-gold so streamers can theme the
      core to match their scene mood (e.g. cyan for cyber, red for technical). */
-  const NUCLEUS_DEFAULT = 0xfff4d0;
-  const HALO_DEFAULT    = 0xc8952a;
-  const nucleusColor = URL_NUCLEUS ? new THREE.Color(URL_NUCLEUS).getHex() : NUCLEUS_DEFAULT;
-  const haloColor    = URL_HALO    ? new THREE.Color(URL_HALO).getHex()    : HALO_DEFAULT;
   const coreGeo = new THREE.SphereGeometry(0.45, 24, 24);
   const coreMat = new THREE.MeshBasicMaterial({
-    color: nucleusColor, transparent: true, opacity: 0.55,
+    color: new THREE.Color(nucleusColor), transparent: true, opacity: 0.55,
     blending: THREE.AdditiveBlending, depthWrite: false
   });
   group.userData.core = new THREE.Mesh(coreGeo, coreMat);
@@ -1043,7 +1202,7 @@ function createAurOverlay(){
   /* soft halo around the core */
   const haloGeo = new THREE.SphereGeometry(1.4, 24, 24);
   const haloMat = new THREE.MeshBasicMaterial({
-    color: haloColor, transparent: true, opacity: 0.08,
+    color: new THREE.Color(haloColor), transparent: true, opacity: 0.08,
     blending: THREE.AdditiveBlending, depthWrite: false
   });
   group.userData.halo = new THREE.Mesh(haloGeo, haloMat);
@@ -1055,6 +1214,7 @@ function createAurOverlay(){
 aurGroup = createAurOverlay();
 aurGroup.visible = aurVisible;
 scene.add(aurGroup);
+_appliedVeilKey = veilColorOuter + veilColorMid + veilColorInner; /* baked at creation */
 
 /* ============ MALIKEYE — REACTIVE EYE OF HORUS ============
    Procedural SDF eye on a billboarded plane at the network origin. Replaces
@@ -1252,6 +1412,26 @@ composer.addPass(bloomPass);
 const afterimagePass = new AfterimagePass(0.80);
 afterimagePass.enabled = !INTENSITY_LOW;
 composer.addPass(afterimagePass);
+/* ============ FINISH PASS (vignette + film grain) ============
+   Cinematic final grade for the dark-background mode only. Kept off in
+   clean/transparent/chroma modes where edge darkening or grain would pollute
+   the key. Alpha passes through untouched. applyBgMode() flips it live. */
+const FinishShader = {
+  uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uVignette: { value: 0 }, uGrain: { value: 0 } },
+  vertexShader: `varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+  fragmentShader: `uniform sampler2D tDiffuse;uniform float uTime;uniform float uVignette;uniform float uGrain;varying vec2 vUv;
+float hash12(vec2 p){vec3 p3=fract(vec3(p.xyx)*0.1031);p3+=dot(p3,p3.yzx+33.33);return fract((p3.x+p3.y)*p3.z);}
+void main(){
+  vec4 c=texture2D(tDiffuse,vUv);
+  float d=distance(vUv,vec2(0.5));
+  c.rgb*=1.0-uVignette*smoothstep(0.42,0.86,d);
+  c.rgb+=(hash12(vUv*vec2(1923.0,1087.0)+fract(uTime)*61.7)-0.5)*uGrain;
+  gl_FragColor=c;
+}`
+};
+const finishPass = new ShaderPass(FinishShader);
+finishPass.enabled = false; /* applyBgMode() enables it for the dark bg mode */
+composer.addPass(finishPass);
 composer.addPass(new OutputPass());
 
 /* ============ SHADER UNIFORMS (with reactive additions) ============ */
@@ -1717,6 +1897,42 @@ class Node {
   }
   isConnectedTo(node){ return this.connections.some(c=>c.node===node); }
 }
+
+/* ============ SHARED CONSTRUCT / TREE GEOMETRY ============
+   Constants shared by the node-builders (construct / constructHybrid /
+   treeConstruct) and the solid mesh layer (buildConstructSolids) so the
+   wireframe nodes and the solid struts stay perfectly in lockstep. */
+const CONSTRUCT_R = 17;
+const CONSTRUCT_INNER_SCALE = 0.6;
+function octVerts(radius){
+  return [
+    new THREE.Vector3( radius,0,0), new THREE.Vector3(-radius,0,0),
+    new THREE.Vector3(0, radius,0), new THREE.Vector3(0,-radius,0),
+    new THREE.Vector3(0,0, radius), new THREE.Vector3(0,0,-radius)
+  ];
+}
+/* the 12 octahedron edges as index pairs (every non-antipodal vertex pair) */
+const OCT_EDGES = (()=>{ const e=[]; for(let i=0;i<6;i++) for(let j=i+1;j<6;j++){ if((i^1)!==j) e.push([i,j]); } return e; })();
+/* Tree of Life canonical sephirot base positions (z=0) + the 22 paths. Scaled
+   at the use-site. Shared by treeConstruct() and its solid overlay. */
+const SEPHIROT_BASE = [
+  new THREE.Vector3(0,  14, 0), new THREE.Vector3(7,   9, 0), new THREE.Vector3(-7,  9, 0),
+  new THREE.Vector3(7,   2, 0), new THREE.Vector3(-7,  2, 0), new THREE.Vector3(0,  -1, 0),
+  new THREE.Vector3(7,  -7, 0), new THREE.Vector3(-7, -7, 0), new THREE.Vector3(0, -11, 0),
+  new THREE.Vector3(0, -14, 0)
+];
+const SEPHIROT_LEVELS = [0,1,1,2,2,0,3,3,2,4];
+const SEPHIROT_PATHS = [
+  [0,1],[0,2],[0,5],[1,2],[1,3],[1,5],[2,4],[2,5],[3,4],[3,5],[3,6],
+  [4,5],[4,7],[5,6],[5,7],[5,8],[6,7],[6,8],[6,9],[7,8],[7,9],[8,9]
+];
+const TREE_CONSTRUCT_SCALE = 0.62;  /* fills the (now larger) inner cage */
+const SEPH_FULL_SCALE = 1.1;        /* full-frame Sephiroth formation (#13) */
+/* Da'at — the hidden sephira. Sits on the middle pillar at the Chokmah/Binah
+   line, where the Abyss is crossed. Rendered dim + sparse in formation 13. */
+const DAAT_BASE = new THREE.Vector3(0, 9, 0);
+const CONSTRUCT_VIEW_SCALE = 1.0;  /* whole-construct zoom (outer cage included) */
+const CONSTRUCT_CORE_SCALE = 1.4;  /* grows ONLY the core + inner content, not the outer cage */
 
 function generateNeuralNetwork(formationIndex, densityFactor=1.0){
   let nodes=[], rootNode;
@@ -2659,6 +2875,294 @@ function generateNeuralNetwork(formationIndex, densityFactor=1.0){
     }
   }
 
+  /* ============ CONSTRUCT (#10) — Sacred Geometry Energy Matrix ============
+     Port of the standalone "Construct_04": two nested octahedra (a Merkaba-like
+     energy cage) wrapped around a dense glowing core, ringed by orbiting energy
+     bands. Every strut is subdivided into a chain of nodes so the connection
+     shader's traveling pulses read as the energy ORBS that ran the tubes in the
+     original. distanceFromRoot is set true-to-radius so the shell colour pickers
+     map cleanly: inner picker -> core, mid -> inner cage, outer -> outer cage.
+     Voice pulses, bloom, density slider and spectral/shockwave all inherit from
+     the shared neural pipeline. */
+  function buildOctCage(radius, edgeNodeLevel, strut, segPerEdge){
+    /* 6 axis vertices: 0:+x 1:-x 2:+y 3:-y 4:+z 5:-z (antipodal pairs share i^1) */
+    const verts = [
+      new THREE.Vector3( radius,0,0), new THREE.Vector3(-radius,0,0),
+      new THREE.Vector3(0, radius,0), new THREE.Vector3(0,-radius,0),
+      new THREE.Vector3(0,0, radius), new THREE.Vector3(0,0,-radius)
+    ];
+    const vertNodes = verts.map(p=>{
+      const n = new Node(p.clone(), edgeNodeLevel, 0);
+      n.size = 1.35; n.distanceFromRoot = radius;
+      nodes.push(n); return n;
+    });
+    /* 12 octahedron edges - every non-antipodal vertex pair */
+    for(let i=0;i<6;i++) for(let j=i+1;j<6;j++){
+      if((i^1)===j) continue;
+      const pa=verts[i], pb=verts[j];
+      let prev = vertNodes[i];
+      for(let sg=1;sg<segPerEdge;sg++){
+        const t=sg/segPerEdge;
+        const pos=new THREE.Vector3().lerpVectors(pa,pb,t);
+        const n=new Node(pos, edgeNodeLevel, 1);
+        n.size=THREE.MathUtils.randFloat(0.5,0.85);
+        n.distanceFromRoot=pos.length();
+        nodes.push(n);
+        prev.addConnection(n, strut);
+        prev=n;
+      }
+      prev.addConnection(vertNodes[j], strut);
+    }
+    return vertNodes;
+  }
+  function construct(){
+    rootNode = new Node(new THREE.Vector3(0,0,0), 0, 0);
+    rootNode.size = 2.0; nodes.push(rootNode);
+    const R = CONSTRUCT_R, innerScale = CONSTRUCT_INNER_SCALE;
+    const segEdge = Math.max(3, Math.floor(6 * densityFactor));
+    const outerV = buildOctCage(R, 4, 0.8, segEdge);
+    const innerV = buildOctCage(R*innerScale, 2, 0.7, Math.max(2,Math.floor(4*densityFactor)));
+    /* sacred radial connections - outer vertex -> inner twin -> core */
+    const radSeg = Math.max(2, Math.floor(4*densityFactor));
+    for(let i=0;i<6;i++){
+      const pa=outerV[i].position, pb=innerV[i].position;
+      let prev=outerV[i];
+      for(let sg=1;sg<radSeg;sg++){
+        const t=sg/radSeg;
+        const pos=new THREE.Vector3().lerpVectors(pa,pb,t);
+        const n=new Node(pos,3,1);
+        n.size=THREE.MathUtils.randFloat(0.4,0.7);
+        n.distanceFromRoot=pos.length();
+        nodes.push(n);
+        prev.addConnection(n,0.5); prev=n;
+      }
+      prev.addConnection(innerV[i],0.5);
+      innerV[i].addConnection(rootNode,0.6);
+    }
+    /* concentric energy rings around the core - three planes */
+    const ringRadii=[3.0,4.2,5.4].map(rr=>rr*CONSTRUCT_CORE_SCALE);
+    ringRadii.forEach((rr,ri)=>{
+      const count=Math.max(10,Math.floor(28*densityFactor));
+      const ring=[];
+      for(let i=0;i<count;i++){
+        const a=(i/count)*Math.PI*2, plane=ri%3;
+        let pos;
+        if(plane===0)      pos=new THREE.Vector3(Math.cos(a)*rr, Math.sin(a)*rr, 0);
+        else if(plane===1) pos=new THREE.Vector3(Math.cos(a)*rr, 0, Math.sin(a)*rr);
+        else               pos=new THREE.Vector3(0, Math.cos(a)*rr, Math.sin(a)*rr);
+        const n=new Node(pos,1,1);
+        n.size=THREE.MathUtils.randFloat(0.35,0.6);
+        n.distanceFromRoot=rr;
+        /* gel: gentle organic drift + voice ripple (cage struts stay rigid) */
+        n.fluid=true; n.basePosition=pos.clone(); n.fluidPhase=Math.random()*Math.PI*2;
+        n.fluidAmp=0.12; n.fluidWaveScale=0.4; n.fluidRippleScale=0.5;
+        nodes.push(n); ring.push(n);
+      }
+      for(let i=0;i<ring.length;i++) ring[i].addConnection(ring[(i+1)%ring.length],0.5);
+      for(let i=0;i<ring.length;i+=4) ring[i].addConnection(rootNode,0.4);
+    });
+  }
+  /* ============ HYBRID CONSTRUCT (#11) - the actual merge ============
+     Construct_04's cage with the neural web suspended inside it - the two
+     projects overlaid in one reactive form. */
+  function constructHybrid(){
+    construct();
+    const golden=(1+Math.sqrt(5))/2;
+    const webCount=Math.max(34, Math.floor(80*densityFactor));
+    const web=[];
+    for(let i=0;i<webCount;i++){
+      const r=(1.6+Math.pow(Math.random(),0.5)*4.6)*CONSTRUCT_CORE_SCALE;
+      const phi=Math.acos(1-2*(i+0.5)/webCount);
+      const theta=2*Math.PI*i/golden;
+      const pos=new THREE.Vector3(
+        r*Math.sin(phi)*Math.cos(theta),
+        r*Math.cos(phi),
+        r*Math.sin(phi)*Math.sin(theta)
+      );
+      const n=new Node(pos, 1, Math.random()<0.5?1:0);
+      n.size=THREE.MathUtils.randFloat(0.4,0.8);
+      n.distanceFromRoot=pos.length();
+      n.fluid=true; n.basePosition=pos.clone(); n.fluidPhase=Math.random()*Math.PI*2;
+      n.fluidAmp=0.18; n.fluidWaveScale=0.5; n.fluidRippleScale=0.5;
+      nodes.push(n); web.push(n);
+    }
+    web.forEach((n,i)=>{
+      const near=web.filter(o=>o!==n)
+        .map(o=>({o,d:n.position.distanceTo(o.position)}))
+        .sort((a,b)=>a.d-b.d).slice(0,2);
+      near.forEach(({o})=>{ if(!n.isConnectedTo(o)) n.addConnection(o,0.4); });
+      if(i%5===0) n.addConnection(rootNode,0.4);
+    });
+  }
+
+  /* ============ TREE-CONSTRUCT (#12) - Tree of Life x Construct ============
+     Construct_04's octahedral energy cage with the Kabbalistic Tree of Life
+     living inside it instead of a neural web - the two motifs fused into one
+     reactive form. Outer + inner octahedra make the cage; the 10 sephirot and
+     22 paths hang on the inner plane; the glowing core anchors Tiphareth. */
+  function treeConstruct(){
+    rootNode = new Node(new THREE.Vector3(0,0,0), 0, 0);
+    rootNode.size = 1.6; nodes.push(rootNode);
+    const segEdge = Math.max(3, Math.floor(6 * densityFactor));
+    const outerV = buildOctCage(CONSTRUCT_R, 4, 0.8, segEdge);
+    const innerV = buildOctCage(CONSTRUCT_R*CONSTRUCT_INNER_SCALE, 2, 0.7, Math.max(2,Math.floor(4*densityFactor)));
+    const radSeg = Math.max(2, Math.floor(4*densityFactor));
+    for(let i=0;i<6;i++){
+      const pa=outerV[i].position, pb=innerV[i].position;
+      let prev=outerV[i];
+      for(let sg=1;sg<radSeg;sg++){
+        const tt=sg/radSeg;
+        const pos=new THREE.Vector3().lerpVectors(pa,pb,tt);
+        const n=new Node(pos,3,1); n.size=THREE.MathUtils.randFloat(0.4,0.7); n.distanceFromRoot=pos.length();
+        nodes.push(n); prev.addConnection(n,0.5); prev=n;
+      }
+      prev.addConnection(innerV[i],0.5);
+      innerV[i].addConnection(rootNode,0.5);
+    }
+    /* Tree of Life on the inner plane */
+    const seph = SEPHIROT_BASE.map((bp, idx)=>{
+      const pos = bp.clone().multiplyScalar(TREE_CONSTRUCT_SCALE);
+      const n = new Node(pos, SEPHIROT_LEVELS[idx], 0);
+      n.size = (idx===0||idx===5||idx===9)?2.3:1.9;
+      n.distanceFromRoot = pos.length();
+      n.fluid=true; n.basePosition=pos.clone(); n.fluidPhase=Math.random()*Math.PI*2;
+      n.fluidAmp=0.16; n.fluidWaveScale=0.35; n.fluidRippleScale=0.45;
+      nodes.push(n); return n;
+    });
+    rootNode.addConnection(seph[5], 0.95);
+    SEPHIROT_PATHS.forEach(([a,b])=>seph[a].addConnection(seph[b], 0.9));
+    /* path beads */
+    const beads = Math.max(2, Math.floor(3*densityFactor));
+    SEPHIROT_PATHS.forEach(([a,b])=>{
+      const start=seph[a].position, end=seph[b].position;
+      for(let i=1;i<=beads;i++){
+        const tt=i/(beads+1);
+        const pos=start.clone().lerp(end, tt);
+        const n=new Node(pos, Math.floor((seph[a].level+seph[b].level)/2), 1);
+        n.size=THREE.MathUtils.randFloat(0.30,0.46); n.distanceFromRoot=pos.length();
+        nodes.push(n);
+      }
+    });
+    /* satellites */
+    const golden=Math.PI*(3-Math.sqrt(5));
+    seph.forEach((sn)=>{
+      for(let i=0;i<3;i++){
+        const phi=Math.acos(1-2*(i+0.5)/3), th=i*golden;
+        const dir=new THREE.Vector3(Math.sin(phi)*Math.cos(th),Math.sin(phi)*Math.sin(th),Math.cos(phi));
+        const pos=sn.position.clone().add(dir.multiplyScalar(0.5+Math.random()*0.3));
+        const n=new Node(pos, sn.level, 0); n.size=sn.size*0.5; n.distanceFromRoot=pos.length();
+        nodes.push(n); sn.addConnection(n,0.8);
+      }
+    });
+    /* hang Keter from the top inner vertex, Malkuth from the bottom */
+    seph[0].addConnection(innerV[2], 0.5);
+    seph[9].addConnection(innerV[3], 0.5);
+    /* DENSITY WEB (merged in from the Hybrid #11): a neural web suspended in the
+       inner volume so the form reads dense, without burying the tree silhouette.
+       Slightly sparser than the pure Hybrid so the tree stays the hero. */
+    const goldenW=(1+Math.sqrt(5))/2;
+    const webCount=Math.max(24, Math.floor(58*densityFactor));
+    const web=[];
+    for(let i=0;i<webCount;i++){
+      const r=(1.7+Math.pow(Math.random(),0.5)*4.0)*CONSTRUCT_CORE_SCALE;
+      const phi=Math.acos(1-2*(i+0.5)/webCount);
+      const theta=2*Math.PI*i/goldenW;
+      const pos=new THREE.Vector3(r*Math.sin(phi)*Math.cos(theta), r*Math.cos(phi), r*Math.sin(phi)*Math.sin(theta));
+      const n=new Node(pos,1,1);
+      n.size=THREE.MathUtils.randFloat(0.32,0.55); n.distanceFromRoot=pos.length();
+      n.fluid=true; n.basePosition=pos.clone(); n.fluidPhase=Math.random()*Math.PI*2;
+      n.fluidAmp=0.18; n.fluidWaveScale=0.5; n.fluidRippleScale=0.5;
+      nodes.push(n); web.push(n);
+    }
+    web.forEach((n,i)=>{
+      const near=web.filter(o=>o!==n).map(o=>({o,d:n.position.distanceTo(o.position)})).sort((a,b)=>a.d-b.d).slice(0,2);
+      near.forEach(({o})=>{ if(!n.isConnectedTo(o)) n.addConnection(o,0.35); });
+      if(i%6===0) n.addConnection(rootNode,0.35);
+    });
+  }
+
+  /* ============ SEPHIROTH (#13) — the Tree of Life as the whole form ============
+     Where #12 hangs a small tree inside the construct cage, here there is NO
+     cage: the Tree of the Sephiroth IS the architecture, scaled to fill the
+     frame. Ten sephirot as satellite-clustered emanations, the hidden Da'at,
+     the 22 paths as bead-chain channels that bow gently out of the plane,
+     and an Ein Sof halo of drifting sparks encircling the whole emanation. */
+  function sephiroth(){
+    rootNode = new Node(new THREE.Vector3(0,0,0), 0, 0);
+    rootNode.size = 1.4; nodes.push(rootNode);
+    const S = SEPH_FULL_SCALE;
+    const seph = SEPHIROT_BASE.map((bp, idx)=>{
+      const pos = bp.clone().multiplyScalar(S);
+      const n = new Node(pos, SEPHIROT_LEVELS[idx], 0);
+      n.size = (idx===0||idx===5||idx===9)?2.6:2.1;   /* Keter, Tiferet, Malkuth enlarged */
+      n.distanceFromRoot = pos.length();
+      n.fluid=true; n.basePosition=pos.clone(); n.fluidPhase=Math.random()*Math.PI*2;
+      /* tight wave response — the sephirot anchor solid tubes, so they may
+         only breathe a little or the registration visibly breaks */
+      n.fluidAmp=0.10; n.fluidWaveScale=0.15; n.fluidRippleScale=0.4;
+      nodes.push(n); return n;
+    });
+    /* Tiferet is the heart — weld it to the root so pulses radiate from it */
+    rootNode.addConnection(seph[5], 1.0);
+    SEPHIROT_PATHS.forEach(([a,b])=>seph[a].addConnection(seph[b], 0.95));
+    /* Da'at — hidden: smaller, jittery, weakly bound across the Abyss */
+    const daat = new Node(DAAT_BASE.clone().multiplyScalar(S), 2, 1);
+    daat.size = 1.1; daat.distanceFromRoot = daat.position.length();
+    daat.fluid=true; daat.basePosition=daat.position.clone(); daat.fluidPhase=Math.random()*Math.PI*2;
+    daat.fluidAmp=0.32; daat.fluidWaveScale=0.3; daat.fluidRippleScale=0.6;
+    nodes.push(daat);
+    daat.addConnection(seph[0], 0.22); daat.addConnection(seph[5], 0.22);
+    daat.addConnection(seph[1], 0.16); daat.addConnection(seph[2], 0.16);
+    /* path beads — chained so the 22 paths read as flowing channels; each
+       chain bows gently in z so the flat glyph gains depth */
+    const beads = Math.max(4, Math.floor(7*densityFactor));
+    SEPHIROT_PATHS.forEach(([a,b])=>{
+      const start=seph[a].position, end=seph[b].position;
+      let prev=seph[a];
+      for(let i=1;i<=beads;i++){
+        const tt=i/(beads+1);
+        const pos=start.clone().lerp(end, tt);
+        pos.z += Math.sin(tt*Math.PI) * 0.8;
+        const n=new Node(pos, Math.floor((seph[a].level+seph[b].level)/2), 1);
+        n.size=THREE.MathUtils.randFloat(0.32,0.5); n.distanceFromRoot=pos.length();
+        n.fluid=true; n.basePosition=pos.clone(); n.fluidPhase=Math.random()*Math.PI*2;
+        n.fluidAmp=0.10; n.fluidWaveScale=0.3; n.fluidRippleScale=0.5;
+        nodes.push(n);
+        prev.addConnection(n,0.55); prev=n;
+      }
+      prev.addConnection(seph[b],0.55);
+    });
+    /* satellite shells — each sephira gets a small 3D cloud so the emanations
+       have volume instead of reading as flat dots */
+    const golden=Math.PI*(3-Math.sqrt(5));
+    const satCount=Math.max(5, Math.floor(9*densityFactor));
+    seph.forEach((sn)=>{
+      for(let i=0;i<satCount;i++){
+        const phi=Math.acos(1-2*(i+0.5)/satCount), th=i*golden;
+        const dir=new THREE.Vector3(Math.sin(phi)*Math.cos(th),Math.sin(phi)*Math.sin(th),Math.cos(phi));
+        const pos=sn.position.clone().add(dir.multiplyScalar(1.15+Math.random()*0.6));
+        const n=new Node(pos, sn.level, 1); n.size=THREE.MathUtils.randFloat(0.3,0.5); n.distanceFromRoot=pos.length();
+        n.fluid=true; n.basePosition=pos.clone(); n.fluidPhase=Math.random()*Math.PI*2;
+        n.fluidAmp=0.14; n.fluidWaveScale=0.35; n.fluidRippleScale=0.5;
+        nodes.push(n); sn.addConnection(n,0.7);
+      }
+    });
+    /* Ein Sof halo — limitless light encircling the emanation: an elliptical
+       ring of loosely-chained drifting sparks around the whole tree */
+    const haloCount=Math.max(22, Math.floor(52*densityFactor));
+    const haloRing=[];
+    for(let i=0;i<haloCount;i++){
+      const a=(i/haloCount)*Math.PI*2;
+      const pos=new THREE.Vector3(Math.cos(a)*10.5*S, Math.sin(a)*16.2*S, THREE.MathUtils.randFloatSpread(3));
+      const n=new Node(pos,4,1);
+      n.size=THREE.MathUtils.randFloat(0.28,0.5); n.distanceFromRoot=pos.length();
+      n.fluid=true; n.basePosition=pos.clone(); n.fluidPhase=Math.random()*Math.PI*2;
+      n.fluidAmp=0.4; n.fluidWaveScale=0.6; n.fluidRippleScale=0.7;
+      nodes.push(n); haloRing.push(n);
+    }
+    for(let i=0;i<haloRing.length;i++) haloRing[i].addConnection(haloRing[(i+1)%haloRing.length],0.3);
+  }
+
   switch(formationIndex%config.numFormations){
     case 0: sphere(); break;
     case 1: helix(); break;
@@ -2670,6 +3174,10 @@ function generateNeuralNetwork(formationIndex, densityFactor=1.0){
     case 7: eyeMorph(); break;
     case 8: skull(); break;
     case 9: liquid(); break;
+    case 10: construct(); break;
+    case 11: constructHybrid(); break;
+    case 12: treeConstruct(); break;
+    case 13: sephiroth(); break;
   }
   if(densityFactor<1.0){
     const target=Math.ceil(nodes.length*Math.max(0.3,densityFactor));
@@ -2690,7 +3198,9 @@ function generateNeuralNetwork(formationIndex, densityFactor=1.0){
   const skipsNucleus = (formationIndex % config.numFormations === 6) || /* Tree of Life */
                        (formationIndex % config.numFormations === 7) || /* Eye */
                        (formationIndex % config.numFormations === 8) || /* Skull — has its own dense structure */
-                       (formationIndex % config.numFormations === 9);   /* Liquid — droplet would muddy with dust */
+                       (formationIndex % config.numFormations === 9) ||  /* Liquid — droplet would muddy with dust */
+                       (formationIndex % config.numFormations === 12) || /* Tree-Construct — tree supplies its own centre */
+                       (formationIndex % config.numFormations === 13);  /* Sephiroth — Tiferet heart supplies the centre */
   if (rootNode && !skipsNucleus) {
     const nucleusCount = Math.max(18, Math.floor(48 * densityFactor));
     const nucleusNodes = [];
@@ -2742,10 +3252,16 @@ function generateNeuralNetwork(formationIndex, densityFactor=1.0){
 }
 
 let neuralNetwork=null, nodesMesh=null, connectionsMesh=null;
+/* ---- solid construct layer (real tube struts + orbs + core, sits on the
+   wireframe cage; gives the construct its solid body while the node/line layer
+   keeps the voice-driven traveling sparks) ---- */
+let constructSolids=null, constructInnerGroup=null, constructCoreMesh=null, constructCoreWire=null, constructCoreHalo=null;
+let constructSolidMats={outer:[],inner:[],radial:[],tree:[],orbsOuter:[],orbsInner:[],orbsTree:[],ghost:[],pillars:[],rings:[],core:null,coreHalo:null};
 
 function createNetworkVisualization(formationIndex, densityFactor=1.0){
   if(nodesMesh){scene.remove(nodesMesh); nodesMesh.geometry.dispose(); nodesMesh.material.dispose();}
   if(connectionsMesh){scene.remove(connectionsMesh); connectionsMesh.geometry.dispose(); connectionsMesh.material.dispose();}
+  disposeConstructSolids();
   neuralNetwork=generateNeuralNetwork(formationIndex, densityFactor);
   if(!neuralNetwork||!neuralNetwork.nodes.length) return;
   /* nodes geometry */
@@ -2816,6 +3332,200 @@ function createNetworkVisualization(formationIndex, densityFactor=1.0){
   /* push current shell colours into the freshly-built shader uniforms */
   applyShellColors(false);
   applySpectralUniforms(); /* push current spectral/shockwave state into the fresh shaders */
+  buildConstructSolids(formationIndex);
+}
+
+/* ============ SOLID CONSTRUCT LAYER ============
+   Real geometry (glowing tube struts, vertex orbs, a solid pulsing core and
+   orbit rings) built for the construct-family formations (10/11/12). Sits on
+   the same octahedron the node-builder uses, so the wireframe pulses appear to
+   run *inside* solid tubes. All unlit additive materials so UnrealBloom does
+   the glow. Reacts to voice/mouth in updateConstructSolids(). */
+function disposeConstructSolids(){
+  if(!constructSolids) return;
+  scene.remove(constructSolids);
+  constructSolids.traverse(o=>{
+    if(o.geometry) o.geometry.dispose();
+    if(o.material){ (Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.dispose()); }
+  });
+  constructSolids=null; constructInnerGroup=null; constructCoreMesh=null; constructCoreWire=null; constructCoreHalo=null;
+  constructSolidMats={outer:[],inner:[],radial:[],tree:[],orbsOuter:[],orbsInner:[],orbsTree:[],ghost:[],pillars:[],rings:[],core:null,coreHalo:null};
+}
+function _tubeBetween(a,b,radius,color,opacity){
+  const dir=new THREE.Vector3().subVectors(b,a); const len=Math.max(dir.length(),0.0001);
+  const geo=new THREE.CylinderGeometry(radius,radius,len,8,1,true);
+  const mat=new THREE.MeshBasicMaterial({color, transparent:true, opacity, blending:THREE.AdditiveBlending, depthWrite:false});
+  const mesh=new THREE.Mesh(geo,mat);
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir.clone().normalize());
+  mesh.position.copy(a).lerp(b,0.5);
+  return mesh;
+}
+function _orb(pos,color,scale){
+  const g=new THREE.Group();
+  const coreM=new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:0.9, blending:THREE.AdditiveBlending, depthWrite:false});
+  const glowM=new THREE.MeshBasicMaterial({color, transparent:true, opacity:0.35, blending:THREE.AdditiveBlending, depthWrite:false});
+  g.add(new THREE.Mesh(new THREE.SphereGeometry(0.15*scale,12,12), coreM));
+  g.add(new THREE.Mesh(new THREE.SphereGeometry(0.40*scale,12,12), glowM));
+  g.position.copy(pos);
+  return {group:g, glow:glowM};
+}
+function _coreRing(r,color,op){
+  const pts=[]; for(let i=0;i<=120;i++){ const a=i/120*Math.PI*2; pts.push(new THREE.Vector3(Math.cos(a)*r,Math.sin(a)*r,0)); }
+  const g=new THREE.BufferGeometry().setFromPoints(pts);
+  const m=new THREE.LineBasicMaterial({color, transparent:true, opacity:op, blending:THREE.AdditiveBlending, depthWrite:false});
+  return new THREE.LineLoop(g,m);
+}
+function buildConstructSolids(formationIndex){
+  const f = formationIndex % config.numFormations;
+  if(f!==10 && f!==11 && f!==12 && f!==13) return;     /* only the construct family */
+  const grp=new THREE.Group();
+  const colOuter=new THREE.Color(shellColorOuter), colMid=new THREE.Color(shellColorMid),
+        colInner=new THREE.Color(shellColorInner), colSpark=new THREE.Color(sparkleColor);
+  const oV=octVerts(CONSTRUCT_R), iV=octVerts(CONSTRUCT_R*CONSTRUCT_INNER_SCALE);
+  /* innerGroup = the CORE region only (icosahedron core + halo + orbit rings).
+     This is the single thing that breathes with mouth-open, so personality comes
+     from the centre. Everything structural (outer cage, inner octahedron cage,
+     radial struts, tree) stays on the static parent group and never scales. */
+  const innerGroup=new THREE.Group();
+  /* ============ SEPHIROTH SOLIDS (#13) ============
+     No cage — the Tree itself is the architecture. Tubes trace the 22 paths
+     (middle-pillar paths thicker + inner-gold), three faint pillar beams stand
+     behind the tree, every sephira gets an orb, Da'at gets a dim ghost orb,
+     and the Tiferet heart (core + halo + orbit rings) breathes with the mouth. */
+  if(f===13){
+    const S=SEPH_FULL_SCALE;
+    const seph=SEPHIROT_BASE.map(bp=>bp.clone().multiplyScalar(S));
+    const MIDDLE_PATHS=new Set(['0-5','5-8','8-9']);
+    SEPHIROT_PATHS.forEach(([a,b])=>{
+      const mid=MIDDLE_PATHS.has(a+'-'+b);
+      const t=_tubeBetween(seph[a],seph[b], mid?0.075:0.05, mid?colInner:colSpark, mid?0.8:0.6);
+      grp.add(t); constructSolidMats.tree.push(t.material);
+    });
+    /* pillar beams — Severity / Mildness / Mercy, set slightly behind the plane */
+    [-7*S, 0, 7*S].forEach(px=>{
+      const t=_tubeBetween(new THREE.Vector3(px,15.5*S,-1.4), new THREE.Vector3(px,-15.5*S,-1.4), 0.028, colMid, 0.12);
+      grp.add(t); constructSolidMats.pillars.push(t.material);
+    });
+    /* sephirot orbs — supernal crown, heart and kingdom enlarged */
+    seph.forEach((pp,idx)=>{
+      const big=(idx===0||idx===5||idx===9);
+      const o=_orb(pp, idx===5?colInner:big?colSpark:colMid, big?1.7:1.2);
+      grp.add(o.group); constructSolidMats.orbsTree.push(o);
+    });
+    /* Da'at — ghost orb across the Abyss */
+    const daat=_orb(DAAT_BASE.clone().multiplyScalar(S), colOuter, 1.0);
+    daat.group.children[0].material.opacity=0.30;
+    daat.glow.opacity=0.10;
+    grp.add(daat.group); constructSolidMats.ghost.push(daat);
+    /* Tiferet heart — the same breathing core rig as the constructs, centred
+       on the sixth sephira so the Tree emotes from its heart */
+    const coreMat2=new THREE.MeshBasicMaterial({color:colInner, transparent:true, opacity:0.9, blending:THREE.NormalBlending});
+    const core2=new THREE.Mesh(new THREE.IcosahedronGeometry(0.85*CONSTRUCT_CORE_SCALE,2), coreMat2);
+    const wire2=new THREE.LineSegments(new THREE.WireframeGeometry(new THREE.IcosahedronGeometry(0.96*CONSTRUCT_CORE_SCALE,1)),
+      new THREE.LineBasicMaterial({color:0xffffff, transparent:true, opacity:0.4, blending:THREE.AdditiveBlending, depthWrite:false}));
+    const haloMat2=new THREE.MeshBasicMaterial({color:colSpark, transparent:true, opacity:0.10, blending:THREE.AdditiveBlending, depthWrite:false});
+    const halo2=new THREE.Mesh(new THREE.SphereGeometry(1.6*CONSTRUCT_CORE_SCALE,24,24), haloMat2);
+    innerGroup.add(core2, wire2, halo2);
+    constructCoreMesh=core2; constructCoreWire=wire2; constructCoreHalo=halo2;
+    constructSolidMats.core=coreMat2; constructSolidMats.coreHalo=haloMat2;
+    const rA2=_coreRing(1.3*CONSTRUCT_CORE_SCALE,colInner,0.5); rA2.rotation.x=Math.PI*0.5;
+    const rB2=_coreRing(1.7*CONSTRUCT_CORE_SCALE,colSpark,0.34); rB2.rotation.y=Math.PI*0.5;
+    const rC2=_coreRing(2.1*CONSTRUCT_CORE_SCALE,colMid,0.24); rC2.rotation.z=Math.PI*0.25;
+    innerGroup.add(rA2,rB2,rC2); constructSolidMats.rings.push(rA2,rB2,rC2);
+    innerGroup.position.copy(seph[5]);
+    grp.add(innerGroup); constructInnerGroup=innerGroup;
+    grp.userData.isTree=true;
+    constructSolids=grp; scene.add(grp);
+    return;
+  }
+  /* cage struts */
+  OCT_EDGES.forEach(([a,b])=>{ const t=_tubeBetween(oV[a],oV[b],0.06,colOuter,0.5); grp.add(t); constructSolidMats.outer.push(t.material); });
+  OCT_EDGES.forEach(([a,b])=>{ const t=_tubeBetween(iV[a],iV[b],0.045,colMid,0.45); grp.add(t); constructSolidMats.inner.push(t.material); });
+  for(let i=0;i<6;i++){ const t=_tubeBetween(oV[i],iV[i],0.03,colSpark,0.4); grp.add(t); constructSolidMats.radial.push(t.material); }
+  /* vertex orbs */
+  oV.forEach(p=>{ const o=_orb(p,colOuter,1.0); grp.add(o.group); constructSolidMats.orbsOuter.push(o); });
+  iV.forEach(p=>{ const o=_orb(p,colMid,0.7); grp.add(o.group); constructSolidMats.orbsInner.push(o); });
+  /* solid core: icosahedron + wire shell + soft halo */
+  const coreMat=new THREE.MeshBasicMaterial({color:colInner, transparent:true, opacity:0.9, blending:THREE.NormalBlending});
+  const core=new THREE.Mesh(new THREE.IcosahedronGeometry(0.85*CONSTRUCT_CORE_SCALE,2), coreMat);
+  const wire=new THREE.LineSegments(new THREE.WireframeGeometry(new THREE.IcosahedronGeometry(0.96*CONSTRUCT_CORE_SCALE,1)),
+    new THREE.LineBasicMaterial({color:0xffffff, transparent:true, opacity:0.4, blending:THREE.AdditiveBlending, depthWrite:false}));
+  const haloMat=new THREE.MeshBasicMaterial({color:colSpark, transparent:true, opacity:0.10, blending:THREE.AdditiveBlending, depthWrite:false});
+  const halo=new THREE.Mesh(new THREE.SphereGeometry(1.6*CONSTRUCT_CORE_SCALE,24,24), haloMat);
+  innerGroup.add(core, wire, halo);
+  constructCoreMesh=core; constructCoreWire=wire; constructCoreHalo=halo;
+  constructSolidMats.core=coreMat; constructSolidMats.coreHalo=haloMat;
+  /* orbit rings */
+  const rA=_coreRing(1.3*CONSTRUCT_CORE_SCALE,colInner,0.5); rA.rotation.x=Math.PI*0.5;
+  const rB=_coreRing(1.7*CONSTRUCT_CORE_SCALE,colSpark,0.34); rB.rotation.y=Math.PI*0.5;
+  const rC=_coreRing(2.1*CONSTRUCT_CORE_SCALE,colMid,0.24); rC.rotation.z=Math.PI*0.25;
+  innerGroup.add(rA,rB,rC); constructSolidMats.rings.push(rA,rB,rC);
+  /* tree overlay (formation 12) - lives on the inner plane, breathes with inner */
+  if(f===12){
+    const seph=SEPHIROT_BASE.map(bp=>bp.clone().multiplyScalar(TREE_CONSTRUCT_SCALE));
+    SEPHIROT_PATHS.forEach(([a,b])=>{ const t=_tubeBetween(seph[a],seph[b],0.05,colSpark,0.7); grp.add(t); constructSolidMats.tree.push(t.material); });
+    seph.forEach((pp,idx)=>{ const o=_orb(pp, idx===5?colInner:colSpark, (idx===0||idx===5||idx===9)?1.4:1.0); grp.add(o.group); constructSolidMats.orbsTree.push(o); });
+  }
+  grp.add(innerGroup); constructInnerGroup=innerGroup;
+  constructSolids=grp; scene.add(grp);
+}
+function updateConstructSolidColors(){
+  if(!constructSolids) return;
+  const colOuter=new THREE.Color(shellColorOuter), colMid=new THREE.Color(shellColorMid),
+        colInner=new THREE.Color(shellColorInner), colSpark=new THREE.Color(sparkleColor);
+  constructSolidMats.outer.forEach(m=>m.color.copy(colOuter));
+  constructSolidMats.inner.forEach(m=>m.color.copy(colMid));
+  constructSolidMats.radial.forEach(m=>m.color.copy(colSpark));
+  constructSolidMats.tree.forEach(m=>m.color.copy(colSpark));
+  constructSolidMats.orbsOuter.forEach(o=>o.glow.color.copy(colOuter));
+  constructSolidMats.orbsInner.forEach(o=>o.glow.color.copy(colMid));
+  constructSolidMats.orbsTree.forEach(o=>o.glow.color.copy(colMid));
+  constructSolidMats.ghost.forEach(o=>o.glow.color.copy(colOuter));
+  constructSolidMats.pillars.forEach(m=>m.color.copy(colMid));
+  if(constructSolidMats.core) constructSolidMats.core.color.copy(colInner);
+  if(constructSolidMats.coreHalo) constructSolidMats.coreHalo.color.copy(colSpark);
+  if(constructSolidMats.rings[0]) constructSolidMats.rings[0].material.color.copy(colInner);
+  if(constructSolidMats.rings[1]) constructSolidMats.rings[1].material.color.copy(colSpark);
+  if(constructSolidMats.rings[2]) constructSolidMats.rings[2].material.color.copy(colMid);
+}
+function updateConstructSolids(t){
+  if(!constructSolids) return;
+  const voice=AVATAR_STATE.voiceLevel, mouth=AVATAR_STATE.mouthOpen;
+  if (constructSolids.userData.isTree) {
+    /* the full Tree must track the node layer's wobble EXACTLY (animate()
+       applies the same sin to nodesMesh) so tubes and bead-chains stay welded */
+    constructSolids.rotation.y = Math.sin(t*0.04)*0.05;
+    constructSolids.rotation.x = 0;
+  } else {
+    constructSolids.rotation.y = Math.sin(t*0.04)*0.05 + t*0.05;
+    constructSolids.rotation.x = Math.sin(t*0.15)*0.05;
+  }
+  constructSolids.scale.setScalar(CONSTRUCT_VIEW_SCALE);  /* match the node-layer zoom */
+  /* mouth-open breathes ONLY the core region (core + halo + rings). Bigger
+     amount now that it's just the centre, so the construct emotes from the heart
+     without the cage moving. voice adds an extra punch on top. */
+  const grow = 1.0 + easeOutCubic(mouth) * 0.45 * scaleSensitivity + voice * 0.12;
+  if(constructInnerGroup) constructInnerGroup.scale.setScalar(grow);
+  if(constructCoreMesh){
+    constructCoreMesh.scale.setScalar(1.0 + Math.sin(t*8.0)*0.05 + voice*0.45);
+    constructCoreMesh.rotation.x=t*1.1; constructCoreMesh.rotation.y=t*0.9;
+    if(constructSolidMats.core) constructSolidMats.core.opacity = 0.85 + voice*0.15;
+  }
+  if(constructCoreWire){ constructCoreWire.rotation.x=-t*1.0; constructCoreWire.rotation.y=t*1.3; constructCoreWire.scale.setScalar(1.0+voice*0.4); }
+  if(constructCoreHalo){ constructCoreHalo.scale.setScalar(1.0+Math.sin(t*3.0)*0.05+voice*0.5); if(constructSolidMats.coreHalo) constructSolidMats.coreHalo.opacity=0.08+voice*0.22; }
+  const tubeOp=0.45+voice*0.4;
+  constructSolidMats.outer.forEach(m=>m.opacity=tubeOp);
+  constructSolidMats.inner.forEach(m=>m.opacity=tubeOp*0.9);
+  constructSolidMats.radial.forEach(m=>m.opacity=0.4+voice*0.45);
+  constructSolidMats.tree.forEach(m=>m.opacity=0.4+voice*0.45);
+  const flare=0.3+voice*0.5;
+  constructSolidMats.orbsOuter.forEach(o=>o.glow.opacity=flare);
+  constructSolidMats.orbsInner.forEach(o=>o.glow.opacity=flare*0.9);
+  constructSolidMats.orbsTree.forEach(o=>o.glow.opacity=flare);
+  /* ghost orbs (Da'at) stay dim — voice only whispers through them */
+  constructSolidMats.ghost.forEach(o=>o.glow.opacity=0.08+voice*0.14);
+  constructSolidMats.pillars.forEach(m=>m.opacity=0.10+voice*0.10);
+  constructSolidMats.rings.forEach((r,i)=>{ r.rotation.x+=0.004+i*0.001; r.rotation.y+=0.003+i*0.0015; r.rotation.z+=0.002; });
 }
 
 /* Push runtime spectral + shockwave settings into the live shader uniforms.
@@ -2896,9 +3606,13 @@ function updateTheme(idx){
 
 /* ============ AUTO-PULSE (driven by voice/mouth) ============ */
 let lastPulseIndex=0;
+/* short bloom kick whenever a pulse fires — decays exponentially in animate()
+   so every pulse lands with a brief halo flash instead of only a colour ring. */
+let pulseBoost = 0;
 function triggerPulseAt(pos, color){
   const time = clock.getElapsedTime();
   if(!nodesMesh||!connectionsMesh) return;
+  pulseBoost = Math.min(1, pulseBoost + 0.45);
   lastPulseIndex=(lastPulseIndex+1)%3;
   nodesMesh.material.uniforms.uPulsePositions.value[lastPulseIndex].copy(pos);
   nodesMesh.material.uniforms.uPulseTimes.value[lastPulseIndex]=time;
@@ -3129,6 +3843,11 @@ function saveSettings(){
       userShellColors: userShellColors,
       bloomTintColor: bloomTintColor,
       sparkleColor: sparkleColor,
+      veilColorOuter: veilColorOuter,
+      veilColorMid: veilColorMid,
+      veilColorInner: veilColorInner,
+      nucleusColor: nucleusColor,
+      haloColor: haloColor,
       userBloomTint: userBloomTint,
       userSparkleColor: userSparkleColor,
       eyeVisible: eyeVisible,
@@ -3185,6 +3904,12 @@ function loadSettings(){
     if (typeof s.userShellColors === 'boolean') userShellColors = s.userShellColors;
     if (typeof s.bloomTintColor === 'string' && hexRe.test(s.bloomTintColor)) bloomTintColor = s.bloomTintColor;
     if (typeof s.sparkleColor === 'string' && hexRe.test(s.sparkleColor)) sparkleColor = s.sparkleColor;
+    /* veil + core colours — URL params (?veil1c etc.) trump saved values */
+    if (!params.has('veil1c') && typeof s.veilColorOuter === 'string' && hexRe.test(s.veilColorOuter)) veilColorOuter = s.veilColorOuter;
+    if (!params.has('veil2c') && typeof s.veilColorMid === 'string' && hexRe.test(s.veilColorMid)) veilColorMid = s.veilColorMid;
+    if (!params.has('veil3c') && typeof s.veilColorInner === 'string' && hexRe.test(s.veilColorInner)) veilColorInner = s.veilColorInner;
+    if (!params.has('nucleus') && typeof s.nucleusColor === 'string' && hexRe.test(s.nucleusColor)) nucleusColor = s.nucleusColor;
+    if (!params.has('halo') && typeof s.haloColor === 'string' && hexRe.test(s.haloColor)) haloColor = s.haloColor;
     if (typeof s.userBloomTint === 'boolean') userBloomTint = s.userBloomTint;
     if (typeof s.userSparkleColor === 'boolean') userSparkleColor = s.userSparkleColor;
     /* eye toggle persists across sessions but ONLY if the user has explicitly
@@ -3258,6 +3983,7 @@ function applyShellColors(syncInputs = true){
     u.uShellColorMid.value.copy(colMid);
     u.uShellColorOuter.value.copy(colOuter);
   }
+  updateConstructSolidColors();
   if (syncInputs) {
     const i = document.getElementById('shell-color-inner');
     const m = document.getElementById('shell-color-mid');
@@ -3309,6 +4035,7 @@ function applySparkleColor(syncInput = true){
     const el = document.getElementById('glow-color-sparkle');
     if (el) el.value = sparkleColor;
   }
+  updateConstructSolidColors();
 }
 
 document.getElementById('glow-color-bloom')?.addEventListener('input', e => {
@@ -3320,6 +4047,79 @@ document.getElementById('glow-color-bloom')?.addEventListener('input', e => {
 document.getElementById('glow-color-sparkle')?.addEventListener('input', e => {
   sparkleColor = e.target.value;
   userSparkleColor = true;
+  saveSettings();
+});
+
+/* push veil colours into the rings AND re-bake the orbiting glyph textures.
+   Re-baking ~80 small canvases isn't free, so the key-guard skips it when the
+   colours haven't actually changed (e.g. repeat hydrateUI calls). */
+function applyVeilColors(syncInputs = true){
+  if (aurGroup && aurGroup.userData.veils) {
+    const cols = [veilColorOuter, veilColorMid, veilColorInner];
+    const key = cols.join('');
+    if (key !== _appliedVeilKey) {
+      _appliedVeilKey = key;
+      aurGroup.userData.veils.forEach((v, i) => {
+        const css = cols[i];
+        v.mat.color.copy(new THREE.Color(css).multiplyScalar(0.85));
+        const chars = v.chars || GLYPH_SETS.mixed;
+        const oldPool = v.glyphPool;
+        v.glyphPool = makeGlitchPool(chars, css, 10);
+        if (oldPool) oldPool.forEach(tx => tx.dispose());
+        v.glyphSprites.forEach((sp, si) => {
+          const baseChar = chars[si % chars.length];
+          const old = sp.userData.cleanTex;
+          sp.userData.cleanTex = makeCleanGlyphTexture(baseChar, css);
+          sp.material.map = sp.userData.cleanTex;
+          sp.material.needsUpdate = true;
+          if (old) old.dispose();
+        });
+        v.cleanTex = v.glyphSprites[0]?.userData.cleanTex;
+      });
+    }
+  }
+  if (syncInputs) {
+    const o = document.getElementById('veil-color-outer');
+    const m = document.getElementById('veil-color-mid');
+    const i = document.getElementById('veil-color-inner');
+    if (o) o.value = veilColorOuter;
+    if (m) m.value = veilColorMid;
+    if (i) i.value = veilColorInner;
+  }
+}
+/* nucleus + halo are plain material colours — cheap, applied immediately */
+function applyCoreColors(syncInputs = true){
+  if (aurGroup) {
+    if (aurGroup.userData.core) aurGroup.userData.core.material.color.set(nucleusColor);
+    if (aurGroup.userData.halo) aurGroup.userData.halo.material.color.set(haloColor);
+  }
+  if (syncInputs) {
+    const n = document.getElementById('core-color-nucleus');
+    const h = document.getElementById('core-color-halo');
+    if (n) n.value = nucleusColor;
+    if (h) h.value = haloColor;
+  }
+}
+/* veil pickers — debounced: the colour input fires continuously while the
+   user drags inside the swatch, and each apply re-bakes textures. */
+let _veilDebounceT = null;
+[['veil-color-outer', v => veilColorOuter = v],
+ ['veil-color-mid',   v => veilColorMid   = v],
+ ['veil-color-inner', v => veilColorInner = v]].forEach(([id, set]) => {
+  document.getElementById(id)?.addEventListener('input', e => {
+    set(e.target.value);
+    clearTimeout(_veilDebounceT);
+    _veilDebounceT = setTimeout(() => { applyVeilColors(false); saveSettings(); }, 150);
+  });
+});
+document.getElementById('core-color-nucleus')?.addEventListener('input', e => {
+  nucleusColor = e.target.value;
+  applyCoreColors(false);
+  saveSettings();
+});
+document.getElementById('core-color-halo')?.addEventListener('input', e => {
+  haloColor = e.target.value;
+  applyCoreColors(false);
   saveSettings();
 });
 const voiceGainSlider = document.getElementById('voice-gain-slider');
@@ -3417,6 +4217,29 @@ function actionToggleBloom(){
   saveSettings();
   syncTogglePills();
 }
+/* ---- formation / density actions (construct merge) ---- */
+function actionNextFormation(){
+  config.currentFormation = (config.currentFormation+1)%config.numFormations;
+  createNetworkVisualization(config.currentFormation, config.densityFactor);
+  saveSettings();
+}
+function actionJumpFormation(idx){
+  const m = config.numFormations;
+  config.currentFormation = ((idx % m) + m) % m;
+  createNetworkVisualization(config.currentFormation, config.densityFactor);
+  saveSettings();
+}
+function actionDensityStep(delta){
+  let v = Math.round(config.densityFactor*100) + delta;
+  v = Math.max(30, Math.min(100, v));
+  config.densityFactor = v/100;
+  const slider = document.getElementById('density-slider');
+  if (slider) slider.value = v;
+  const dv = document.getElementById('density-value');
+  if (dv) dv.textContent = v + '%';
+  createNetworkVisualization(config.currentFormation, config.densityFactor);
+  saveSettings();
+}
 function actionToggleTest(){
   testMode = !testMode;
   if (testMode) {
@@ -3490,12 +4313,18 @@ window.addEventListener('message', (e) => {
       connectionsMesh.material.uniforms.uShockOrigin.value.set(d.shockX || 0, d.shockY || 0, d.shockZ || 4);
     }
   }
-  /* live nucleus + halo colour updates — feed into the AinSophAur core */
-  if (d.colors && aurGroup) {
-    const core = aurGroup.userData.core, halo = aurGroup.userData.halo;
-    const setHex = (mat, hex) => { try { mat.color.set(hex); } catch(_){} };
-    if (core && d.colors.nucleus) setHex(core.material, d.colors.nucleus);
-    if (halo && d.colors.halo)    setHex(halo.material, d.colors.halo);
+  /* live nucleus + halo + veil colour updates — state-backed so they persist
+     to localStorage and stay in sync with the colour pickers */
+  if (d.colors) {
+    const hx = v => (typeof v === 'string') ? (v.startsWith('#') ? v : '#'+v) : null;
+    let coreChanged = false, veilChanged = false;
+    if (hx(d.colors.nucleus)) { nucleusColor   = hx(d.colors.nucleus); coreChanged = true; }
+    if (hx(d.colors.halo))    { haloColor      = hx(d.colors.halo);    coreChanged = true; }
+    if (hx(d.colors.veil1))   { veilColorOuter = hx(d.colors.veil1);   veilChanged = true; }
+    if (hx(d.colors.veil2))   { veilColorMid   = hx(d.colors.veil2);   veilChanged = true; }
+    if (hx(d.colors.veil3))   { veilColorInner = hx(d.colors.veil3);   veilChanged = true; }
+    if (coreChanged) { applyCoreColors(true); saveSettings(); }
+    if (veilChanged) { applyVeilColors(true); saveSettings(); }
   }
   if (typeof d.aur === 'boolean' && d.aur !== aurVisible) actionToggleAur();
   if (typeof d.bloom === 'boolean' && d.bloom !== bloomEnabled) actionToggleBloom();
@@ -3619,6 +4448,12 @@ function applyBgMode(){
     body.classList.remove('transparent');
     body.style.background = hex;
   }
+  /* cinematic finish (vignette + grain) only over the dark bg — in clean or
+     chroma modes the edge darkening / grain would pollute keying. */
+  const cine = mode === 'dark' && !INTENSITY_LOW;
+  finishPass.enabled = cine;
+  finishPass.uniforms.uVignette.value = cine ? 0.32 : 0.0;
+  finishPass.uniforms.uGrain.value = cine ? 0.045 : 0.0;
 }
 
 /* Keep all toggle pill visuals in sync with underlying state. */
@@ -3662,7 +4497,196 @@ document.addEventListener('keydown', e => {
   if(k === 'f') actionFreeze();
   if(k === 't') actionCycleTheme();
   if(k === 'b') actionToggleBloom();
+  /* ---- construct-merge hotkeys ---- */
+  if(k === 'n') actionNextFormation();      /* cycle morph / blend */
+  if(k === 'c') actionJumpFormation(10);    /* jump to Construct */
+  if(k === 'g') actionJumpFormation(11);    /* jump to Hybrid (geometry + net) */
+  if(k === 'y') actionJumpFormation(12);    /* jump to Tree-Construct */
+  if(k === 'k') actionJumpFormation(13);    /* jump to Sephiroth — full Tree of Life */
+  if(k === '[') actionDensityStep(-10);     /* density down */
+  if(k === ']') actionDensityStep(10);      /* density up */
+  /* ---- help overlay ---- */
+  if(k === '?') document.getElementById('hotkey-overlay')?.classList.toggle('open');
+  if(k === 'escape') document.getElementById('hotkey-overlay')?.classList.remove('open');
+  /* ---- preset slots: 1/2/3 load, Shift+1/2/3 save ---- */
+  if (e.code === 'Digit1' || e.code === 'Digit2' || e.code === 'Digit3') {
+    const slot = parseInt(e.code.slice(-1), 10);
+    if (e.shiftKey) savePreset(slot); else loadPreset(slot);
+  }
 });
+document.getElementById('hotkey-overlay')?.addEventListener('click', e => {
+  if (e.target === e.currentTarget) e.currentTarget.classList.remove('open');
+});
+
+/* ============ PRESET SLOTS + COPY OBS URL ============
+   Three named snapshots of the full look (theme, formation, density, colours,
+   gain/scale, framing, toggles) persisted next to the main settings blob.
+   Click loads, Shift-click saves; hotkeys 1/2/3 mirror the clicks.
+   The Copy OBS URL button serialises the same state into URL params so an
+   OBS browser source reproduces the look with zero localStorage dependence. */
+const PRESETS_KEY = SETTINGS_KEY + '-presets';
+function readPresets(){
+  try { return JSON.parse(localStorage.getItem(PRESETS_KEY)) || {}; } catch(e){ return {}; }
+}
+function snapshotState(){
+  return {
+    theme: config.activePaletteIndex, formation: config.currentFormation, density: config.densityFactor,
+    shellColorInner, shellColorMid, shellColorOuter, userShellColors,
+    bloomTintColor, sparkleColor, userBloomTint, userSparkleColor,
+    veilColorOuter, veilColorMid, veilColorInner, nucleusColor, haloColor,
+    voiceGain, scaleSensitivity, frameOffsetX, frameOffsetY, frameZoom,
+    eyeVisible, aurVisible, bloom: bloomEnabled
+  };
+}
+function syncPresetPills(){
+  const all = readPresets();
+  [1, 2, 3].forEach(n => {
+    const pill = document.getElementById('preset-' + n);
+    const st = document.getElementById('preset-' + n + '-state');
+    const has = !!all[n];
+    if (pill) pill.classList.toggle('on', has);
+    if (st) st.textContent = has ? 'saved' : 'empty';
+  });
+}
+let _presetFlashT = null;
+function flashPresetState(slot, text){
+  const st = document.getElementById('preset-' + slot + '-state');
+  if (!st) return;
+  st.textContent = text;
+  clearTimeout(_presetFlashT);
+  _presetFlashT = setTimeout(syncPresetPills, 1200);
+}
+function savePreset(slot){
+  const all = readPresets();
+  all[slot] = snapshotState();
+  try { localStorage.setItem(PRESETS_KEY, JSON.stringify(all)); } catch(e){}
+  syncPresetPills();
+  flashPresetState(slot, 'saved ✓');
+}
+function loadPreset(slot){
+  const sn = readPresets()[slot];
+  if (!sn) { flashPresetState(slot, 'empty'); return; }
+  const hexRe = /^#[0-9a-f]{6}$/i;
+  if (typeof sn.theme === 'number') config.activePaletteIndex = ((sn.theme % colorPalettes.length) + colorPalettes.length) % colorPalettes.length;
+  if (typeof sn.formation === 'number') config.currentFormation = ((sn.formation % config.numFormations) + config.numFormations) % config.numFormations;
+  if (typeof sn.density === 'number') config.densityFactor = Math.max(0.3, Math.min(1, sn.density));
+  userShellColors = !!sn.userShellColors;
+  userBloomTint = !!sn.userBloomTint;
+  userSparkleColor = !!sn.userSparkleColor;
+  if (hexRe.test(sn.shellColorInner || '')) shellColorInner = sn.shellColorInner;
+  if (hexRe.test(sn.shellColorMid || ''))   shellColorMid   = sn.shellColorMid;
+  if (hexRe.test(sn.shellColorOuter || '')) shellColorOuter = sn.shellColorOuter;
+  if (hexRe.test(sn.bloomTintColor || ''))  bloomTintColor  = sn.bloomTintColor;
+  if (hexRe.test(sn.sparkleColor || ''))    sparkleColor    = sn.sparkleColor;
+  if (hexRe.test(sn.veilColorOuter || ''))  veilColorOuter  = sn.veilColorOuter;
+  if (hexRe.test(sn.veilColorMid || ''))    veilColorMid    = sn.veilColorMid;
+  if (hexRe.test(sn.veilColorInner || ''))  veilColorInner  = sn.veilColorInner;
+  if (hexRe.test(sn.nucleusColor || ''))    nucleusColor    = sn.nucleusColor;
+  if (hexRe.test(sn.haloColor || ''))       haloColor       = sn.haloColor;
+  if (typeof sn.voiceGain === 'number') voiceGain = Math.max(0.5, Math.min(5, sn.voiceGain));
+  if (typeof sn.scaleSensitivity === 'number') scaleSensitivity = Math.max(0, Math.min(5, sn.scaleSensitivity));
+  if (typeof sn.frameOffsetX === 'number') frameOffsetX = sn.frameOffsetX;
+  if (typeof sn.frameOffsetY === 'number') frameOffsetY = sn.frameOffsetY;
+  if (typeof sn.frameZoom === 'number' && sn.frameZoom > 0) frameZoom = sn.frameZoom;
+  if (typeof sn.eyeVisible === 'boolean') { eyeVisible = sn.eyeVisible; eyeUserToggled = true; }
+  if (typeof sn.aurVisible === 'boolean') aurVisible = sn.aurVisible;
+  if (typeof sn.bloom === 'boolean') bloomEnabled = sn.bloom;
+  updateTheme(config.activePaletteIndex);
+  createNetworkVisualization(config.currentFormation, config.densityFactor);
+  if (aurGroup) aurGroup.visible = aurVisible;
+  if (centerEyeGroup) centerEyeGroup.visible = eyeVisible;
+  hydrateUI();
+  saveSettings();
+  flashPresetState(slot, 'loaded ✓');
+}
+[1, 2, 3].forEach(n => {
+  document.getElementById('preset-' + n)?.addEventListener('click', e => {
+    if (e.shiftKey) savePreset(n); else loadPreset(n);
+  });
+});
+
+function buildObsUrl(){
+  const base = location.href.split('?')[0].split('#')[0];
+  const q = new URLSearchParams();
+  q.set('obs', '1');
+  q.set('theme', String(config.activePaletteIndex));
+  q.set('morph', String(config.currentFormation));
+  q.set('density', String(Math.round(config.densityFactor * 100)));
+  q.set('inner', shellColorInner.slice(1));
+  q.set('mid', shellColorMid.slice(1));
+  q.set('outer', shellColorOuter.slice(1));
+  q.set('sparkle', sparkleColor.slice(1));
+  if (bloomTintColor !== '#ffffff') q.set('bloomtint', bloomTintColor.slice(1));
+  if (veilColorOuter !== VEIL_DEFAULT_OUTER) q.set('veil1c', veilColorOuter.slice(1));
+  if (veilColorMid   !== VEIL_DEFAULT_MID)   q.set('veil2c', veilColorMid.slice(1));
+  if (veilColorInner !== VEIL_DEFAULT_INNER) q.set('veil3c', veilColorInner.slice(1));
+  if (nucleusColor !== NUCLEUS_DEFAULT_HEX) q.set('nucleus', nucleusColor.slice(1));
+  if (haloColor    !== HALO_DEFAULT_HEX)    q.set('halo', haloColor.slice(1));
+  q.set('gain', String(Math.round(voiceGain * 100)));
+  q.set('scale', String(Math.round(scaleSensitivity * 100)));
+  if (frameOffsetX) q.set('framex', String(frameOffsetX));
+  if (frameOffsetY) q.set('framey', String(frameOffsetY));
+  if (Math.round(frameZoom * 100) !== 100) q.set('framezoom', String(Math.round(frameZoom * 100)));
+  if (eyeVisible) q.set('eye', '1');
+  if (!aurVisible) q.set('aur', '0');
+  const mode = BG_MODES[bgModeIndex];
+  if (mode === 'green' || mode === 'blue' || mode === 'magenta') q.set('bg', mode);
+  if (SPECTRAL_ENABLED) q.set('spectral', '1');
+  if (SHOCKWAVE_ENABLED) q.set('shockwave', '1');
+  return base + '?' + q.toString();
+}
+document.getElementById('copy-obs-btn')?.addEventListener('click', async () => {
+  const url = buildObsUrl();
+  const btn = document.getElementById('copy-obs-btn');
+  let ok = false;
+  try { await navigator.clipboard.writeText(url); ok = true; }
+  catch(err) {
+    /* clipboard API can be blocked on file:// — fall back to a temp textarea */
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = url; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      ok = document.execCommand('copy');
+      ta.remove();
+    } catch(err2) { ok = false; }
+  }
+  if (btn) {
+    btn.textContent = ok ? 'Copied ✓' : 'Copy failed — see console';
+    setTimeout(() => { btn.textContent = 'Copy OBS URL'; }, 1600);
+  }
+  if (!ok) console.log('[neural-avatar] OBS URL:', url);
+});
+
+/* ============ UI HYDRATION ============
+   Pushes current JS state into every control — called once on boot (after
+   loadSettings + URL overrides) and again whenever a preset is applied.
+   Previously the sliders/swatches always showed their HTML defaults even
+   when saved or URL-driven values were active underneath. */
+function hydrateUI(){
+  const setSlider = (sliderId, valId, sliderVal, label) => {
+    const sl = document.getElementById(sliderId);
+    const vl = document.getElementById(valId);
+    if (sl) sl.value = sliderVal;
+    if (vl) vl.textContent = label;
+  };
+  setSlider('voice-gain-slider', 'voice-gain-val', Math.round(voiceGain * 100), voiceGain.toFixed(2) + 'x');
+  setSlider('scale-sens-slider', 'scale-sens-val', Math.round(scaleSensitivity * 100), scaleSensitivity.toFixed(2) + 'x');
+  setSlider('frame-x-slider', 'frame-x-val', frameOffsetX, String(frameOffsetX));
+  setSlider('frame-y-slider', 'frame-y-val', frameOffsetY, String(frameOffsetY));
+  setSlider('frame-zoom-slider', 'frame-zoom-val', Math.round(frameZoom * 100), frameZoom.toFixed(2) + 'x');
+  const dpct = Math.round(config.densityFactor * 100);
+  setSlider('density-slider', 'density-value', dpct, dpct + '%');
+  document.querySelectorAll('.theme-button').forEach(b =>
+    b.classList.toggle('active', parseInt(b.dataset.theme, 10) === config.activePaletteIndex));
+  applyShellColors(true);
+  applyBloomTint(true);
+  applySparkleColor(true);
+  applyVeilColors(true);
+  applyCoreColors(true);
+  applyFrameTransform();
+  syncTogglePills();
+  syncPresetPills();
+}
 
 /* start button — gateway for both audio + camera permission prompts.
    in testMode we skip the prompts and just mark everything live. */
@@ -3676,7 +4700,17 @@ startBtn.addEventListener('click', async () => {
     document.getElementById('micTag').textContent = 'TEST';
     document.getElementById('micTag').className = 'tag live';
     startBtn.textContent = 'Test Active';
-    setTimeout(() => { document.getElementById('setup-panel').style.opacity = '0.6'; }, 2000);
+    setTimeout(() => {
+      const panel = document.getElementById('setup-panel');
+      /* same rule as the live path below: obs-clean must fully hide the panel
+         even in test mode, otherwise ?test=1&obs=1 leaks the panel on stream */
+      if (OBS_MODE) {
+        panel.style.opacity = '0';
+        panel.style.pointerEvents = 'none';
+      } else {
+        panel.style.opacity = '0.6';
+      }
+    }, 2000);
     return;
   }
   const [audioOK, faceOK] = await Promise.all([startAudio(), startFaceTracking()]);
@@ -3749,6 +4783,16 @@ window.addEventListener('resize', onResize);
 const clock = new THREE.Clock();
 let fpsLastT = 0, fpsFrames = 0;
 const fpsEl = document.getElementById('fps-indicator');
+const voiceMeterEl = document.getElementById('voiceMeter');
+const mouthMeterEl = document.getElementById('mouthMeter');
+const Z_AXIS = new THREE.Vector3(0, 0, 1); /* hoisted — was allocated per veil per frame */
+/* ============ ADAPTIVE RESOLUTION ============
+   When the GPU can't hold ~45fps, step the internal render scale down before
+   sacrificing any visual features; recover slowly once comfortably above
+   58fps. Steps: 100% → 85% → 70% → 60%. Disable with ?adaptive=0. */
+const ADAPTIVE_RES = params.get('adaptive') !== '0';
+const BASE_PIXEL_RATIO = Math.min(window.devicePixelRatio, 2);
+let resScale = 1;
 /* current per-shell scale values — eased toward targets each frame with
    their own curve so each layer pulses with its own personality. */
 let shellInner = 1.0, shellMid = 1.0, shellOuter = 1.0;
@@ -3865,8 +4909,8 @@ function animate(){
   AVATAR_STATE.faceActive = lerp(AVATAR_STATE.faceActive, AVATAR_STATE.targetFaceActive, 0.12);
 
   /* update meters in setup panel */
-  document.getElementById('voiceMeter').style.width = (AVATAR_STATE.voiceLevel*100).toFixed(1) + '%';
-  document.getElementById('mouthMeter').style.width = (AVATAR_STATE.mouthOpen*100).toFixed(1) + '%';
+  if (voiceMeterEl) voiceMeterEl.style.width = (AVATAR_STATE.voiceLevel*100).toFixed(1) + '%';
+  if (mouthMeterEl) mouthMeterEl.style.width = (AVATAR_STATE.mouthOpen*100).toFixed(1) + '%';
 
   /* update live debug readout (?debug=1 or body.debug toggle).
      textContent assign is cheap so we update every frame. */
@@ -3938,6 +4982,13 @@ function animate(){
          pairs (matches createNetworkVisualization's done-Set) then write 20
          entries per pair. */
       if (connectionsMesh) {
+        /* node→index map built once per network. The previous indexOf inside
+           this loop was O(n²) PER FRAME — a real cost on dense fluid morphs. */
+        if (!neuralNetwork.indexMap) {
+          neuralNetwork.indexMap = new Map();
+          neuralNetwork.nodes.forEach((n, i) => neuralNetwork.indexMap.set(n, i));
+        }
+        const idxMap = neuralNetwork.indexMap;
         const cStart = connectionsMesh.geometry.attributes.startPoint;
         const cEnd   = connectionsMesh.geometry.attributes.endPoint;
         if (cStart && cEnd) {
@@ -3946,7 +4997,7 @@ function animate(){
           let pi = 0;
           neuralNetwork.nodes.forEach((node, ni) => {
             node.connections.forEach(conn => {
-              const cni = neuralNetwork.nodes.indexOf(conn.node);
+              const cni = idxMap.has(conn.node) ? idxMap.get(conn.node) : -1;
               if (cni === -1) return;
               const k = (ni < cni) ? (ni + '-' + cni) : (cni + '-' + ni);
               if (done.has(k)) return;
@@ -4056,6 +5107,8 @@ function animate(){
      voice uses easeOutQuart (soft ramp, punchy peak); mouth NOW uses easeOutCubic
      (no overshoot — opens cleanly to the target instead of bouncing past it,
      which previously made the scale feel jumpier than the magnitude suggested). */
+  updateConstructSolids(t);
+
   const voiceEased = easeOutQuart(AVATAR_STATE.voiceLevel);
   const mouthEased = easeOutCubic(AVATAR_STATE.mouthOpen);
 
@@ -4069,14 +5122,16 @@ function animate(){
      opening, so the growth and the dimming roughly cancel out. Net effect:
      mouth opening grows the network without firing bloom; only voice does. */
   const mouthBloomCompensate = 1.0 - mouthEased * 0.35;
+  pulseBoost *= 0.93; /* exponential decay of the per-pulse bloom kick */
   bloomPass.strength = bloomEnabled
-    ? (BLOOM_BASE + voiceEased * 0.24) * mouthBloomCompensate
+    ? (BLOOM_BASE + voiceEased * 0.24 + pulseBoost * 0.18) * mouthBloomCompensate
     : 0;
 
   /* Afterimage trails: voice-only (these read as part of the bloom/glow family). */
   if (afterimagePass.enabled && afterimagePass.uniforms?.damp) {
     afterimagePass.uniforms.damp.value = (0.55 + voiceEased * 0.32) * mouthBloomCompensate;
   }
+  if (finishPass.enabled) finishPass.uniforms.uTime.value = t;
 
   /* THREE-SHELL SCALING (mouth-only, tuned subtle):
      Magnitudes are intentionally small so the network reads as breathing
@@ -4085,9 +5140,14 @@ function animate(){
      - Inner stays virtually fixed (nucleus).
      - Middle expands gently.
      - Outer expands a touch more. */
-  const targetInner = 1.0 + mouthEased * 0.025 * scaleSensitivity;  /* default max ~1.025 */
-  const targetMid   = 1.0 + mouthEased * 0.10  * scaleSensitivity;  /* default max ~1.10 */
-  const targetOuter = 1.0 + mouthEased * 0.20  * scaleSensitivity;  /* default max ~1.20 */
+  /* construct family (formations >=10) freezes the node-layer shells so the
+     wireframe / dotted connection lines never scale — only the solid core
+     region breathes. Other formations keep their breathing shells. */
+  const _constructFam = (config.currentFormation % config.numFormations) >= 10;
+  const _shellMouth = _constructFam ? 0.0 : mouthEased;
+  const targetInner = 1.0 + _shellMouth * 0.025 * scaleSensitivity;  /* default max ~1.025 */
+  const targetMid   = 1.0 + _shellMouth * 0.10  * scaleSensitivity;  /* default max ~1.10 */
+  const targetOuter = 1.0 + _shellMouth * 0.20  * scaleSensitivity;  /* default max ~1.20 */
   /* per-shell bezier easing: inner = easeInOutCubic (heartbeat feel),
      middle and outer both = easeOutCubic (clean settle — outer no longer
      overshoots, so peak scale doesn't pop past the target value). */
@@ -4116,8 +5176,10 @@ function animate(){
     u.uShellScaleMid.value   = shellMid;
     u.uShellScaleOuter.value = shellOuter;
     u.uNucleusOffset.value.set(nucleusOffsetX, nucleusOffsetY, 0);
-    /* reset any leftover uniform scale from before */
-    nodesMesh.scale.setScalar(1);
+    /* construct family renders larger on screen via a uniform mesh scale. The
+       shell colour banding uses the unscaled distanceFromRoot attribute, so
+       colours are unaffected — this just zooms the geometry. */
+    nodesMesh.scale.setScalar(_constructFam ? CONSTRUCT_VIEW_SCALE : 1);
   }
   if (connectionsMesh) {
     const u = connectionsMesh.material.uniforms;
@@ -4125,7 +5187,7 @@ function animate(){
     u.uShellScaleMid.value   = shellMid;
     u.uShellScaleOuter.value = shellOuter;
     u.uNucleusOffset.value.set(nucleusOffsetX, nucleusOffsetY, 0);
-    connectionsMesh.scale.setScalar(1);
+    connectionsMesh.scale.setScalar(_constructFam ? CONSTRUCT_VIEW_SCALE : 1);
   }
 
   /* head-driven camera offset (subtle, additive to orbit) */
@@ -4167,7 +5229,7 @@ function animate(){
 
     aurGroup.userData.veils.forEach(v => {
       /* rotation speed itself nudged by eased voice — quiet=slow, loud=brisk */
-      v.ring.rotateOnAxis(new THREE.Vector3(0, 0, 1), v.speed * 0.012 * (1 + voiceEased * 0.8));
+      v.ring.rotateOnAxis(Z_AXIS, v.speed * 0.012 * (1 + voiceEased * 0.8));
       v.mat.opacity = v.baseOpacity * breathe * voiceBoost;
       v.glyphSprites.forEach(s => {
         if (inReveal || VEILS_LEGIBLE) {
@@ -4239,14 +5301,24 @@ function animate(){
   /* render via the post-process composer (handles bloom + afterimage chain) */
   if (composer) composer.render(); else renderer.render(scene, camera);
 
-  /* FPS counter — updated once per second */
+  /* FPS counter — updated once per second; drives adaptive resolution */
   fpsFrames++;
   if (t - fpsLastT >= 1.0) {
     const fps = Math.round(fpsFrames / (t - fpsLastT));
-    const el = document.getElementById('fps-indicator');
-    if (el) el.textContent = 'FPS: ' + fps;
+    if (fpsEl) fpsEl.textContent = 'FPS: ' + fps + (resScale < 1 ? ' · ' + Math.round(resScale * 100) + '%' : '');
     fpsFrames = 0;
     fpsLastT = t;
+    if (ADAPTIVE_RES) {
+      let next = resScale;
+      if (fps < 45 && resScale > 0.6) next = Math.max(0.6, resScale - 0.15);
+      else if (fps > 58 && resScale < 1) next = Math.min(1, resScale + 0.05);
+      if (Math.abs(next - resScale) > 0.001) {
+        resScale = next;
+        renderer.setPixelRatio(BASE_PIXEL_RATIO * resScale);
+        composer.setPixelRatio(BASE_PIXEL_RATIO * resScale);
+        composer.setSize(window.innerWidth, window.innerHeight);
+      }
+    }
   }
 }
 
@@ -4254,6 +5326,22 @@ function animate(){
    Apply URL-driven scene overrides (morph/density/colours/etc.), build the
    first network, then kick off the animate loop. Without this block, the
    screen stays empty because neuralNetwork is never created. */
+/* Restore the previous session FIRST. NOTE: loadSettings() was previously
+   defined but never invoked — every saveSettings() call wrote a blob that
+   nothing ever read back, so persistence silently did nothing. URL params
+   still win: they're applied after, and loadSettings itself defers to the
+   URL gain/scale overrides. */
+loadSettings();
+/* refresh theme-dependent shell/glow defaults if the user never overrode them
+   (loadSettings restores the theme index but not its derived colour defaults) */
+if (!userShellColors) {
+  const d = SHELL_DEFAULTS_PER_PALETTE[config.activePaletteIndex % SHELL_DEFAULTS_PER_PALETTE.length];
+  if (d) { shellColorInner = d.inner; shellColorMid = d.mid; shellColorOuter = d.outer; }
+}
+if (!userSparkleColor) {
+  const g = GLOW_DEFAULTS_PER_PALETTE[config.activePaletteIndex % GLOW_DEFAULTS_PER_PALETTE.length];
+  if (g) sparkleColor = g.sparkle;
+}
 if (URL_MORPH !== null) config.currentFormation = URL_MORPH;
 if (URL_DENSITY !== null) config.densityFactor = URL_DENSITY;
 if (URL_INNER)     shellColorInner = URL_INNER;
@@ -4261,9 +5349,15 @@ if (URL_MID)       shellColorMid   = URL_MID;
 if (URL_OUTER)     shellColorOuter = URL_OUTER;
 if (URL_SPARKLE)   sparkleColor    = URL_SPARKLE;
 if (URL_BLOOMTINT) bloomTintColor  = URL_BLOOMTINT;
+if (URL_FRAMEX !== null) frameOffsetX = URL_FRAMEX;
+if (URL_FRAMEY !== null) frameOffsetY = URL_FRAMEY;
+if (URL_FRAMEZOOM !== null) frameZoom = URL_FRAMEZOOM;
 
 createNetworkVisualization(config.currentFormation, config.densityFactor);
-if (typeof applyBgMode === 'function') applyBgMode();
+if (aurGroup) aurGroup.visible = aurVisible;
+if (centerEyeGroup) centerEyeGroup.visible = eyeVisible;
+applyBgMode();
+hydrateUI();
 animate();
 </script>
 </body>
