@@ -2043,28 +2043,23 @@
       linear-gradient(180deg, rgba(58, 47, 84, 0.18), rgba(22, 22, 29, 0.55));
   }
 
-  /* HUD reticle — additive gold ring that trails the real cursor */
-  #hudReticle {
-    position: fixed; top: 0; left: 0; z-index: 95;
-    width: 24px; height: 24px;
-    pointer-events: none; opacity: 0;
-    transform: translate3d(-100px, -100px, 0);
-    transition: width 0.18s ease, height 0.18s ease, opacity 0.25s ease, border-color 0.18s ease;
-    border: 1px solid var(--gold-bright);
-    border-radius: 50%;
-    box-shadow: 0 0 10px rgba(201, 160, 80, 0.5), inset 0 0 6px rgba(201, 160, 80, 0.2);
+  /* stardust cursor trail — gold motes that drift + fade (JS-spawned).
+     Tints to --gold-bright, so Reverie mode recolors it to violet for free. */
+  .stardust {
+    position: fixed; z-index: 95;
+    width: var(--sz, 5px); height: var(--sz, 5px);
+    margin: calc(var(--sz, 5px) / -2) 0 0 calc(var(--sz, 5px) / -2);
+    pointer-events: none; border-radius: 50%;
+    background: radial-gradient(circle, var(--gold-bright) 0%, rgba(201, 160, 80, 0.45) 45%, transparent 70%);
     mix-blend-mode: screen;
-    margin: -12px 0 0 -12px;
+    will-change: transform, opacity;
+    animation: stardustFade var(--life, 0.5s) ease-out forwards;
   }
-  #hudReticle::before, #hudReticle::after {
-    content: ''; position: absolute; background: var(--gold-bright);
-    box-shadow: 0 0 6px rgba(201, 160, 80, 0.7);
+  @keyframes stardustFade {
+    0%   { opacity: var(--op, 0.85); transform: translate3d(0, 0, 0) scale(1); }
+    100% { opacity: 0; transform: translate3d(var(--dx, 0), var(--dy, -6px), 0) scale(0.3); }
   }
-  #hudReticle::before { top: 50%; left: -6px; width: 4px; height: 1px; margin-top: -0.5px; }
-  #hudReticle::after  { left: 50%; top: -6px; height: 4px; width: 1px; margin-left: -0.5px; }
-  #hudReticle.active { opacity: 0.85; }
-  #hudReticle.lock { width: 40px; height: 40px; margin: -20px 0 0 -20px; border-color: var(--moonspill); opacity: 0.95; }
-  body.overlay-active #hudReticle { display: none; }
+  body.overlay-active .stardust { display: none; }
 
   /* magnetic hero buttons — responsive follow, smooth return */
   .hero-actions .btn {
@@ -2073,7 +2068,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    #hudReticle { display: none; }
+    .stardust { display: none; }
     .piece.tilting { transform: none; }
   }
 </style>
@@ -5807,7 +5802,7 @@
   })();
 
   /* ============ MOUSE REACTIVITY · DRIVER ============
-     Living hero (parallax + click ripple), card tilt + spotlight, HUD reticle,
+     Living hero (parallax + click ripple), card tilt + spotlight, stardust trail,
      and magnetic buttons. Gated to fine-pointer / non-reduced-motion; nothing
      fires on OBS overlay routes. Uses the existing controlAvatar bridge. */
   (function mouseReactivity(){
@@ -5816,18 +5811,36 @@
     if (!fine || reduce) return;
     const onPublic = () => !document.body.classList.contains('overlay-active');
 
-    /* HUD reticle — additive ring trailing the cursor */
-    const ret = document.createElement('div');
-    ret.id = 'hudReticle'; ret.setAttribute('aria-hidden', 'true');
-    document.body.appendChild(ret);
-
-    let mx = -100, my = -100, raf = 0, shown = false, lastFx = 0, lastFy = 0;
+    let mx = -100, my = -100, raf = 0, lastFx = 0, lastFy = 0;
     const magBtns = [...document.querySelectorAll('#view-home .hero-actions .btn')];
-    const lockSel = 'a, button, .tab, .chip, .piece, input, textarea, select, label, [onclick]';
+
+    /* stardust trail — spawn gold motes as the cursor moves; faster movement
+       spawns more + brighter. Each mote self-removes on animation end, with a
+       hard cap so a frantic cursor can't flood the DOM. */
+    let starCount = 0, lastSx = -100, lastSy = -100;
+    function spawnStardust(x, y, speed){
+      if (starCount > 80) return;
+      const n = speed > 45 ? 2 : 1;
+      for (let i = 0; i < n; i++){
+        const el = document.createElement('div');
+        el.className = 'stardust';
+        const ang = Math.random() * Math.PI * 2;
+        const drift = 6 + Math.random() * 16;
+        el.style.left = (x + (Math.random() - 0.5) * 6) + 'px';
+        el.style.top  = (y + (Math.random() - 0.5) * 6) + 'px';
+        el.style.setProperty('--sz', (3 + Math.random() * 3).toFixed(1) + 'px');
+        el.style.setProperty('--life', (0.45 + Math.random() * 0.35).toFixed(2) + 's');
+        el.style.setProperty('--op', (0.5 + Math.min(0.4, speed / 130)).toFixed(2));
+        el.style.setProperty('--dx', (Math.cos(ang) * drift).toFixed(1) + 'px');
+        el.style.setProperty('--dy', (Math.sin(ang) * drift - 5).toFixed(1) + 'px');
+        document.body.appendChild(el);
+        starCount++;
+        el.addEventListener('animationend', () => { el.remove(); starCount--; });
+      }
+    }
 
     function frameUpdate(){
       raf = 0;
-      ret.style.transform = `translate3d(${mx}px, ${my}px, 0)`;
       /* hero parallax — nudge the construct frame toward the cursor (±20px) */
       if (currentRoute === 'home' && onPublic()) {
         const fxv = Math.round((mx / window.innerWidth - 0.5) * 40);
@@ -5847,20 +5860,12 @@
     }
     window.addEventListener('mousemove', (e) => {
       mx = e.clientX; my = e.clientY;
-      if (!shown) { shown = true; ret.classList.add('active'); }
+      if (onPublic()) {
+        const d = Math.hypot(mx - lastSx, my - lastSy);
+        if (d > 7) { spawnStardust(mx, my, d); lastSx = mx; lastSy = my; }
+      }
       if (!raf) raf = requestAnimationFrame(frameUpdate);
     }, { passive: true });
-    window.addEventListener('mouseout', (e) => {
-      if (!e.relatedTarget) { ret.classList.remove('active'); shown = false; }
-    });
-    /* reticle lock-on over interactive elements */
-    document.addEventListener('pointerover', (e) => {
-      if (e.target.closest && e.target.closest(lockSel)) ret.classList.add('lock');
-    });
-    document.addEventListener('pointerout', (e) => {
-      const into = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest(lockSel);
-      if (e.target.closest && e.target.closest(lockSel) && !into) ret.classList.remove('lock');
-    });
 
     /* click ripple on the hero construct — pulse + positional shockwave */
     window.addEventListener('click', (e) => {
