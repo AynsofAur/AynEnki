@@ -2023,6 +2023,59 @@
   html.reverie .hero::before {
     background: radial-gradient(ellipse, rgba(160, 96, 224, 0.13), transparent 68%);
   }
+
+  /* ============ MOUSE REACTIVITY ============
+     Cursor-driven flourishes. All gated in JS behind (hover:hover)+(pointer:fine)
+     and prefers-reduced-motion; none run on OBS overlay routes. */
+
+  /* card 3D tilt + cursor spotlight (vars set by JS) */
+  .piece { transform-style: preserve-3d; }
+  .piece.tilting {
+    transform: perspective(820px) rotateX(var(--ry, 0deg)) rotateY(var(--rx, 0deg)) translateY(-6px);
+    background-image:
+      radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(201, 160, 80, 0.22), transparent 42%),
+      linear-gradient(180deg, rgba(74, 58, 28, 0.15), rgba(22, 22, 29, 0.55));
+    transition: transform 0.08s linear, background-image 0.1s linear;
+  }
+  html.reverie .piece.tilting {
+    background-image:
+      radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(160, 96, 224, 0.22), transparent 42%),
+      linear-gradient(180deg, rgba(58, 47, 84, 0.18), rgba(22, 22, 29, 0.55));
+  }
+
+  /* HUD reticle — additive gold ring that trails the real cursor */
+  #hudReticle {
+    position: fixed; top: 0; left: 0; z-index: 95;
+    width: 24px; height: 24px;
+    pointer-events: none; opacity: 0;
+    transform: translate3d(-100px, -100px, 0);
+    transition: width 0.18s ease, height 0.18s ease, opacity 0.25s ease, border-color 0.18s ease;
+    border: 1px solid var(--gold-bright);
+    border-radius: 50%;
+    box-shadow: 0 0 10px rgba(201, 160, 80, 0.5), inset 0 0 6px rgba(201, 160, 80, 0.2);
+    mix-blend-mode: screen;
+    margin: -12px 0 0 -12px;
+  }
+  #hudReticle::before, #hudReticle::after {
+    content: ''; position: absolute; background: var(--gold-bright);
+    box-shadow: 0 0 6px rgba(201, 160, 80, 0.7);
+  }
+  #hudReticle::before { top: 50%; left: -6px; width: 4px; height: 1px; margin-top: -0.5px; }
+  #hudReticle::after  { left: 50%; top: -6px; height: 4px; width: 1px; margin-left: -0.5px; }
+  #hudReticle.active { opacity: 0.85; }
+  #hudReticle.lock { width: 40px; height: 40px; margin: -20px 0 0 -20px; border-color: var(--moonspill); opacity: 0.95; }
+  body.overlay-active #hudReticle { display: none; }
+
+  /* magnetic hero buttons — responsive follow, smooth return */
+  .hero-actions .btn {
+    transition: transform 0.16s cubic-bezier(0.22, 0.61, 0.36, 1), background-position 0.55s ease, border-color 0.25s, box-shadow 0.25s, color 0.25s;
+    will-change: transform;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #hudReticle { display: none; }
+    .piece.tilting { transform: none; }
+  }
 </style>
 </head>
 <body>
@@ -5357,7 +5410,7 @@
        (no cam/mic prompt for visitors), obs=1 hides the avatar's own UI. Low
        density + intensity keep the landing page light; v2 adaptive resolution
        guards FPS on weaker machines. */
-    'home':       { mode: 'hero', params: '?obs=1&test=1&morph=6&theme=3&density=50&intensity=low&stars=0&gain=60&scale=50'
+    'home':       { mode: 'hero', params: '?obs=1&test=1&morph=6&theme=3&density=50&intensity=low&stars=0&gain=60&scale=50&shockwave=1'
       /* dusk-violet tint — gold belongs to the branding, the net recedes into
          the palette's arcane end. Sparkle + bloom pulled violet so voice pulses
          never bloom white over the wordmark. */
@@ -5749,6 +5802,106 @@
             ? { morph: 13, spectral: true,  colors: { inner: 'b07fe8', mid: '8a6cc8', outer: '5b4a82', sparkle: 'd0baf5', bloomtint: '8a5fd0' } }
             : { morph: 6,  spectral: false, colors: { inner: 'a060e0', mid: '6e48aa', outer: '6080a0', sparkle: '8a7bd8', bloomtint: '7a5bb5' } });
         } catch (err) {}
+      }
+    });
+  })();
+
+  /* ============ MOUSE REACTIVITY · DRIVER ============
+     Living hero (parallax + click ripple), card tilt + spotlight, HUD reticle,
+     and magnetic buttons. Gated to fine-pointer / non-reduced-motion; nothing
+     fires on OBS overlay routes. Uses the existing controlAvatar bridge. */
+  (function mouseReactivity(){
+    const fine = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!fine || reduce) return;
+    const onPublic = () => !document.body.classList.contains('overlay-active');
+
+    /* HUD reticle — additive ring trailing the cursor */
+    const ret = document.createElement('div');
+    ret.id = 'hudReticle'; ret.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(ret);
+
+    let mx = -100, my = -100, raf = 0, shown = false, lastFx = 0, lastFy = 0;
+    const magBtns = [...document.querySelectorAll('#view-home .hero-actions .btn')];
+    const lockSel = 'a, button, .tab, .chip, .piece, input, textarea, select, label, [onclick]';
+
+    function frameUpdate(){
+      raf = 0;
+      ret.style.transform = `translate3d(${mx}px, ${my}px, 0)`;
+      /* hero parallax — nudge the construct frame toward the cursor (±20px) */
+      if (currentRoute === 'home' && onPublic()) {
+        const fxv = Math.round((mx / window.innerWidth - 0.5) * 40);
+        const fyv = Math.round(-(my / window.innerHeight - 0.5) * 40);
+        if (fxv !== lastFx || fyv !== lastFy) {
+          lastFx = fxv; lastFy = fyv;
+          try { controlAvatar({ frame: { x: fxv, y: fyv } }); } catch(e){}
+        }
+        /* magnetic buttons */
+        magBtns.forEach(b => {
+          const r = b.getBoundingClientRect();
+          const dx = mx - (r.left + r.width / 2), dy = my - (r.top + r.height / 2);
+          if (Math.hypot(dx, dy) < 95) b.style.transform = `translate(${dx * 0.28}px, ${dy * 0.28}px)`;
+          else if (b.style.transform) b.style.transform = '';
+        });
+      }
+    }
+    window.addEventListener('mousemove', (e) => {
+      mx = e.clientX; my = e.clientY;
+      if (!shown) { shown = true; ret.classList.add('active'); }
+      if (!raf) raf = requestAnimationFrame(frameUpdate);
+    }, { passive: true });
+    window.addEventListener('mouseout', (e) => {
+      if (!e.relatedTarget) { ret.classList.remove('active'); shown = false; }
+    });
+    /* reticle lock-on over interactive elements */
+    document.addEventListener('pointerover', (e) => {
+      if (e.target.closest && e.target.closest(lockSel)) ret.classList.add('lock');
+    });
+    document.addEventListener('pointerout', (e) => {
+      const into = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest(lockSel);
+      if (e.target.closest && e.target.closest(lockSel) && !into) ret.classList.remove('lock');
+    });
+
+    /* click ripple on the hero construct — pulse + positional shockwave */
+    window.addEventListener('click', (e) => {
+      if (currentRoute !== 'home' || !onPublic()) return;
+      if (e.target.closest('a, button, input, textarea, select, label, .tab, .piece')) return;
+      const dm = document.getElementById('detailModal');
+      if (dm && dm.classList.contains('active')) return;
+      const nx = (e.clientX / window.innerWidth - 0.5) * 7;
+      const ny = (0.5 - e.clientY / window.innerHeight) * 7;
+      try { controlAvatar({ pulse: true, fireShockwave: true, shockX: nx, shockY: ny, shockZ: 4 }); } catch(err){}
+    });
+
+    /* card tilt + spotlight — delegated on the persistent grid containers */
+    function bindTilt(grid){
+      if (!grid) return;
+      grid.addEventListener('mousemove', (e) => {
+        const card = e.target.closest('.piece');
+        if (!card) return;
+        const r = card.getBoundingClientRect();
+        const px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+        card.style.setProperty('--rx', ((px - 0.5) * 10).toFixed(2) + 'deg');
+        card.style.setProperty('--ry', ((0.5 - py) * 10).toFixed(2) + 'deg');
+        card.style.setProperty('--mx', (px * 100).toFixed(1) + '%');
+        card.style.setProperty('--my', (py * 100).toFixed(1) + '%');
+        card.classList.add('tilting');
+      }, { passive: true });
+      grid.addEventListener('mouseout', (e) => {
+        const card = e.target.closest('.piece');
+        if (card && !(e.relatedTarget && card.contains(e.relatedTarget))) {
+          card.classList.remove('tilting'); card.style.transform = '';
+        }
+      });
+    }
+    ['featuredGrid', 'portfolioGrid', 'shopGrid'].forEach(id => bindTilt(document.getElementById(id)));
+
+    /* leaving home — reset parallax + magnetic so nothing sticks */
+    window.addEventListener('hashchange', () => {
+      if (currentRoute !== 'home') {
+        lastFx = lastFy = 0;
+        magBtns.forEach(b => b.style.transform = '');
+        try { controlAvatar({ frame: { x: 0, y: 0 } }); } catch(e){}
       }
     });
   })();
@@ -6238,6 +6391,13 @@
     grid.querySelectorAll('.piece').forEach((card, i) => {
       card.classList.add('piece-in');
       card.style.animationDelay = (i * 45) + 'ms';
+      /* drop the entrance class once it finishes — its `both` fill otherwise
+         holds a transform that overrides the cursor-tilt hover effect */
+      card.addEventListener('animationend', function _end(){
+        card.classList.remove('piece-in');
+        card.style.animationDelay = '';
+        card.removeEventListener('animationend', _end);
+      });
     });
   }
   function renderFilters(kind) {
