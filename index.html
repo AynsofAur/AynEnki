@@ -3,20 +3,20 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title id="metaTitle">MALIKEYE — The Watcher Streams</title>
-<meta id="metaDesc" name="description" content="Malikeye — live streams, portfolio, shop. The eye is open.">
+<title id="metaTitle">AYNENKI — Streams from the Deep</title>
+<meta id="metaDesc" name="description" content="AynEnki — stylized 3D art, live streams, portfolio, and shop.">
 <!-- Open Graph + Twitter Card metadata — populated dynamically from state in applyMeta().
      This makes links shared on Twitter / Discord / iMessage / Slack unfurl as a
      proper preview card (brand, tagline, hero image) instead of a blank box. -->
 <meta property="og:type" content="website">
-<meta property="og:title" id="ogTitle" content="MALIKEYE">
+<meta property="og:title" id="ogTitle" content="AYNENKI">
 <meta property="og:description" id="ogDesc" content="">
 <meta id="metaOg" property="og:image" content="">
 <meta property="og:image:alt" id="ogImageAlt" content="">
 <meta property="og:url" id="ogUrl" content="">
-<meta property="og:site_name" id="ogSite" content="MALIKEYE">
+<meta property="og:site_name" id="ogSite" content="AYNENKI">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" id="twTitle" content="MALIKEYE">
+<meta name="twitter:title" id="twTitle" content="AYNENKI">
 <meta name="twitter:description" id="twDesc" content="">
 <meta name="twitter:image" id="twImage" content="">
 <link rel="canonical" id="metaCanonical" href="">
@@ -2056,13 +2056,13 @@
 
   <!-- shared neural-avatar iframe (per-scene src is set in JS route() handler).
        runs ONE instance across all scenes so webcam permission only fires once. -->
-  <iframe id="neuralAvatarFrame" src="about:blank" title="Malikeye neural avatar"
+  <iframe id="neuralAvatarFrame" src="about:blank" title="AynEnki neural avatar"
           allow="microphone; camera; autoplay"></iframe>
 
   <!-- avatar control panel — only shown on scene routes via body.neural-on CSS -->
   <div id="avatarControlPanel">
     <div class="acp-header" onclick="document.getElementById('avatarControlPanel').classList.toggle('collapsed')">
-      <span>&#10070; Watcher Controls</span>
+      <span>&#10070; Avatar Controls</span>
       <span class="acp-toggle">&#9662;</span>
     </div>
     <div class="acp-body">
@@ -2155,7 +2155,7 @@
 
   <!-- ============ NAV ============ -->
   <nav class="nav" id="nav">
-    <div class="brand" id="navBrand" onclick="route('home')">MALIKEYE</div>
+    <div class="brand" id="navBrand" onclick="route('home')">AYNENKI</div>
     <div class="tabs" id="tabs">
       <button class="tab active" data-view="home">Home</button>
       <button class="tab" data-view="portfolio">Portfolio</button>
@@ -2170,10 +2170,10 @@
   <section class="view active" id="view-home">
     <!-- hero -->
     <div class="hero">
-      <div class="hero-eyebrow" id="heroEyebrowTop">A STUDIO IN THE DARK</div>
-      <h1 id="heroBrand">MALIKEYE</h1>
+      <div class="hero-eyebrow" id="heroEyebrowTop">A STUDIO IN THE DEEP</div>
+      <h1 id="heroBrand">AYNENKI</h1>
       <div class="ornate"><hr><span class="hero-glyph" id="heroGlyph" title="">&#10070;</span><hr></div>
-      <div class="tagline" id="heroTagline">The watcher streams &mdash; the order grows</div>
+      <div class="tagline" id="heroTagline">Stylized 3D worlds, sculpted live</div>
       <div class="hero-actions">
         <a class="btn primary" id="heroWatchBtn" href="#" target="_blank">Watch Live</a>
         <button class="btn" onclick="route('portfolio')">Portfolio</button>
@@ -2186,7 +2186,7 @@
       <div class="section-header">
         <div>
           <h2>Featured Works</h2>
-          <div class="sub">A glimpse of the order's sculpting</div>
+          <div class="sub">A look at recent work</div>
         </div>
         <a class="btn ghost small" onclick="route('portfolio')">View All &rarr;</a>
       </div>
@@ -2198,7 +2198,7 @@
       <div class="section-header">
         <div>
           <h2>Stream Schedule</h2>
-          <div class="sub">When the eye opens</div>
+          <div class="sub">When I'm live</div>
         </div>
       </div>
       <div class="schedule-table">
@@ -2213,8 +2213,8 @@
     <div class="section-block" id="homeSocialsBlock">
       <div class="section-header">
         <div>
-          <h2 id="homeSocialsTitle">Join the Order</h2>
-          <div class="sub" id="homeSocialsSub">Follow the eye wherever it gazes</div>
+          <h2 id="homeSocialsTitle">Join the community</h2>
+          <div class="sub" id="homeSocialsSub">Follow along, wherever you are</div>
         </div>
       </div>
       <div class="social-grid" id="socialGrid"></div>
@@ -2361,7 +2361,7 @@
     </div>
     <div class="status-dot" id="avatarStatusDot"></div>
     <div class="avatar-panel" id="avatarPanel">
-      <h3>&#10070; MALIKEYE AVATAR</h3>
+      <h3>&#10070; AYNENKI AVATAR</h3>
       <div><span class="tag" id="avatarStatusTag">SETUP</span><span id="avatarStatusMsg">Initializing&hellip;</span></div>
       <div class="hint-sm">First time: open this page in a regular browser and grant webcam permission. In OBS: add as Browser Source &rarr; click <em>Interact</em> &rarr; allow camera.</div>
       <div class="hint-sm"><kbd>H</kbd> hide panel &middot; <kbd>Esc</kbd> exit fullscreen</div>
@@ -2385,7 +2385,7 @@
         </svg>
       </div>
       <div class="overlay-title-block">
-        <div class="overlay-brand" id="ssBrand">MALIKEYE</div>
+        <div class="overlay-brand" id="ssBrand">AYNENKI</div>
         <div class="ornate"><hr><span>&#10070;</span><hr></div>
         <div class="overlay-sub" id="ssSub">The watcher awakens</div>
       </div>
@@ -2481,9 +2481,9 @@
       </div>
       <div class="overlay-thanks" id="endThanks">THANK YOU FOR WATCHING</div>
       <div class="ornate"><hr><span>&#10070;</span><hr></div>
-      <div class="overlay-farewell" id="endFarewell">Until the eye opens once more</div>
+      <div class="overlay-farewell" id="endFarewell">Until next time</div>
       <div class="cta-box">
-        <div class="cta-title">Follow &middot; Subscribe &middot; Stay in the order</div>
+        <div class="cta-title">Follow &middot; Subscribe &middot; Stay connected</div>
         <div class="cta-handles" id="endCtaHandles"></div>
       </div>
     </div>
@@ -2522,7 +2522,7 @@
     <div class="gs-goals-zone" id="gsGoalsZone">
       <div class="gs-head">
         <svg width="28" height="28" viewBox="-150 -150 300 300"><use href="#eyeTiny" x="-150" y="-150" width="300" height="300"/></svg>
-        <div class="title" id="gsPanelTitle">THE ORDER</div>
+        <div class="title" id="gsPanelTitle">NOW PLAYING</div>
       </div>
       <div class="gs-ornate"><hr><span>&#10070;</span><hr></div>
       <div class="goal" id="gsFGoalBlock" style="display:none;">
@@ -2537,7 +2537,7 @@
     <div class="gs-info-bar with-avatar">
       <div class="logo-mark">
         <svg width="42" height="42" viewBox="-150 -150 300 300"><use href="#eyeTiny" x="-150" y="-150" width="300" height="300"/></svg>
-        <div class="name" id="gsBrand">MALIKEYE</div>
+        <div class="name" id="gsBrand">AYNENKI</div>
       </div>
       <div class="divider" id="gsDiv1" style="display:none;"></div>
       <div class="field-inline" id="gsGameField" style="display:none;">
@@ -2558,7 +2558,7 @@
     <div class="gs-goals-zone" style="top:5vh;bottom:5vh;width:300px;">
       <div class="gs-head">
         <svg width="30" height="30" viewBox="-150 -150 300 300"><use href="#eyeTiny" x="-150" y="-150" width="300" height="300"/></svg>
-        <div class="title" id="ggPanelTitle">THE ORDER</div>
+        <div class="title" id="ggPanelTitle">NOW PLAYING</div>
       </div>
       <div class="gs-ornate"><hr><span>&#10070;</span><hr></div>
       <div class="goal" id="ggFGoalBlock" style="display:none;">
@@ -2578,7 +2578,7 @@
     <div class="gs-info-bar">
       <div class="logo-mark">
         <svg width="42" height="42" viewBox="-150 -150 300 300"><use href="#eyeTiny" x="-150" y="-150" width="300" height="300"/></svg>
-        <div class="name" id="gibBrand">MALIKEYE</div>
+        <div class="name" id="gibBrand">AYNENKI</div>
       </div>
       <div class="divider" id="gibDiv1" style="display:none;"></div>
       <div class="field-inline" id="gibGameField" style="display:none;">
@@ -2609,7 +2609,7 @@
     <div class="jc-header">
       <svg viewBox="-150 -150 300 300"><use href="#eyeTiny" x="-150" y="-150" width="300" height="300"/></svg>
       <div class="jc-header-text">
-        <div class="b" id="jcBrand">MALIKEYE</div>
+        <div class="b" id="jcBrand">AYNENKI</div>
         <div class="s">Talking with the Order</div>
       </div>
     </div>
@@ -3246,15 +3246,15 @@
       <div class="nv-corner tl"></div><div class="nv-corner tr"></div>
       <div class="nv-corner bl"></div><div class="nv-corner br"></div>
       <div class="nv-socials">
-        <div class="item"><span class="lbl">TWITCH</span><span id="nvSsTwitch">/Malikeye</span></div>
+        <div class="item"><span class="lbl">TWITCH</span><span id="nvSsTwitch">/AynEnki</span></div>
         <div class="sep">·</div>
-        <div class="item"><span class="lbl">DISCORD</span><span id="nvSsDiscord">/Malikeye</span></div>
+        <div class="item"><span class="lbl">DISCORD</span><span id="nvSsDiscord">/AynEnki</span></div>
       </div>
       <div class="nv-center">
-        <div class="nv-brand" id="nvSsBrand">MALIKEYE</div>
+        <div class="nv-brand" id="nvSsBrand">AYNENKI</div>
         <div class="nv-divider"><hr><div class="diamond"></div><hr></div>
         <div class="nv-title" id="nvSsTitle">Initializing the network</div>
-        <div class="nv-sub" id="nvSsSub">The eye opens · stand by while the lattice aligns</div>
+        <div class="nv-sub" id="nvSsSub">Starting soon · the stream is loading</div>
         <div class="nv-count" id="nvSsCount">10:00</div>
         <div class="nv-count-label" id="nvSsCountLabel">Synchronization in progress</div>
       </div>
@@ -3276,15 +3276,15 @@
       <div class="nv-corner tl"></div><div class="nv-corner tr"></div>
       <div class="nv-corner bl"></div><div class="nv-corner br"></div>
       <div class="nv-socials">
-        <div class="item"><span class="lbl">TWITCH</span><span id="nvBrbTwitch">/Malikeye</span></div>
+        <div class="item"><span class="lbl">TWITCH</span><span id="nvBrbTwitch">/AynEnki</span></div>
         <div class="sep">·</div>
-        <div class="item"><span class="lbl">DISCORD</span><span id="nvBrbDiscord">/Malikeye</span></div>
+        <div class="item"><span class="lbl">DISCORD</span><span id="nvBrbDiscord">/AynEnki</span></div>
       </div>
       <div class="nv-center">
-        <div class="nv-brand" id="nvBrbBrand">MALIKEYE</div>
+        <div class="nv-brand" id="nvBrbBrand">AYNENKI</div>
         <div class="nv-divider"><hr><div class="diamond"></div><hr></div>
         <div class="nv-title" id="nvBrbTitle">Be Right Back</div>
-        <div class="nv-sub" id="nvBrbSub">The watcher idles · do not stray far</div>
+        <div class="nv-sub" id="nvBrbSub">Back in a moment · stay close</div>
         <div class="nv-message" id="nvBrbMessage">Loading…</div>
         <div class="nv-count" id="nvBrbCount" style="display:none">--:--</div>
       </div>
@@ -3306,12 +3306,12 @@
       <div class="nv-corner tl"></div><div class="nv-corner tr"></div>
       <div class="nv-corner bl"></div><div class="nv-corner br"></div>
       <div class="nv-socials">
-        <div class="item"><span class="lbl">TWITCH</span><span id="nvEndTwitch">/Malikeye</span></div>
+        <div class="item"><span class="lbl">TWITCH</span><span id="nvEndTwitch">/AynEnki</span></div>
         <div class="sep">·</div>
-        <div class="item"><span class="lbl">DISCORD</span><span id="nvEndDiscord">/Malikeye</span></div>
+        <div class="item"><span class="lbl">DISCORD</span><span id="nvEndDiscord">/AynEnki</span></div>
       </div>
       <div class="nv-center">
-        <div class="nv-brand" id="nvEndBrand">MALIKEYE</div>
+        <div class="nv-brand" id="nvEndBrand">AYNENKI</div>
         <div class="nv-divider"><hr><div class="diamond"></div><hr></div>
         <div class="nv-title" id="nvEndTitle">Thank you for watching</div>
         <div class="nv-sub" id="nvEndSub">Until the network wakes once more</div>
@@ -3359,9 +3359,9 @@
       <div class="nv-corner tl"></div><div class="nv-corner tr"></div>
       <div class="nv-corner bl"></div><div class="nv-corner br"></div>
       <div class="nv-socials">
-        <div class="item"><span class="lbl">TWITCH</span><span id="nvTechTwitch">/Malikeye</span></div>
+        <div class="item"><span class="lbl">TWITCH</span><span id="nvTechTwitch">/AynEnki</span></div>
         <div class="sep">·</div>
-        <div class="item"><span class="lbl">DISCORD</span><span id="nvTechDiscord">/Malikeye</span></div>
+        <div class="item"><span class="lbl">DISCORD</span><span id="nvTechDiscord">/AynEnki</span></div>
       </div>
       <div class="nv-center">
         <div class="nv-brand" id="nvTechBrand">SIGNAL LOST</div>
@@ -4027,7 +4027,7 @@
         <div class="admin-grid">
           <div class="panel">
             <h4 style="color: var(--gold-bright);">&#10070; AYN ENKI · STARTING SOON</h4>
-            <p style="color: var(--vellum); font-family: 'VT323', 'Courier New', monospace; font-style: italic; font-size: .95rem; margin: 0 0 1rem;">Sigil-ring pre-stream with particle field.</p>
+            <p style="color: var(--vellum); font-family: 'VT323', 'Courier New', monospace; font-style: italic; font-size: .95rem; margin: 0 0 1rem;">Gold-ring pre-stream with particle field.</p>
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
               <button class="btn small" onclick="route('ae-starting-soon')">Open</button>
               <button class="btn small ghost" onclick="goFullscreen('ae-starting-soon')">Fullscreen</button>
@@ -4079,11 +4079,11 @@
           <div class="grid-2" style="margin-bottom:1rem;">
             <div class="field">
               <label>Twitch handle</label>
-              <input type="text" id="nvTwitchHandle" placeholder="/Malikeye">
+              <input type="text" id="nvTwitchHandle" placeholder="/AynEnki">
             </div>
             <div class="field">
               <label>Discord handle</label>
-              <input type="text" id="nvDiscordHandle" placeholder="/Malikeye">
+              <input type="text" id="nvDiscordHandle" placeholder="/AynEnki">
             </div>
           </div>
 
@@ -4094,7 +4094,7 @@
             <div class="field"><label>Countdown (minutes)</label><input type="number" id="nvSsMinutesFld" min="0" max="120" placeholder="10"></div>
           </div>
           <div class="field"><label>Title line</label><input type="text" id="nvSsTitleFld" placeholder="Initializing the network"></div>
-          <div class="field"><label>Sub line</label><input type="text" id="nvSsSubFld" placeholder="The eye opens · stand by while the lattice aligns"></div>
+          <div class="field"><label>Sub line</label><input type="text" id="nvSsSubFld" placeholder="Starting soon · the stream is loading"></div>
           <div class="field"><label>Countdown label</label><input type="text" id="nvSsCountLabelFld" placeholder="Synchronization in progress"></div>
           <button class="btn" onclick="window.location.hash='neural-starting'" style="margin-top:.4rem;">Open Starting Soon</button>
 
@@ -4102,7 +4102,7 @@
           <h4 style="color:var(--gold); margin:1.4rem 0 .5rem; letter-spacing:.15em;">BE RIGHT BACK</h4>
           <div class="field"><label>Brand text</label><input type="text" id="nvBrbBrandFld" placeholder="(uses site brand)"></div>
           <div class="field"><label>Title line</label><input type="text" id="nvBrbTitleFld" placeholder="Be Right Back"></div>
-          <div class="field"><label>Sub line</label><input type="text" id="nvBrbSubFld" placeholder="The watcher idles · do not stray far"></div>
+          <div class="field"><label>Sub line</label><input type="text" id="nvBrbSubFld" placeholder="Back in a moment · stay close"></div>
           <div class="field">
             <label>Rotating flicker phrases (one per line, rotates every 5.5s)</label>
             <textarea id="nvBrbPhrasesFld" rows="8" style="width:100%; font-family:'IBM Plex Mono',monospace; font-size:.85rem;" placeholder="Refilling the etheric reservoir&#10;Hydration subroutine running&#10;…"></textarea>
@@ -4228,7 +4228,7 @@
                   <option value="0">Purple Nebula</option>
                   <option value="1">Sunset Fire</option>
                   <option value="2">Ocean Aurora</option>
-                  <option value="3" selected>Malikeye</option>
+                  <option value="3" selected>AynEnki</option>
                 </select>
               </div>
               <div class="field">
@@ -4534,7 +4534,7 @@
           <div class="panel">
             <h4>PLATFORMS</h4>
             <div class="field"><label>Twitch URL</label><input type="text" id="aSocTwitchUrl" placeholder="https://twitch.tv/..."></div>
-            <div class="field"><label>Twitch Label</label><input type="text" id="aSocTwitchLabel" placeholder="twitch.tv/malikeye"></div>
+            <div class="field"><label>Twitch Label</label><input type="text" id="aSocTwitchLabel" placeholder="twitch.tv/aynenki"></div>
             <div class="field"><label>YouTube URL</label><input type="text" id="aSocYoutubeUrl"></div>
             <div class="field"><label>YouTube Label</label><input type="text" id="aSocYoutubeLabel"></div>
             <div class="field"><label>X / Twitter URL</label><input type="text" id="aSocTwitterUrl"></div>
@@ -4633,7 +4633,7 @@
             <h4>GAME SCENE / INFO BAR</h4>
             <div class="field"><label>Current Game (blank = hide)</label><input type="text" id="aGsGame"></div>
             <div class="field"><label>Latest Supporter (blank = hide)</label><input type="text" id="aGsRecent"></div>
-            <div class="field"><label>Panel Title</label><input type="text" id="aGsPanelTitle" placeholder="THE ORDER"></div>
+            <div class="field"><label>Panel Title</label><input type="text" id="aGsPanelTitle" placeholder="NOW PLAYING"></div>
           </div>
           <div class="panel">
             <h4>GOALS</h4>
@@ -4998,18 +4998,18 @@
 
   /* ============ DEFAULTS ============ */
   const DEFAULTS = {
-    siteTitle: 'MALIKEYE — The Watcher Streams',
-    siteDesc: 'Malikeye — live streams, portfolio, shop. The eye is open.',
+    siteTitle: 'AYNENKI — Stylized 3D, Streamed Live',
+    siteDesc: 'AynEnki — stylized 3D art, live streams, portfolio, and shop.',
     ogImage: '',
-    brand: 'MALIKEYE',
-    tagline: 'The watcher streams — the order grows',
-    motto: 'The eye is open',
-    aboutBio: "Malikeye is a streaming sigil — a watcher in the dark feed.\n\nMy work blends stylized 3D sculpting with technical craft. Characters, environments, relics. Streamed live with the eye watching.\n\nOpen for commissions and collaboration.",
+    brand: 'AYNENKI',
+    tagline: 'Stylized 3D worlds, sculpted live',
+    motto: 'Made live, in the open',
+    aboutBio: "AynEnki is a 3D artist and streamer. The name pairs Ayn — emptiness, the blank canvas — with Enki, a Mesopotamian figure of craft and fresh water: the idea of making something from nothing.\n\nThe work is stylized 3D sculpting with a technical backbone — characters, environments, and props, often built live on stream.\n\nOpen for commissions and collaboration.",
     socials: {
-      twitch:  { url: 'https://twitch.tv/malikeye',    label: 'twitch.tv/malikeye' },
-      youtube: { url: 'https://youtube.com/@malikeye', label: 'youtube.com/@malikeye' },
-      twitter: { url: 'https://x.com/malikeye',        label: '@malikeye' },
-      discord: { url: 'https://discord.gg/malikeye',   label: 'discord.gg/malikeye' }
+      twitch:  { url: 'https://twitch.tv/aynenki',    label: 'twitch.tv/aynenki' },
+      youtube: { url: 'https://youtube.com/@aynenki', label: 'youtube.com/@aynenki' },
+      twitter: { url: 'https://x.com/aynenki',        label: '@aynenki' },
+      discord: { url: 'https://discord.gg/aynenki',   label: 'discord.gg/aynenki' }
     },
     primaryHandle: 'twitch',
     socEmail: '',
@@ -5020,11 +5020,11 @@
     portfolio: [
       { id: 'p1', title: 'STAR HERALD', description: 'A celestial messenger rendered in burnished bronze. Hand-sculpted, retopologized for animation.', thumbnail: '', viewerType: 'image', viewerUrl: '', tag: 'character', featured: true },
       { id: 'p2', title: 'TEMPLE OF EBB', description: 'A flooded sanctum, half-swallowed by the tide. Real-time, modular, lit with submerged sun.', thumbnail: '', viewerType: 'image', viewerUrl: '', tag: 'environment', featured: true },
-      { id: 'p3', title: 'RELICS · CYCLE ONE', description: 'Five sacred objects: a horn, a blade, a scale, a key, a coin. Each told a story before it was a model.', thumbnail: '', viewerType: 'image', viewerUrl: '', tag: 'relics', featured: true },
-      { id: 'p4', title: 'THE GREAT HALL', description: 'A vaulted chamber for ritual and assembly. Volumetric light, 90fps VR-ready.', thumbnail: '', viewerType: 'image', viewerUrl: '', tag: 'environment', featured: false }
+      { id: 'p3', title: 'RELICS · CYCLE ONE', description: 'Five symbolic objects: a horn, a blade, a scale, a key, a coin. Each told a story before it was a model.', thumbnail: '', viewerType: 'image', viewerUrl: '', tag: 'relics', featured: true },
+      { id: 'p4', title: 'THE GREAT HALL', description: 'A grand vaulted hall, built for gatherings. Volumetric light, 90fps VR-ready.', thumbnail: '', viewerType: 'image', viewerUrl: '', tag: 'environment', featured: false }
     ],
     shop: [
-      { id: 's1', title: 'MYTHIC PROP LIBRARY', description: '40+ stylized relics, blades, and ritual objects for game dev. UE5 + Unity. Royalty-free.', thumbnail: '', viewerType: 'image', viewerUrl: '', price: '$24', platform: 'Gumroad', buyUrl: '', tag: 'pack' },
+      { id: 's1', title: 'MYTHIC PROP LIBRARY', description: '40+ stylized relics, blades, and ornate props for game dev. UE5 + Unity. Royalty-free.', thumbnail: '', viewerType: 'image', viewerUrl: '', price: '$24', platform: 'Gumroad', buyUrl: '', tag: 'pack' },
       { id: 's2', title: 'CHARACTER COMMISSION · BUST', description: 'Custom stylized character bust. Turntable, 4K textures, source files included.', thumbnail: '', viewerType: 'image', viewerUrl: '', price: '$180', platform: 'Inquire', buyUrl: '', tag: 'commission' },
       { id: 's3', title: 'PATINA TEXTURE SET', description: 'Sixty hand-aged texture maps: bronze, gilt, oxidized iron, weathered stone. 4K PBR.', thumbnail: '', viewerType: 'image', viewerUrl: '', price: '$12', platform: 'Gumroad', buyUrl: '', tag: 'textures' }
     ],
@@ -5047,16 +5047,16 @@
        different word on a specific scene. techBrand DOES default to
        SIGNAL LOST because the alarm-styled brand wants its own text. */
     neural: {
-      twitchHandle: '/Malikeye',
-      discordHandle: '/Malikeye',
+      twitchHandle: '/AynEnki',
+      discordHandle: '/AynEnki',
       ssBrand: '',
       ssTitle: 'Initializing the network',
-      ssSub: 'The eye opens · stand by while the lattice aligns',
+      ssSub: 'Starting soon · the stream is loading',
       ssCountLabel: 'Synchronization in progress',
       ssMinutes: 10,
       brbBrand: '',
       brbTitle: 'Be Right Back',
-      brbSub: 'The watcher idles · do not stray far',
+      brbSub: 'Back in a moment · stay close',
       brbPhrases: [
         "Adjusting the temporal lattice…",
         "Recompiling reality·dot·exe",
@@ -5067,7 +5067,7 @@
         "Snacks queued · resume imminent",
         "Reticulating thought splines",
         "Bio·input rebalancing",
-        "Quick consult with the ancestors",
+        "Consulting the snack cabinet",
         "Watering the houseplants of fate",
         "Side·quest: locate the lost mug",
         "Defragmenting the soul cache",
@@ -5103,18 +5103,18 @@
     },
     /* Overlay content */
     ssBrand: '',
-    ssSub: 'The watcher awakens',
+    ssSub: 'Starting soon',
     ssMinutes: 10,
     ssCountLabel: 'Stream begins shortly',
     brbBig: 'BE RIGHT BACK',
     brbSub: 'The eye rests — do not stray far',
     endThanksText: 'THANK YOU FOR WATCHING',
-    endFarewell: 'Until the eye opens once more',
+    endFarewell: 'Until next time',
     jcTitle: 'JUST CHATTING',
-    jcSub: 'The eye is open — speak freely',
+    jcSub: 'Live now — say hi',
     gsGame: '',
     gsRecent: '',
-    gsPanelTitle: 'THE ORDER',
+    gsPanelTitle: 'NOW PLAYING',
     fCurrent: 0, fGoal: 0,
     sCurrent: 0, sGoal: 0,
     ae: {
@@ -5165,15 +5165,15 @@
       ],
       endingFarewells: [
         "Until the waters rise again",
-        "Returning to the Abzu",
+        "Reconnecting now",
         "The void reclaims its own",
         "Stream complete · Wisdom stored",
         "See you in the next session",
         "The primordial deep awaits",
         "Thanks for being part of the chaos",
         "Save your progress · See you soon",
-        "Enki returns to the deep",
-        "The sigil fades · Until next time",
+        "Signing off for now",
+        "That's a wrap · until next time",
         "Quest complete · Loot distributed",
         "GG · Well played · See you soon",
         "Log off sequence initiated",
@@ -5366,7 +5366,7 @@
   /* PUBLIC API — drive the avatar live from the master site or console.
      Examples:
        controlAvatar({ morph: 6 })                    // switch to Tree of Life
-       controlAvatar({ density: 80, theme: 3 })       // 80% density, Malikeye theme
+       controlAvatar({ density: 80, theme: 3 })       // 80% density, AynEnki theme
        controlAvatar({ pulse: true })                 // trigger a pulse
        controlAvatar({ paused: true })                // freeze
        controlAvatar({ colors: { inner: 'e8b84b', sparkle: 'a060e0' } })
@@ -5384,7 +5384,7 @@
 
   /* CONTROL PANEL HELPERS — wire the buttons in #avatarControlPanel */
   const MORPH_NAMES = ['Sphere','Helix','Fractal','Torus','Lattice','Bicone','Tree of Life','Eye','Skull','Liquid','Construct','Construct Hybrid','Tree-Construct','Sephiroth'];
-  const THEME_NAMES = ['Purple Nebula','Sunset Fire','Ocean Aurora','Malikeye'];
+  const THEME_NAMES = ['Purple Nebula','Sunset Fire','Ocean Aurora','AynEnki'];
   let _acpMorph = 6; /* matches the default in NEURAL_SCENE_MAP (Tree) */
   let _acpTheme = 3;
   let _acpFrozen = false;
@@ -5450,7 +5450,7 @@
       }
       requestAnimationFrame(() => frame.classList.add('visible'));
       /* hide the legacy SVG eyes — see body.neural-on CSS rules. The home hero
-         is decorative only: skip neural-on so the Watcher Controls panel never
+         is decorative only: skip neural-on so the Avatar Controls panel never
          shows to plain visitors. */
       if (scene.mode !== 'hero') document.body.classList.add('neural-on');
       else document.body.classList.remove('neural-on');
@@ -5600,12 +5600,12 @@
     const s = (typeof state === 'object' && state) ? state : {};
     const esc = v => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;');
     const bits = [
-      s.brand || 'MALIKEYE',
-      s.tagline || 'The watcher streams — the order grows',
+      s.brand || 'AYNENKI',
+      s.tagline || 'Stylized 3D worlds, sculpted live',
       s.motto || '',
       (s.socials && s.socials.twitch && s.socials.twitch.label) ? 'Twitch ' + s.socials.twitch.label : '',
       s.commissionsOpen ? 'Commissions: OPEN' : 'Commissions: by request',
-      'Broadcasting from the dark · est. in the order'
+      'Stylized 3D · live on stream'
     ].filter(Boolean);
     const half = bits.map(b => '<span>' + esc(b) + '</span>').join('');
     track.innerHTML = half + half;
@@ -5630,13 +5630,14 @@
       screen.style.display = 'block';
       /* [prefix typed char-by-char, status popped in whole, line class] */
       const LINES = [
-        ['MALIKEYE.SYS v3.7 — REVERIE CORE', '', ''],
+        ['AYNENKI.SYS v3.7 — REVERIE CORE', '', ''],
         ['VOID MEMORY ........ ', '640K OK', 'boot-ok'],
-        ['SIGIL INTEGRITY .... ', 'VERIFIED', 'boot-ok'],
-        ['VEILS .............. ', '3/3 WOVEN', 'boot-ok'],
+        ['GRAPHICS CORE ...... ', 'VERIFIED', 'boot-ok'],
+        ['SHADERS ............ ', '3/3 LOADED', 'boot-ok'],
+        ['STREAM BUFFER ...... ', 'READY', 'boot-ok'],
         ['NEURAL LINK ........ ', 'ESTABLISHED', 'boot-ok'],
         ['AUDIENCE ........... ', 'DETECTED', 'boot-ok'],
-        ['THE EYE OPENS', '', 'boot-eye']
+        ['AYNENKI ONLINE', '', 'boot-eye']
       ];
       let li = 0, ci = 0, done = false, timer = null;
       let lineSpan = null;
@@ -6756,7 +6757,7 @@
       document.getElementById('gsDiv2').style.display = 'none';
     }
     /* goals */
-    document.getElementById('gsPanelTitle').textContent = state.gsPanelTitle || 'THE ORDER';
+    document.getElementById('gsPanelTitle').textContent = state.gsPanelTitle || 'NOW PLAYING';
     const fG = parseInt(state.fGoal, 10) || 0;
     const fC = parseInt(state.fCurrent, 10) || 0;
     const sG = parseInt(state.sGoal, 10) || 0;
@@ -6787,7 +6788,7 @@
 
   /* ============ OVERLAY: GAME GOALS (standalone) ============ */
   function initGameGoals() {
-    document.getElementById('ggPanelTitle').textContent = state.gsPanelTitle || 'THE ORDER';
+    document.getElementById('ggPanelTitle').textContent = state.gsPanelTitle || 'NOW PLAYING';
     const fG = parseInt(state.fGoal, 10) || 0;
     const fC = parseInt(state.fCurrent, 10) || 0;
     const sG = parseInt(state.sGoal, 10) || 0;
@@ -7577,7 +7578,7 @@
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `malikeye-backup-${new Date().toISOString().slice(0,10)}.json`;
+    a.href = url; a.download = `aynenki-backup-${new Date().toISOString().slice(0,10)}.json`;
     a.click(); URL.revokeObjectURL(url); toast('Exported');
   }
   function importConfig(e) {
@@ -7940,12 +7941,12 @@
     const n = state.neural || {};
     const set = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.textContent = val; };
     if (kind === 'starting') {
-      set('nvSsBrand', n.ssBrand || state.brand || 'MALIKEYE');
+      set('nvSsBrand', n.ssBrand || state.brand || 'AYNENKI');
       set('nvSsTitle', n.ssTitle || 'Initializing the network');
-      set('nvSsSub',   n.ssSub   || 'The eye opens · stand by while the lattice aligns');
+      set('nvSsSub',   n.ssSub   || 'Starting soon · the stream is loading');
       set('nvSsCountLabel', n.ssCountLabel || 'Synchronization in progress');
-      set('nvSsTwitch',  n.twitchHandle || '/Malikeye');
-      set('nvSsDiscord', n.discordHandle || '/Malikeye');
+      set('nvSsTwitch',  n.twitchHandle || '/AynEnki');
+      set('nvSsDiscord', n.discordHandle || '/AynEnki');
       /* countdown */
       let total = Math.max(0, parseInt(n.ssMinutes, 10) || 0) * 60;
       const el = document.getElementById('nvSsCount');
@@ -7958,26 +7959,26 @@
       tick();
       _neuralTimers.starting = setInterval(tick, 1000);
     } else if (kind === 'brb') {
-      set('nvBrbBrand', n.brbBrand || state.brand || 'MALIKEYE');
+      set('nvBrbBrand', n.brbBrand || state.brand || 'AYNENKI');
       set('nvBrbTitle', n.brbTitle || 'Be Right Back');
-      set('nvBrbSub',   n.brbSub   || 'The watcher idles · do not stray far');
-      set('nvBrbTwitch',  n.twitchHandle || '/Malikeye');
-      set('nvBrbDiscord', n.discordHandle || '/Malikeye');
+      set('nvBrbSub',   n.brbSub   || 'Back in a moment · stay close');
+      set('nvBrbTwitch',  n.twitchHandle || '/AynEnki');
+      set('nvBrbDiscord', n.discordHandle || '/AynEnki');
       /* rotating flicker message — pulls from state.neural.brbPhrases */
       const phrases = (n.brbPhrases && n.brbPhrases.length) ? n.brbPhrases : DEFAULTS.neural.brbPhrases;
       _neuralTimers.brbMsg = neuralFlickerMessage('nvBrbMessage', phrases, 5500);
     } else if (kind === 'ending') {
-      set('nvEndBrand', n.endBrand || state.brand || 'MALIKEYE');
+      set('nvEndBrand', n.endBrand || state.brand || 'AYNENKI');
       set('nvEndTitle', n.endTitle || 'Thank you for watching');
       set('nvEndSub',   n.endSub   || 'Until the network wakes once more');
-      set('nvEndTwitch',  n.twitchHandle || '/Malikeye');
-      set('nvEndDiscord', n.discordHandle || '/Malikeye');
+      set('nvEndTwitch',  n.twitchHandle || '/AynEnki');
+      set('nvEndDiscord', n.discordHandle || '/AynEnki');
     } else if (kind === 'tech') {
       set('nvTechBrand', n.techBrand || 'SIGNAL LOST');
       set('nvTechTitle', n.techTitle || 'Technical difficulties');
       set('nvTechSub',   n.techSub   || 'Reestablishing connection · please stand by');
-      set('nvTechTwitch',  n.twitchHandle || '/Malikeye');
-      set('nvTechDiscord', n.discordHandle || '/Malikeye');
+      set('nvTechTwitch',  n.twitchHandle || '/AynEnki');
+      set('nvTechDiscord', n.discordHandle || '/AynEnki');
       /* rotating flicker message — pulls from state.neural.techPhrases */
       const phrases = (n.techPhrases && n.techPhrases.length) ? n.techPhrases : DEFAULTS.neural.techPhrases;
       _neuralTimers.techMsg = neuralFlickerMessage('nvTechMessage', phrases, 4200);
@@ -8026,8 +8027,8 @@
     const n = state.neural || {};
     const ae = state.ae || {};
     const set = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.textContent = val; };
-    set('nvGameTwitch',  n.twitchHandle || '/Malikeye');
-    set('nvGameDiscord', n.discordHandle || '/Malikeye');
+    set('nvGameTwitch',  n.twitchHandle || '/AynEnki');
+    set('nvGameDiscord', n.discordHandle || '/AynEnki');
     set('nvGameTitle',   ae.streamTitle || state.gsGame || 'Playing something incredible');
     /* live uptime ticker — starts from now each time the scene activates */
     _neuralGameStartTime = Date.now();
