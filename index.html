@@ -790,6 +790,7 @@
     transition: all 0.3s;
   }
   .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.error { border-color: var(--bad); color: var(--bad); }
 
   .hint {
     font-size: 0.75rem; color: var(--vellum);
@@ -5264,7 +5265,30 @@
     return JSON.parse(JSON.stringify(DEFAULTS));
   }
   function saveState() {
-    try { localStorage.setItem('malikeye_hub', JSON.stringify(state)); } catch(e) { console.warn('Save failed', e); }
+    try { localStorage.setItem('malikeye_hub', JSON.stringify(state)); return true; }
+    catch(e) {
+      console.warn('Save failed', e);
+      /* surface the failure instead of silently losing data — most often a
+         QuotaExceededError from data-URL thumbnails overflowing localStorage */
+      const quota = e && (e.name === 'QuotaExceededError' || /quota/i.test(e.message || ''));
+      toast(quota ? 'Save failed — storage full. Use hosted image URLs, not pasted data.' : 'Save failed: ' + (e.message || e), true);
+      return false;
+    }
+  }
+  /* toast — populate + show the #toast element, then auto-hide. This was
+     MISSING: the id="toast" div shadowed the name (window.toast === element),
+     so every toast() call threw "toast is not a function". That silently
+     aborted video saves in particular — saveFromEditor calls toast('Saving
+     video...') *before* saveVideoBlob(), so the throw skipped the save. */
+  let _toastTimer = null;
+  function toast(msg, isError) {
+    const el = document.getElementById('toast');
+    if (!el) return;
+    el.textContent = String(msg == null ? '' : msg);
+    el.classList.toggle('error', !!isError);
+    el.classList.add('show');
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => el.classList.remove('show'), isError ? 4200 : 2600);
   }
   function uid() { return 'x' + Math.random().toString(36).slice(2, 10); }
   function escapeHtml(s) {
