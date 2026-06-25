@@ -4834,7 +4834,7 @@
         <select id="eViewerType" onchange="onViewerTypeChange()">
           <option value="image">Image only</option>
           <option value="model-viewer">.glb / .gltf model (interactive)</option>
-          <option value="video">Video (file upload or MP4/WebM URL)</option>
+          <option value="video">Video (MP4/WebM URL — public)</option>
           <option value="youtube">YouTube / Vimeo</option>
           <option value="sketchfab">Sketchfab embed</option>
           <option value="iframe">Generic iframe</option>
@@ -4842,15 +4842,18 @@
       </div>
       <div class="field"><label id="eViewerUrlLabel">Viewer URL</label><input type="text" id="eViewerUrl" placeholder=""></div>
       <div class="field" id="eVideoFileField" style="display:none;">
-        <label>Or upload a video file (stored in this browser)</label>
+        <label style="opacity:0.85;">Local preview file <span style="color:var(--vellum);font-weight:normal;text-transform:none;letter-spacing:0;font-size:.8rem;">— optional, only plays in this browser</span></label>
         <input type="file" id="eVideoFile" accept="video/mp4,video/webm,video/ogg,video/*" style="display:none;" onchange="handleVideoUpload(this)">
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <button type="button" class="btn small ghost" onclick="document.getElementById('eVideoFile').click()">Choose Video File</button>
-          <span id="eVideoFileInfo" style="color:var(--vellum);font-family:'VT323', 'Courier New', monospace;font-style:italic;font-size:.9rem;"></span>
+          <span id="eVideoFileInfo" style="color:var(--vellum);font-family:'VT323', 'Courier New', monospace;font-style:italic;font-size:.9rem;">No file chosen</span>
           <button type="button" class="btn small danger" id="eVideoClearBtn" onclick="clearVideoUpload()" style="display:none;">Remove file</button>
         </div>
+        <p id="eVideoLocalWarn" style="display:none;font-size:.75rem;color:var(--bad);font-family:'JetBrains Mono',monospace;letter-spacing:.08em;margin-top:.5rem;line-height:1.5;">
+          &#9888; Visitors won't see this &mdash; it's stored only in your browser. For public viewing, add a <strong>Video URL</strong> above or use the <strong>YouTube / Vimeo</strong> type.
+        </p>
         <p style="font-size:.7rem;color:var(--vellum);font-family:'JetBrains Mono',monospace;letter-spacing:.1em;margin-top:.5rem;line-height:1.5;">
-          Stored in your browser via IndexedDB. Not included in JSON backups. For public/shared viewing, paste a hosted URL above instead.
+          Handy for a quick local preview. Not included in JSON backups, and cleared if your browser clears site data.
         </p>
       </div>
       <div class="row-split" id="eShopFields">
@@ -7170,9 +7173,10 @@
     const urlLabel = document.getElementById('eViewerUrlLabel');
     const vidField = document.getElementById('eVideoFileField');
     if (type === 'video') {
-      urlLabel.textContent = 'Video URL (.mp4 / .webm) — optional if uploading below';
-      urlInput.placeholder = 'https://yourdomain.com/clip.mp4';
+      urlLabel.textContent = 'Video URL (.mp4 / .webm) — public, shown to all visitors';
+      urlInput.placeholder = 'https://yourdomain.com/clip.mp4  (or use YouTube/Vimeo type)';
       vidField.style.display = '';
+      updateVideoFileInfo();
     } else if (type === 'youtube') {
       urlLabel.textContent = 'YouTube or Vimeo URL';
       urlInput.placeholder = 'https://youtube.com/watch?v=... or https://vimeo.com/...';
@@ -7213,14 +7217,17 @@
   function updateVideoFileInfo() {
     const info = document.getElementById('eVideoFileInfo');
     const clearBtn = document.getElementById('eVideoClearBtn');
+    const warn = document.getElementById('eVideoLocalWarn');
     const meta = editorCtx.pendingVideoMeta || editorCtx.existingVideoMeta;
     if (meta) {
       const tag = editorCtx.pendingVideoMeta ? '(new)' : '(stored)';
       info.textContent = `${meta.name} · ${formatBytes(meta.size)} ${tag}`;
       clearBtn.style.display = '';
+      if (warn) warn.style.display = '';   /* local file present → flag it's not public */
     } else {
       info.textContent = 'No file chosen';
       clearBtn.style.display = 'none';
+      if (warn) warn.style.display = 'none';
     }
   }
   function editPiece(kind, id) {
