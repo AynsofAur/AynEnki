@@ -8086,11 +8086,18 @@
      builder settings because each scene is meant to feel different (density,
      intensity, bloom tint). Anything NOT in this list comes from the user's
      URL builder appearance (colors, nucleus, halo, veils, morph, theme). */
+  /* test: '1' on the standby scenes → the avatar self-animates (breathes/pulses)
+     WITHOUT opening the webcam. You're not on camera during Starting Soon / BRB /
+     Ending / Tech, so they don't need it — and this means only ONE scene (your
+     live gameplay scene) ever holds the single webcam, so OBS can't hit the
+     "NotReadable — device busy" conflict from two sources grabbing it at once.
+     To make any of these react to your real face/voice instead, delete its
+     test: '1'. */
   const NEURAL_SCENE_OVERRIDES = {
-    starting: { obs: '1', density: '70', intensity: 'med', bloomtint: '8aa8ff' },
-    brb:      { obs: '1', density: '55', intensity: 'low', bloomtint: 'a060e0' },
-    ending:   { obs: '1', density: '45', intensity: 'low', bloomtint: '6080a0' },
-    tech:     { obs: '1', density: '80', intensity: 'med', bloomtint: 'ff6a6a', morph: '2' }
+    starting: { obs: '1', test: '1', density: '70', intensity: 'med', bloomtint: '8aa8ff' },
+    brb:      { obs: '1', test: '1', density: '55', intensity: 'low', bloomtint: 'a060e0' },
+    ending:   { obs: '1', test: '1', density: '45', intensity: 'low', bloomtint: '6080a0' },
+    tech:     { obs: '1', test: '1', density: '80', intensity: 'med', bloomtint: 'ff6a6a', morph: '2' }
   };
   /* Build the full param string for a scene by merging user-builder appearance
      with per-scene overrides. Per-scene overrides ALWAYS win for the keys
