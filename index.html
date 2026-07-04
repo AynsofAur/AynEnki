@@ -6118,18 +6118,21 @@
     if (mid)       p.set('mid', mid);
     if (outer)     p.set('outer', outer);
     if (sparkle)   p.set('sparkle', sparkle);
-    if (bloomtint && bloomtint !== 'ffffff') p.set('bloomtint', bloomtint);
+    /* ALWAYS emit bloom/core/veil colours — even at defaults. The avatar pages
+       restore saved settings from localStorage for any param the URL omits, so
+       omitting "default white bloom" let a previously-saved red bloom bleed
+       into a preset URL. Explicit params make OBS URLs fully deterministic. */
+    if (bloomtint) p.set('bloomtint', bloomtint);
     const nucleus = hexNoHash(document.getElementById('aurlNucleus'));
     const halo    = hexNoHash(document.getElementById('aurlHalo'));
-    if (nucleus && nucleus !== 'fff4d0') p.set('nucleus', nucleus);
-    if (halo    && halo    !== 'c8952a') p.set('halo', halo);
-    /* veil ring colours (v2) — outer/mid/inner, only emit non-defaults */
+    if (nucleus) p.set('nucleus', nucleus);
+    if (halo)    p.set('halo', halo);
     const veil1c = hexNoHash(document.getElementById('aurlVeil1c'));
     const veil2c = hexNoHash(document.getElementById('aurlVeil2c'));
     const veil3c = hexNoHash(document.getElementById('aurlVeil3c'));
-    if (veil1c && veil1c !== 'a8b4ff') p.set('veil1c', veil1c);
-    if (veil2c && veil2c !== 'e8b84b') p.set('veil2c', veil2c);
-    if (veil3c && veil3c !== 'fff4d0') p.set('veil3c', veil3c);
+    if (veil1c) p.set('veil1c', veil1c);
+    if (veil2c) p.set('veil2c', veil2c);
+    if (veil3c) p.set('veil3c', veil3c);
     /* veil glyph customization (ARG) — per-veil set + custom text */
     const v1set = document.getElementById('aurlVeil1')?.value;
     const v2set = document.getElementById('aurlVeil2')?.value;

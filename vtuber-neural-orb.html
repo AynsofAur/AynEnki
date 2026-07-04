@@ -3741,12 +3741,16 @@ function updateConstructSolids(t){
   const grow = 1.0 + easeOutCubic(mouth) * 0.45 * scaleSensitivity + voice * 0.12;
   if(constructInnerGroup) constructInnerGroup.scale.setScalar(grow);
   if(constructCoreMesh){
+    /* when the goo orb is live, it IS the core — hide the construct's own
+       bright blob + halo so they don't stack into a double nucleus. The wire
+       cage + rings stay: they're structure, not glow. */
+    constructCoreMesh.visible = !orbSprite;
     constructCoreMesh.scale.setScalar(1.0 + Math.sin(t*8.0)*0.05 + voice*0.45);
     constructCoreMesh.rotation.x=t*1.1; constructCoreMesh.rotation.y=t*0.9;
     if(constructSolidMats.core) constructSolidMats.core.opacity = 0.85 + voice*0.15;
   }
   if(constructCoreWire){ constructCoreWire.rotation.x=-t*1.0; constructCoreWire.rotation.y=t*1.3; constructCoreWire.scale.setScalar(1.0+voice*0.4); }
-  if(constructCoreHalo){ constructCoreHalo.scale.setScalar(1.0+Math.sin(t*3.0)*0.05+voice*0.5); if(constructSolidMats.coreHalo) constructSolidMats.coreHalo.opacity=0.08+voice*0.22; }
+  if(constructCoreHalo){ constructCoreHalo.visible = !orbSprite; constructCoreHalo.scale.setScalar(1.0+Math.sin(t*3.0)*0.05+voice*0.5); if(constructSolidMats.coreHalo) constructSolidMats.coreHalo.opacity=0.08+voice*0.22; }
   const tubeOp=0.45+voice*0.4;
   constructSolidMats.outer.forEach(m=>m.opacity=tubeOp);
   constructSolidMats.inner.forEach(m=>m.opacity=tubeOp*0.9);
@@ -4058,7 +4062,11 @@ function onFaceResults(results){
 /* ============ LOCALSTORAGE PERSISTENCE ============
    Versioned key so future schema changes don't crash on old saves.
    URL params still take precedence over saved values — bookmarks win. */
-const SETTINGS_KEY = 'malikeye-avatar-v3';
+/* Own key — deliberately NOT shared with neural-avatar.html. Both pages live
+   on the same origin; sharing 'malikeye-avatar-v3' meant colour experiments
+   saved on the classic page (e.g. a red Ember bloom) silently bled into this
+   page for any param the URL didn't pin. */
+const SETTINGS_KEY = 'aynenki-orb-v1';
 function saveSettings(){
   try {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({
@@ -4091,10 +4099,8 @@ function saveSettings(){
 }
 function loadSettings(){
   try {
-    /* v3 is current; fall back to v2 if a returning user still has the older blob.
-       v2 lacked shellColor fields, so userShellColors stays false → theme defaults apply. */
+    /* no fallback to the classic page's keys — see SETTINGS_KEY note above */
     let raw = localStorage.getItem(SETTINGS_KEY);
-    if (!raw) raw = localStorage.getItem('malikeye-avatar-v2');
     if (!raw) {
       /* no saved settings — still apply URL overrides so OBS sources without
          persistent storage get the gain/scale they were configured with. */
