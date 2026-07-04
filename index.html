@@ -4247,7 +4247,17 @@
               <button class="btn small ghost" onclick="aurlPreset('ending')">Ending</button>
               <button class="btn small ghost" onclick="aurlPreset('clean')">Clean Sphere</button>
               <button class="btn small ghost" onclick="aurlPreset('ember')" style="color:#ff8a4d;border-color:rgba(216,81,24,0.45);">Ember</button>
+              <button class="btn small ghost" onclick="aurlPreset('nebula-orb')" style="color:#a78bfa;border-color:rgba(167,139,250,0.45);">Nebula Orb</button>
             </div>
+          </div>
+
+          <!-- target page — classic construct or the goo-orb fork -->
+          <div class="field" style="margin-bottom: 1rem;">
+            <label>Avatar Page</label>
+            <select id="aurlPage" onchange="aurlBuild()">
+              <option value="neural-avatar.html">neural-avatar.html — classic construct</option>
+              <option value="vtuber-neural-orb.html">vtuber-neural-orb.html — goo orb core</option>
+            </select>
           </div>
 
           <div class="admin-grid" style="grid-template-columns: 1fr 1fr; gap: 1rem;">
@@ -5993,11 +6003,23 @@
                        nucleus: '#ff8a4d', halo: '#c83a1a', shockwave: true,
                        veil1c: '#f0e07a', veil2c: '#f3b72b', veil3c: '#f98d53',
                        veil1: 'alchemy', veil2: 'runes', veil3: 'mixed',
-                       obs: true, aur: true, eye: false, stars: false }
+                       obs: true, aur: true, eye: false, stars: false },
+    /* NEBULA ORB — Purple Nebula palette on the goo-orb fork. Construct Hybrid
+       at full density; scale 0 = the orb breathes on voice only, no
+       mouth-driven growth. */
+    'nebula-orb':    { page: 'vtuber-neural-orb.html', morph: 11, theme: 0, density: 100, intensity: '', bg: '',
+                       inner: '#a78bfa', mid: '#f093fb', outer: '#6e48aa', sparkle: '#a78bfa', bloomtint: '#ffffff',
+                       scale: 0,
+                       obs: true, aur: true, eye: false, stars: true }
   };
   function aurlPreset(name){
     const p = AURL_PRESETS[name];
     if (!p) return;
+    if (document.getElementById('aurlPage')) document.getElementById('aurlPage').value = p.page || 'neural-avatar.html';
+    /* mic gain + mouth-scale sliders — preset value or the 1.00x default */
+    const _g = (p.gain != null) ? p.gain : 100, _s = (p.scale != null) ? p.scale : 100;
+    if (document.getElementById('aurlGain'))  { document.getElementById('aurlGain').value = _g;  const e = document.getElementById('aurlGainVal');  if (e) e.textContent = (_g/100).toFixed(2); }
+    if (document.getElementById('aurlScale')) { document.getElementById('aurlScale').value = _s; const e = document.getElementById('aurlScaleVal'); if (e) e.textContent = (_s/100).toFixed(2); }
     document.getElementById('aurlMorph').value     = p.morph;
     document.getElementById('aurlTheme').value     = p.theme;
     document.getElementById('aurlDensity').value   = p.density;
@@ -6044,7 +6066,8 @@
   /* Build the URL from the current form state. Resolves the base URL from
      window.location so it works on file://, localhost, and GitHub Pages. */
   function aurlBuild(){
-    const base = new URL('neural-avatar.html', window.location.href).href;
+    const _page = document.getElementById('aurlPage')?.value || 'neural-avatar.html';
+    const base = new URL(_page, window.location.href).href;
     const p = new URLSearchParams();
     /* booleans first — only emit non-default values so URLs stay short */
     if (document.getElementById('aurlObs').checked) p.set('obs', '1');
@@ -6145,6 +6168,7 @@
     const get = id => (document.getElementById(id) || {}).value;
     const chk = id => !!((document.getElementById(id) || {}).checked);
     const b = {
+      page:        get('aurlPage'),
       morph:       get('aurlMorph'),
       theme:       get('aurlTheme'),
       density:     get('aurlDensity'),
@@ -6187,6 +6211,7 @@
     if (!b) return;
     const setV = (id, v) => { const el = document.getElementById(id); if (el && v != null && v !== '') el.value = v; };
     const setC = (id, v) => { const el = document.getElementById(id); if (el && typeof v === 'boolean') el.checked = v; };
+    setV('aurlPage', b.page);
     setV('aurlMorph', b.morph); setV('aurlTheme', b.theme);
     setV('aurlDensity', b.density);
     if (b.density) { const d = document.getElementById('aurlDensityVal'); if (d) d.textContent = b.density; }
