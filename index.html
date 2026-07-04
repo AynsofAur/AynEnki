@@ -4246,6 +4246,7 @@
               <button class="btn small ghost" onclick="aurlPreset('brb')">BRB</button>
               <button class="btn small ghost" onclick="aurlPreset('ending')">Ending</button>
               <button class="btn small ghost" onclick="aurlPreset('clean')">Clean Sphere</button>
+              <button class="btn small ghost" onclick="aurlPreset('ember')" style="color:#ff8a4d;border-color:rgba(216,81,24,0.45);">Ember</button>
             </div>
           </div>
 
@@ -5985,7 +5986,14 @@
     'gaming':        { morph: 6, theme: 3, density: 50,  intensity: 'low',  bg: '', inner: '#e8b84b', mid: '#a060e0', outer: '#6080a0', sparkle: '#f5d07a', bloomtint: '#ffffff', obs: true, aur: false, eye: false, stars: false },
     'brb':           { morph: 2, theme: 3, density: 70,  intensity: '',     bg: '', inner: '#e8b84b', mid: '#a060e0', outer: '#6080a0', sparkle: '#f5d07a', bloomtint: '#ffffff', obs: true, aur: true, eye: false, stars: true },
     'ending':        { morph: 6, theme: 3, density: 90,  intensity: 'high', bg: '', inner: '#e8b84b', mid: '#a060e0', outer: '#6080a0', sparkle: '#f5d07a', bloomtint: '#ffffff', obs: true, aur: true, eye: false, stars: true },
-    'clean':         { morph: 0, theme: 0, density: 80,  intensity: '',     bg: '', inner: '#a78bfa', mid: '#f093fb', outer: '#6e48aa', sparkle: '#a78bfa', bloomtint: '#ffffff', obs: true, aur: false, eye: false, stars: true }
+    'clean':         { morph: 0, theme: 0, density: 80,  intensity: '',     bg: '', inner: '#a78bfa', mid: '#f093fb', outer: '#6e48aa', sparkle: '#a78bfa', bloomtint: '#ffffff', obs: true, aur: false, eye: false, stars: true },
+    /* EMBER — molten orange/red network, red bloom, fiery core, gold alchemy
+       veils. Voice spikes fire shockwaves. Tree of Life at near-full density. */
+    'ember':         { morph: 6, theme: 3, density: 95,  intensity: '',     bg: '', inner: '#d85118', mid: '#e4a358', outer: '#7c68ca', sparkle: '#a02f13', bloomtint: '#ff0000',
+                       nucleus: '#ff8a4d', halo: '#c83a1a', shockwave: true,
+                       veil1c: '#f0e07a', veil2c: '#f3b72b', veil3c: '#f98d53',
+                       veil1: 'alchemy', veil2: 'runes', veil3: 'mixed',
+                       obs: true, aur: true, eye: false, stars: false }
   };
   function aurlPreset(name){
     const p = AURL_PRESETS[name];
@@ -6005,19 +6013,26 @@
     document.getElementById('aurlAur').checked     = p.aur;
     document.getElementById('aurlEye').checked     = p.eye;
     document.getElementById('aurlStars').checked   = p.stars;
-    /* veils — presets clear them so switching scenes wipes any stale ARG text */
-    if (document.getElementById('aurlVeil1'))     document.getElementById('aurlVeil1').value = '';
-    if (document.getElementById('aurlVeil2'))     document.getElementById('aurlVeil2').value = '';
-    if (document.getElementById('aurlVeil3'))     document.getElementById('aurlVeil3').value = '';
+    /* core colours + effect toggles — preset value when present, else avatar
+       defaults, so switching presets always fully defines the look */
+    if (document.getElementById('aurlNucleus'))   document.getElementById('aurlNucleus').value = p.nucleus || '#fff4d0';
+    if (document.getElementById('aurlHalo'))      document.getElementById('aurlHalo').value    = p.halo    || '#c8952a';
+    if (document.getElementById('aurlShockwave')) document.getElementById('aurlShockwave').checked = !!p.shockwave;
+    if (document.getElementById('aurlSpectral'))  document.getElementById('aurlSpectral').checked  = !!p.spectral;
+    /* veils — preset-defined sets when present, otherwise cleared so switching
+       scenes wipes any stale ARG text */
+    if (document.getElementById('aurlVeil1'))     document.getElementById('aurlVeil1').value = p.veil1 || '';
+    if (document.getElementById('aurlVeil2'))     document.getElementById('aurlVeil2').value = p.veil2 || '';
+    if (document.getElementById('aurlVeil3'))     document.getElementById('aurlVeil3').value = p.veil3 || '';
     if (document.getElementById('aurlVeil1text')) document.getElementById('aurlVeil1text').value = '';
     if (document.getElementById('aurlVeil2text')) document.getElementById('aurlVeil2text').value = '';
     if (document.getElementById('aurlVeil3text')) document.getElementById('aurlVeil3text').value = '';
     if (document.getElementById('aurlVeilLegible')) document.getElementById('aurlVeilLegible').checked = false;
     if (document.getElementById('aurlGlitchset')) document.getElementById('aurlGlitchset').value = '';
-    /* v2 fields — presets restore avatar defaults (no framing, default veils) */
-    if (document.getElementById('aurlVeil1c')) document.getElementById('aurlVeil1c').value = '#a8b4ff';
-    if (document.getElementById('aurlVeil2c')) document.getElementById('aurlVeil2c').value = '#e8b84b';
-    if (document.getElementById('aurlVeil3c')) document.getElementById('aurlVeil3c').value = '#fff4d0';
+    /* v2 fields — preset veil ring colours or avatar defaults; framing resets */
+    if (document.getElementById('aurlVeil1c')) document.getElementById('aurlVeil1c').value = p.veil1c || '#a8b4ff';
+    if (document.getElementById('aurlVeil2c')) document.getElementById('aurlVeil2c').value = p.veil2c || '#e8b84b';
+    if (document.getElementById('aurlVeil3c')) document.getElementById('aurlVeil3c').value = p.veil3c || '#fff4d0';
     const _fx = document.getElementById('aurlFrameX'), _fy = document.getElementById('aurlFrameY'), _fz = document.getElementById('aurlFrameZoom');
     if (_fx) { _fx.value = 0;   const e = document.getElementById('aurlFrameXVal');    if (e) e.textContent = '0'; }
     if (_fy) { _fy.value = 0;   const e = document.getElementById('aurlFrameYVal');    if (e) e.textContent = '0'; }
