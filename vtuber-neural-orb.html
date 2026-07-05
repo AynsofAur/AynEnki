@@ -1226,11 +1226,11 @@ _appliedVeilKey = veilColorOuter + veilColorMid + veilColorInner; /* baked at cr
      mouthOpen -> inner liquid + filaments flare (the orb "talks")
      blink     -> inner light dips (the orb blinks with you)
    URL params: ?orb=0 restores the classic nucleus. ?orbscale=N (percent,
-   default 440). ?orbhue=N max hue-shift degrees (default 45). Colours derive
+   100-2400, default 1425). ?orbhue=N max hue-shift degrees (default 45). Colours derive
    from ?nucleus/?inner/?halo/?sparkle, or override with ?orba ?orbb
    ?orbglowa ?orbglowb. */
 const ORB_ENABLED = params.get('orb') !== '0';
-const ORB_SCALE = (()=>{ const v = parseInt(params.get('orbscale'),10); return (!isNaN(v) && v>=100 && v<=1600) ? v/100 : 9.5; })();
+const ORB_SCALE = (()=>{ const v = parseInt(params.get('orbscale'),10); return (!isNaN(v) && v>=100 && v<=2400) ? v/100 : 14.25; })();
 /* ?compact=N (50–120, default 78) — pulls the middle/outer particle shells
    inward so the composition reads as one contained avatar instead of a
    screen-filling nebula. 100 = the original sprawl. Veils shrink to the
@@ -3749,7 +3749,7 @@ function updateConstructSolids(t){
     constructCoreMesh.rotation.x=t*1.1; constructCoreMesh.rotation.y=t*0.9;
     if(constructSolidMats.core) constructSolidMats.core.opacity = 0.85 + voice*0.15;
   }
-  if(constructCoreWire){ constructCoreWire.rotation.x=-t*1.0; constructCoreWire.rotation.y=t*1.3; constructCoreWire.scale.setScalar(1.0+voice*0.4); }
+  if(constructCoreWire){ constructCoreWire.visible = !orbSprite; constructCoreWire.rotation.x=-t*1.0; constructCoreWire.rotation.y=t*1.3; constructCoreWire.scale.setScalar(1.0+voice*0.4); }
   if(constructCoreHalo){ constructCoreHalo.visible = !orbSprite; constructCoreHalo.scale.setScalar(1.0+Math.sin(t*3.0)*0.05+voice*0.5); if(constructSolidMats.coreHalo) constructSolidMats.coreHalo.opacity=0.08+voice*0.22; }
   const tubeOp=0.45+voice*0.4;
   constructSolidMats.outer.forEach(m=>m.opacity=tubeOp);
