@@ -4259,6 +4259,14 @@
               <option value="vtuber-neural-orb.html">vtuber-neural-orb.html — goo orb core</option>
             </select>
           </div>
+          <div class="field" style="margin-bottom: 1rem;">
+            <label>Construct Cage <span style="opacity:0.5; font-size:0.75rem;">(orb page, morphs 10&ndash;13)</span></label>
+            <select id="aurlCage" onchange="aurlBuild()">
+              <option value="">Full cage (default)</option>
+              <option value="outer">Outer hedron only</option>
+              <option value="0">No cage</option>
+            </select>
+          </div>
 
           <div class="admin-grid" style="grid-template-columns: 1fr 1fr; gap: 1rem;">
             <!-- LEFT COLUMN — geometry -->
@@ -6009,13 +6017,14 @@
        mouth-driven growth. */
     'nebula-orb':    { page: 'vtuber-neural-orb.html', morph: 11, theme: 0, density: 100, intensity: '', bg: '',
                        inner: '#a78bfa', mid: '#f093fb', outer: '#6e48aa', sparkle: '#a78bfa', bloomtint: '#ffffff',
-                       scale: 0,
+                       scale: 0, cage: 'outer',
                        obs: true, aur: true, eye: false, stars: true }
   };
   function aurlPreset(name){
     const p = AURL_PRESETS[name];
     if (!p) return;
     if (document.getElementById('aurlPage')) document.getElementById('aurlPage').value = p.page || 'neural-avatar.html';
+    if (document.getElementById('aurlCage')) document.getElementById('aurlCage').value = p.cage || '';
     /* mic gain + mouth-scale sliders — preset value or the 1.00x default */
     const _g = (p.gain != null) ? p.gain : 100, _s = (p.scale != null) ? p.scale : 100;
     if (document.getElementById('aurlGain'))  { document.getElementById('aurlGain').value = _g;  const e = document.getElementById('aurlGainVal');  if (e) e.textContent = (_g/100).toFixed(2); }
@@ -6092,6 +6101,8 @@
     if (d && d !== '100') p.set('density', d);
     if (inten) p.set('intensity', inten);
     if (bg) p.set('bg', bg);
+    const cage = document.getElementById('aurlCage')?.value;
+    if (cage) p.set('cage', cage);
     /* mic gain + scale sensitivity — only emit if different from 1.0x default.
        these are the calibration knobs that are hidden in obs-clean mode, so
        baking them into the URL is how streamers ship the right values. */
@@ -6172,6 +6183,7 @@
     const chk = id => !!((document.getElementById(id) || {}).checked);
     const b = {
       page:        get('aurlPage'),
+      cage:        get('aurlCage'),
       morph:       get('aurlMorph'),
       theme:       get('aurlTheme'),
       density:     get('aurlDensity'),
@@ -6215,6 +6227,7 @@
     const setV = (id, v) => { const el = document.getElementById(id); if (el && v != null && v !== '') el.value = v; };
     const setC = (id, v) => { const el = document.getElementById(id); if (el && typeof v === 'boolean') el.checked = v; };
     setV('aurlPage', b.page);
+    setV('aurlCage', b.cage);
     setV('aurlMorph', b.morph); setV('aurlTheme', b.theme);
     setV('aurlDensity', b.density);
     if (b.density) { const d = document.getElementById('aurlDensityVal'); if (d) d.textContent = b.density; }

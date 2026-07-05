@@ -1230,10 +1230,15 @@ _appliedVeilKey = veilColorOuter + veilColorMid + veilColorInner; /* baked at cr
    from ?nucleus/?inner/?halo/?sparkle, or override with ?orba ?orbb
    ?orbglowa ?orbglowb. */
 const ORB_ENABLED = params.get('orb') !== '0';
-/* ?cage=0 — hide the construct family's solid cage (outer + inner octahedron
-   tubes, radial struts, vertex orbs) so the goo orb + particles stand alone.
-   The node layer still traces a faint particle outline of the cage. */
-const HIDE_CAGE = params.get('cage') === '0';
+/* ?cage= — construct-family solid cage visibility:
+     (absent/full) everything: outer + inner octahedra, radial struts, vertex orbs
+     outer        only the outermost octahedron tubes + its vertex orbs; the
+                  inner hedron, radial struts, and inner orbs hide so the goo
+                  orb floats alone inside the frame
+     0 / none     no solid cage at all (particles still trace a faint outline) */
+const CAGE_MODE = (params.get('cage') || 'full').toLowerCase();
+const SHOW_CAGE_OUTER = CAGE_MODE !== '0' && CAGE_MODE !== 'none';
+const SHOW_CAGE_INNER = SHOW_CAGE_OUTER && CAGE_MODE !== 'outer';
 const ORB_SCALE = (()=>{ const v = parseInt(params.get('orbscale'),10); return (!isNaN(v) && v>=100 && v<=2400) ? v/100 : 14.25; })();
 /* ?compact=N (50–120, default 78) — pulls the middle/outer particle shells
    inward so the composition reads as one contained avatar instead of a
@@ -3677,12 +3682,12 @@ function buildConstructSolids(formationIndex){
     return;
   }
   /* cage struts */
-  OCT_EDGES.forEach(([a,b])=>{ const t=_tubeBetween(oV[a],oV[b],0.06,colOuter,0.5); t.visible=!HIDE_CAGE; grp.add(t); constructSolidMats.outer.push(t.material); });
-  OCT_EDGES.forEach(([a,b])=>{ const t=_tubeBetween(iV[a],iV[b],0.045,colMid,0.45); t.visible=!HIDE_CAGE; grp.add(t); constructSolidMats.inner.push(t.material); });
-  for(let i=0;i<6;i++){ const t=_tubeBetween(oV[i],iV[i],0.03,colSpark,0.4); t.visible=!HIDE_CAGE; grp.add(t); constructSolidMats.radial.push(t.material); }
+  OCT_EDGES.forEach(([a,b])=>{ const t=_tubeBetween(oV[a],oV[b],0.06,colOuter,0.5); t.visible=SHOW_CAGE_OUTER; grp.add(t); constructSolidMats.outer.push(t.material); });
+  OCT_EDGES.forEach(([a,b])=>{ const t=_tubeBetween(iV[a],iV[b],0.045,colMid,0.45); t.visible=SHOW_CAGE_INNER; grp.add(t); constructSolidMats.inner.push(t.material); });
+  for(let i=0;i<6;i++){ const t=_tubeBetween(oV[i],iV[i],0.03,colSpark,0.4); t.visible=SHOW_CAGE_INNER; grp.add(t); constructSolidMats.radial.push(t.material); }
   /* vertex orbs */
-  oV.forEach(p=>{ const o=_orb(p,colOuter,1.0); o.group.visible=!HIDE_CAGE; grp.add(o.group); constructSolidMats.orbsOuter.push(o); });
-  iV.forEach(p=>{ const o=_orb(p,colMid,0.7); o.group.visible=!HIDE_CAGE; grp.add(o.group); constructSolidMats.orbsInner.push(o); });
+  oV.forEach(p=>{ const o=_orb(p,colOuter,1.0); o.group.visible=SHOW_CAGE_OUTER; grp.add(o.group); constructSolidMats.orbsOuter.push(o); });
+  iV.forEach(p=>{ const o=_orb(p,colMid,0.7); o.group.visible=SHOW_CAGE_INNER; grp.add(o.group); constructSolidMats.orbsInner.push(o); });
   /* solid core: icosahedron + wire shell + soft halo */
   const coreMat=new THREE.MeshBasicMaterial({color:colInner, transparent:true, opacity:0.9, blending:THREE.NormalBlending});
   const core=new THREE.Mesh(new THREE.IcosahedronGeometry(0.85*CONSTRUCT_CORE_SCALE,2), coreMat);
