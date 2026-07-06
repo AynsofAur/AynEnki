@@ -1712,6 +1712,10 @@ const pulseUniforms = {
   uShellScaleInner: { value: 1.0 },
   uShellScaleMid:   { value: 1.0 },
   uShellScaleOuter: { value: 1.0 },
+  /* per-shell ambient swirl angles (radians) — the Enki water current.
+     Driven from animate(); voice-independent. Outer shell stays anchored. */
+  uShellSpinInner: { value: 0.0 },
+  uShellSpinMid:   { value: 0.0 },
   /* per-shell colour uniforms: the user-pickable colour for each radial layer.
      Defaults are populated from the active palette in createNetworkVisualization
      (so picking a theme presets them) and overridden live by the colour pickers. */
@@ -1796,6 +1800,8 @@ uniform float uFaceActive;
 uniform float uShellScaleInner;
 uniform float uShellScaleMid;
 uniform float uShellScaleOuter;
+uniform float uShellSpinInner;
+uniform float uShellSpinMid;
 uniform float uShellInnerEnd;
 uniform float uShellMidEnd;
 uniform vec3  uNucleusOffset;
@@ -1821,6 +1827,19 @@ float shellScaleAt(float d){
   vec3 w = shellWeightsAt(d);
   return uShellScaleInner * w.x + uShellScaleMid * w.y + uShellScaleOuter * w.z;
 }
+/* ENKI CURRENT — per-shell water-like swirl around the core. Base drift
+   angle per shell (driven from animate) plus a slow height-sheared
+   undulation, so horizontal layers slide past each other like laminar
+   water bands circling the orb. The outer shell has no spin term: it
+   stays anchored, which makes the inner motion read as flow, not spin. */
+vec3 shellSpin(vec3 p, vec3 w){
+  float sway = sin(uTime * 0.22 + p.y * 0.35) * 0.10
+             + sin(uTime * 0.13 - p.y * 0.21 + 2.1) * 0.06;
+  float a = (uShellSpinInner + sway * 0.6) * w.x
+          + (uShellSpinMid   + sway)       * w.y;
+  float c = cos(a), s = sin(a);
+  return vec3(c * p.x + s * p.z, p.y, -s * p.x + c * p.z);
+}
 float getPulseIntensity(vec3 worldPos,vec3 pulsePos,float pulseTime){
   if(pulseTime<0.0)return 0.0;
   float t=uTime-pulseTime;
@@ -1838,7 +1857,10 @@ void main(){
      space the node is rendered in — keeps pulse rings aligned with nodes
      even when outer shell scales out. */
   float shellScalePre = shellScaleAt(distanceFromRoot);
-  vec3 worldPos=(modelMatrix*vec4(position*shellScalePre,1.0)).xyz;
+  /* apply the water current before the world transform so the pulse hit-test
+     and rendering share the same swirled space */
+  vec3 spunPos = shellSpin(position * shellScalePre, vShellWeights);
+  vec3 worldPos=(modelMatrix*vec4(spunPos,1.0)).xyz;
   vPosition=worldPos;
   float totalPulse=0.0;
   for(int i=0;i<3;i++)totalPulse+=getPulseIntensity(worldPos,uPulsePositions[i],uPulseTimes[i]);
@@ -1856,7 +1878,7 @@ void main(){
   /* per-shell scale: scales position outward by a factor that depends on
      which radial shell the node lives in (inner barely moves, outer most).
      reuses shellScalePre computed above. */
-  vec3 modifiedPosition = position * shellScalePre;
+  vec3 modifiedPosition = spunPos;
   if(nodeType>0.5){
     /* gentle ambient noise — no longer multiplied by voice (voice is bloom-only). */
     float noise=snoise(modifiedPosition*0.08+uTime*0.08);
@@ -1999,6 +2021,8 @@ uniform float uVoiceLevel;
 uniform float uShellScaleInner;
 uniform float uShellScaleMid;
 uniform float uShellScaleOuter;
+uniform float uShellSpinInner;
+uniform float uShellSpinMid;
 uniform float uShellInnerEnd;
 uniform float uShellMidEnd;
 uniform vec3  uNucleusOffset;
@@ -2022,6 +2046,19 @@ vec3 shellWeightsAt(float d){
 float shellScaleAt(float d){
   vec3 w = shellWeightsAt(d);
   return uShellScaleInner * w.x + uShellScaleMid * w.y + uShellScaleOuter * w.z;
+}
+/* ENKI CURRENT — per-shell water-like swirl around the core. Base drift
+   angle per shell (driven from animate) plus a slow height-sheared
+   undulation, so horizontal layers slide past each other like laminar
+   water bands circling the orb. The outer shell has no spin term: it
+   stays anchored, which makes the inner motion read as flow, not spin. */
+vec3 shellSpin(vec3 p, vec3 w){
+  float sway = sin(uTime * 0.22 + p.y * 0.35) * 0.10
+             + sin(uTime * 0.13 - p.y * 0.21 + 2.1) * 0.06;
+  float a = (uShellSpinInner + sway * 0.6) * w.x
+          + (uShellSpinMid   + sway)       * w.y;
+  float c = cos(a), s = sin(a);
+  return vec3(c * p.x + s * p.z, p.y, -s * p.x + c * p.z);
 }
 float getPulseIntensity(vec3 worldPos,vec3 pulsePos,float pulseTime){
   if(pulseTime<0.0)return 0.0;
@@ -2053,6 +2090,8 @@ void main(){
   vShellWeights = shellWeightsAt(localD);
   float shellScale = shellScaleAt(localD);
   finalPos *= shellScale;
+  /* same water current as the node shader — keeps lines welded to nodes */
+  finalPos = shellSpin(finalPos, vShellWeights);
   /* NUCLEUS DRIFT: same as node shader — shift inner-shell points by the
      head-tracked offset, weighted by inner-shell blend. Connections in the
      core glide with the nucleus while outer connections stay anchored. */
@@ -5394,10 +5433,15 @@ function animate(){
      region breathes. Other formations keep their breathing shells. */
   const _constructFam = (config.currentFormation % config.numFormations) >= 10;
   const _shellMouth = _constructFam ? 0.0 : mouthEased;
-  const targetInner = 1.0 + _shellMouth * 0.025 * scaleSensitivity;  /* default max ~1.025 */
+  /* ENKI TIDE — slow voice-independent ebb & flow: the inner/mid shells
+     swell and recede like water breathing around the orb. Multiplies the
+     mouth-driven targets so both motions coexist. */
+  const ebbInner = 1.0 + Math.sin(t * 0.45 + 1.7) * 0.022;
+  const ebbMid   = 1.0 + Math.sin(t * 0.28) * 0.045;
+  const targetInner = (1.0 + _shellMouth * 0.025 * scaleSensitivity) * ebbInner;  /* default max ~1.025 */
   /* ?compact — mid/outer shells sit at a reduced base scale so the web hugs
      the orb; the mouth-driven breathing still rides on top of the smaller base */
-  const targetMid   = (1.0 + _shellMouth * 0.10  * scaleSensitivity) * COMPACT_MID;
+  const targetMid   = (1.0 + _shellMouth * 0.10  * scaleSensitivity) * COMPACT_MID * ebbMid;
   const targetOuter = (1.0 + _shellMouth * 0.20  * scaleSensitivity) * COMPACT;
   /* per-shell bezier easing: inner = easeInOutCubic (heartbeat feel),
      middle and outer both = easeOutCubic (clean settle — outer no longer
@@ -5426,6 +5470,11 @@ function animate(){
     u.uShellScaleInner.value = shellInner;
     u.uShellScaleMid.value   = shellMid;
     u.uShellScaleOuter.value = shellOuter;
+    /* ENKI CURRENT drift — inner counter-rotates against mid, like layered
+       water circling the orb in opposite directions. Slow: full inner loop
+       ~63s, mid ~105s. The shader adds height-sheared sway on top. */
+    u.uShellSpinInner.value = -t * 0.10;
+    u.uShellSpinMid.value   =  t * 0.06;
     u.uNucleusOffset.value.set(nucleusOffsetX, nucleusOffsetY, 0);
     /* construct family renders larger on screen via a uniform mesh scale. The
        shell colour banding uses the unscaled distanceFromRoot attribute, so
@@ -5437,6 +5486,11 @@ function animate(){
     u.uShellScaleInner.value = shellInner;
     u.uShellScaleMid.value   = shellMid;
     u.uShellScaleOuter.value = shellOuter;
+    /* ENKI CURRENT drift — inner counter-rotates against mid, like layered
+       water circling the orb in opposite directions. Slow: full inner loop
+       ~63s, mid ~105s. The shader adds height-sheared sway on top. */
+    u.uShellSpinInner.value = -t * 0.10;
+    u.uShellSpinMid.value   =  t * 0.06;
     u.uNucleusOffset.value.set(nucleusOffsetX, nucleusOffsetY, 0);
     connectionsMesh.scale.setScalar(_constructFam ? CONSTRUCT_VIEW_SCALE : 1);
   }
