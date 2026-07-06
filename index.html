@@ -4248,6 +4248,9 @@
               <button class="btn small ghost" onclick="aurlPreset('clean')">Clean Sphere</button>
               <button class="btn small ghost" onclick="aurlPreset('ember')" style="color:#ff8a4d;border-color:rgba(216,81,24,0.45);">Ember</button>
               <button class="btn small ghost" onclick="aurlPreset('nebula-orb')" style="color:#a78bfa;border-color:rgba(167,139,250,0.45);">Nebula Orb</button>
+              <button class="btn small ghost" onclick="aurlPreset('gilded')" style="color:#f5d07a;border-color:rgba(232,184,75,0.5);">Gilded</button>
+              <button class="btn small ghost" onclick="aurlPreset('abyssal')" style="color:#8fd0ff;border-color:rgba(74,144,226,0.5);">Abyssal</button>
+              <button class="btn small ghost" onclick="aurlPreset('crimson')" style="color:#ff6a5a;border-color:rgba(192,32,46,0.5);">Crimson</button>
             </div>
           </div>
 
@@ -6018,6 +6021,31 @@
     'nebula-orb':    { page: 'vtuber-neural-orb.html', morph: 11, theme: 0, density: 100, intensity: '', bg: '',
                        inner: '#a78bfa', mid: '#f093fb', outer: '#6e48aa', sparkle: '#a78bfa', bloomtint: '#ffffff',
                        scale: 0, cage: 'outer',
+                       obs: true, aur: true, eye: false, stars: true },
+    /* ============ ORB LOOK TRIO — for comparing against the stream slides.
+       All three: goo-orb page, Tree of Life, density 80 (mid band eased),
+       water current + tide baked into the page itself. ============ */
+    /* GILDED — matches the AynEnki opening slide: warm golds on void, ivory
+       core, faint stars. */
+    'gilded':        { page: 'vtuber-neural-orb.html', morph: 6, theme: 3, density: 80, intensity: '', bg: '',
+                       inner: '#f5d07a', mid: '#e8b84b', outer: '#8a6a33', sparkle: '#f5d07a', bloomtint: '#e8c06a',
+                       nucleus: '#fff4d0', halo: '#c8952a', shockwave: true,
+                       veil1c: '#f0e07a', veil2c: '#e8b84b', veil3c: '#fff4d0',
+                       veil1: 'alchemy', veil2: 'runes', veil3: 'mixed',
+                       obs: true, aur: true, eye: false, stars: true },
+    /* ABYSSAL — the bluer take: deep-water blues, pale ice core. */
+    'abyssal':       { page: 'vtuber-neural-orb.html', morph: 6, theme: 2, density: 80, intensity: '', bg: '',
+                       inner: '#6fb7ff', mid: '#4a7dd8', outer: '#2c4a8a', sparkle: '#8fd0ff', bloomtint: '#4a90e2',
+                       nucleus: '#cfe8ff', halo: '#3a6ab8', shockwave: true,
+                       veil1c: '#a8d4ff', veil2c: '#6fb7ff', veil3c: '#e8f4ff',
+                       veil1: 'alchemy', veil2: 'runes', veil3: 'mixed',
+                       obs: true, aur: true, eye: false, stars: true },
+    /* CRIMSON — the red take: scarlet + rose, hotter core than Ember's orange. */
+    'crimson':       { page: 'vtuber-neural-orb.html', morph: 6, theme: 1, density: 80, intensity: '', bg: '',
+                       inner: '#e43a4e', mid: '#c0202e', outer: '#6a1a2a', sparkle: '#ff6a5a', bloomtint: '#c01020',
+                       nucleus: '#ffb0a0', halo: '#a01818', shockwave: true,
+                       veil1c: '#f0b0a0', veil2c: '#e43a4e', veil3c: '#ffd8c0',
+                       veil1: 'alchemy', veil2: 'runes', veil3: 'mixed',
                        obs: true, aur: true, eye: false, stars: true }
   };
   function aurlPreset(name){
