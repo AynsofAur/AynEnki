@@ -1248,10 +1248,10 @@ const COMPACT = (()=>{ const v = parseInt(params.get('compact'),10); return (!is
 const COMPACT_MID = (COMPACT + 1) / 2;
 aurGroup.scale.setScalar(COMPACT_MID);
 const ORB_HUE = (()=>{ const v = parseInt(params.get('orbhue'),10); return (!isNaN(v) && v>=-180 && v<=180) ? v : 45; })();
-const ORB_COL_A  = _parseHexParam('orba')     || nucleusColor;          /* rim + liquid A */
-const ORB_COL_B  = _parseHexParam('orbb')     || URL_INNER || haloColor;/* rim + liquid B */
-const ORB_GLOW_A = _parseHexParam('orbglowa') || haloColor;             /* outer glow A */
-const ORB_GLOW_B = _parseHexParam('orbglowb') || URL_SPARKLE || nucleusColor;
+let ORB_COL_A  = _parseHexParam('orba')     || nucleusColor;          /* rim + liquid A */
+let ORB_COL_B  = _parseHexParam('orbb')     || URL_INNER || haloColor;/* rim + liquid B */
+let ORB_GLOW_A = _parseHexParam('orbglowa') || haloColor;             /* outer glow A */
+let ORB_GLOW_B = _parseHexParam('orbglowb') || URL_SPARKLE || nucleusColor;
 
 /* fixed base look — voice/mouth/blink modulate on top of these each frame */
 const orbBase = {
@@ -1286,6 +1286,52 @@ function _orbShifted(hex, deg){
   const [h,s,l]=_orbRgbHsl(r,g,b); return _orbHslRgb(h+deg/360,s,l);
 }
 
+/* ============ VOICE GRADE — the palette rides the voice ============
+   ?voicegrade=1: quiet = Abyssal blue depths; speaking warms the whole scene
+   through Gilded gold; full volume flares Crimson. Blends shell colours,
+   bloom tint, orb colours, and sparkle continuously between three palette
+   stops. Rises quickly, cools slowly — like heat. */
+const VOICE_GRADE = params.get('voicegrade') === '1';
+const GRADE_STOPS = [
+  { inner:'#6fb7ff', mid:'#4a7dd8', outer:'#2c4a8a', sparkle:'#8fd0ff', bloom:'#4a90e2', nucleus:'#cfe8ff', halo:'#3a6ab8' }, /* abyssal */
+  { inner:'#f5d07a', mid:'#e8b84b', outer:'#8a6a33', sparkle:'#f5d07a', bloom:'#e8c06a', nucleus:'#fff4d0', halo:'#c8952a' }, /* gilded  */
+  { inner:'#e43a4e', mid:'#c0202e', outer:'#6a1a2a', sparkle:'#ff6a5a', bloom:'#c01020', nucleus:'#ffb0a0', halo:'#a01818' }  /* crimson */
+].map(s => Object.fromEntries(Object.entries(s).map(([k, v]) => [k, _orbHexRgb(v)])));
+let _gradeLevel = 0;
+function _gradeMix(key, t01){
+  const s = GRADE_STOPS; let a, b, f;
+  if (t01 < 0.5) { a = s[0][key]; b = s[1][key]; f = t01 * 2.0; }
+  else           { a = s[1][key]; b = s[2][key]; f = (t01 - 0.5) * 2.0; }
+  return [a[0]+(b[0]-a[0])*f, a[1]+(b[1]-a[1])*f, a[2]+(b[2]-a[2])*f];
+}
+const _gradeHex = c => '#' + c.map(x => Math.round(Math.max(0, Math.min(1, x)) * 255).toString(16).padStart(2, '0')).join('');
+function applyVoiceGrade(){
+  const v = AVATAR_STATE.voiceLevel;
+  /* fast attack, slow release — colour lingers after a shout, like cooling metal */
+  _gradeLevel += (v - _gradeLevel) * (v > _gradeLevel ? 0.09 : 0.02);
+  const g = Math.max(0, Math.min(1, _gradeLevel / 0.8));
+  const inner = _gradeMix('inner', g), mid = _gradeMix('mid', g), outer = _gradeMix('outer', g);
+  [nodesMesh, connectionsMesh].forEach(m => {
+    if (!m) return;
+    const u = m.material.uniforms;
+    u.uShellColorInner.value.setRGB(inner[0], inner[1], inner[2]);
+    u.uShellColorMid.value.setRGB(mid[0], mid[1], mid[2]);
+    u.uShellColorOuter.value.setRGB(outer[0], outer[1], outer[2]);
+  });
+  if (bloomPass && bloomPass.bloomTintColors && Array.isArray(bloomPass.bloomTintColors)) {
+    const bl = _gradeMix('bloom', g);
+    for (let i = 0; i < bloomPass.bloomTintColors.length; i++) {
+      const c = bloomPass.bloomTintColors[i];
+      if (c && typeof c.set === 'function') c.set(bl[0], bl[1], bl[2]);
+    }
+  }
+  /* the goo orb + pulse colour follow the same grade */
+  ORB_COL_A  = _gradeHex(_gradeMix('nucleus', g));
+  ORB_COL_B  = _gradeHex(_gradeMix('inner', g));
+  ORB_GLOW_A = _gradeHex(_gradeMix('halo', g));
+  ORB_GLOW_B = _gradeHex(_gradeMix('sparkle', g));
+  sparkleColor = ORB_GLOW_B;
+}
 function initGooOrb(){
   const orbCanvas = document.createElement('canvas');
   orbCanvas.width = 512; orbCanvas.height = 512;
@@ -5464,6 +5510,9 @@ function animate(){
   /* gentle damping — too fast feels twitchy, too slow feels disconnected */
   nucleusOffsetX += (nucTargetX - nucleusOffsetX) * 0.08;
   nucleusOffsetY += (nucTargetY - nucleusOffsetY) * 0.08;
+
+  /* voice-graded palette: abyssal → gilded → crimson as the voice rises */
+  if (VOICE_GRADE) applyVoiceGrade();
 
   if (nodesMesh) {
     const u = nodesMesh.material.uniforms;

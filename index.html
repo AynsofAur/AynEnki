@@ -4251,6 +4251,7 @@
               <button class="btn small ghost" onclick="aurlPreset('gilded')" style="color:#f5d07a;border-color:rgba(232,184,75,0.5);">Gilded</button>
               <button class="btn small ghost" onclick="aurlPreset('abyssal')" style="color:#8fd0ff;border-color:rgba(74,144,226,0.5);">Abyssal</button>
               <button class="btn small ghost" onclick="aurlPreset('crimson')" style="color:#ff6a5a;border-color:rgba(192,32,46,0.5);">Crimson</button>
+              <button class="btn small ghost" onclick="aurlPreset('tidal')" style="background:linear-gradient(90deg,rgba(74,144,226,0.18),rgba(232,184,75,0.18),rgba(192,16,32,0.18));color:#cfe8ff;border-color:rgba(143,208,255,0.5);">Tidal</button>
             </div>
           </div>
 
@@ -4406,6 +4407,9 @@
                   </label>
                   <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem;">
                     <input type="checkbox" id="aurlShockwave" onchange="aurlBuild()"> Shockwave bloom (voice spikes)
+                  </label>
+                  <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem;">
+                    <input type="checkbox" id="aurlVoiceGrade" onchange="aurlBuild()"> Voice grade (orb page: blue &rarr; gold &rarr; red with volume)
                   </label>
                   <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem;">
                     <input type="checkbox" id="aurlAdaptive" checked onchange="aurlBuild()"> Adaptive resolution (auto FPS guard)
@@ -6046,6 +6050,16 @@
                        nucleus: '#ffb0a0', halo: '#a01818', shockwave: true,
                        veil1c: '#f0b0a0', veil2c: '#e43a4e', veil3c: '#ffd8c0',
                        veil1: 'alchemy', veil2: 'runes', veil3: 'mixed',
+                       obs: true, aur: true, eye: false, stars: true },
+    /* TIDAL — all three at once: rests Abyssal blue, warms through Gilded as
+       the voice rises, flares Crimson at peak (voicegrade=1 drives the blend
+       live on the orb page). Base colours = the quiet abyssal state; gold
+       veils sit well across all three phases. */
+    'tidal':         { page: 'vtuber-neural-orb.html', morph: 6, theme: 2, density: 80, intensity: '', bg: '',
+                       inner: '#6fb7ff', mid: '#4a7dd8', outer: '#2c4a8a', sparkle: '#8fd0ff', bloomtint: '#4a90e2',
+                       nucleus: '#cfe8ff', halo: '#3a6ab8', shockwave: true, voicegrade: true,
+                       veil1c: '#f0e07a', veil2c: '#e8b84b', veil3c: '#fff4d0',
+                       veil1: 'alchemy', veil2: 'runes', veil3: 'mixed',
                        obs: true, aur: true, eye: false, stars: true }
   };
   function aurlPreset(name){
@@ -6078,6 +6092,7 @@
     if (document.getElementById('aurlHalo'))      document.getElementById('aurlHalo').value    = p.halo    || '#c8952a';
     if (document.getElementById('aurlShockwave')) document.getElementById('aurlShockwave').checked = !!p.shockwave;
     if (document.getElementById('aurlSpectral'))  document.getElementById('aurlSpectral').checked  = !!p.spectral;
+    if (document.getElementById('aurlVoiceGrade')) document.getElementById('aurlVoiceGrade').checked = !!p.voicegrade;
     /* veils — preset-defined sets when present, otherwise cleared so switching
        scenes wipes any stale ARG text */
     if (document.getElementById('aurlVeil1'))     document.getElementById('aurlVeil1').value = p.veil1 || '';
@@ -6115,6 +6130,8 @@
     const shockwaveEl = document.getElementById('aurlShockwave');
     if (spectralEl && spectralEl.checked)   p.set('spectral', '1');
     if (shockwaveEl && shockwaveEl.checked) p.set('shockwave', '1');
+    const voiceGradeEl = document.getElementById('aurlVoiceGrade');
+    if (voiceGradeEl && voiceGradeEl.checked) p.set('voicegrade', '1');
     /* adaptive resolution is ON by default in the avatar — only emit the opt-out */
     const adaptiveEl = document.getElementById('aurlAdaptive');
     if (adaptiveEl && !adaptiveEl.checked) p.set('adaptive', '0');
@@ -6241,6 +6258,9 @@
       framey:      get('aurlFrameY'),
       framezoom:   get('aurlFrameZoom'),
       adaptive:    chk('aurlAdaptive'),
+      spectral:    chk('aurlSpectral'),
+      shockwave:   chk('aurlShockwave'),
+      voicegrade:  chk('aurlVoiceGrade'),
       obs:         chk('aurlObs'),
       aur:         chk('aurlAur'),
       eye:         chk('aurlEye'),
@@ -6278,6 +6298,7 @@
     setV('aurlFrameZoom', b.framezoom);
     if (b.framezoom) { const e = document.getElementById('aurlFrameZoomVal'); if (e) e.textContent = (b.framezoom/100).toFixed(2); }
     setC('aurlAdaptive', b.adaptive);
+    setC('aurlSpectral', b.spectral); setC('aurlShockwave', b.shockwave); setC('aurlVoiceGrade', b.voicegrade);
     setC('aurlObs', b.obs); setC('aurlAur', b.aur); setC('aurlEye', b.eye); setC('aurlStars', b.stars);
   }
   /* Build the appearance-only query fragment used by embedded neural scenes.
