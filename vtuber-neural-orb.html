@@ -1298,7 +1298,7 @@ function _orbShifted(hex, deg){
    stops. Rises quickly, cools slowly — like heat. */
 const VOICE_GRADE = params.get('voicegrade') === '1';
 const GRADE_STOPS = [
-  { inner:'#6fb7ff', mid:'#4a7dd8', outer:'#2c4a8a', sparkle:'#8fd0ff', bloom:'#4a90e2', nucleus:'#cfe8ff', halo:'#3a6ab8' }, /* abyssal */
+  { inner:'#5aa4f0', mid:'#4a7dd8', outer:'#2c4a8a', sparkle:'#7fc0ff', bloom:'#3a7ad0', nucleus:'#6fb0ff', halo:'#2f5fb0' }, /* abyssal — saturated so the rest state reads BLUE, not ice-white */
   { inner:'#f5d07a', mid:'#e8b84b', outer:'#8a6a33', sparkle:'#f5d07a', bloom:'#e8c06a', nucleus:'#fff4d0', halo:'#c8952a' }, /* gilded  */
   { inner:'#e43a4e', mid:'#c0202e', outer:'#6a1a2a', sparkle:'#ff6a5a', bloom:'#c01020', nucleus:'#ffb0a0', halo:'#a01818' }  /* crimson */
 ].map(s => Object.fromEntries(Object.entries(s).map(([k, v]) => [k, _orbHexRgb(v)])));
@@ -5132,6 +5132,10 @@ const Z_AXIS = new THREE.Vector3(0, 0, 1); /* hoisted — was allocated per veil
 const ADAPTIVE_RES = params.get('adaptive') !== '0';
 const BASE_PIXEL_RATIO = Math.min(window.devicePixelRatio, 2);
 let resScale = 1;
+/* frames to skip bloom+afterimage after a resolution step — their freshly
+   reallocated render targets can composite one uninitialized (white) frame,
+   which read as the whole screen blinking white whenever adaptive-res kicked in */
+let _postWarm = 0;
 /* current per-shell scale values — eased toward targets each frame with
    their own curve so each layer pulses with its own personality. */
 let shellInner = 1.0, shellMid = 1.0, shellOuter = 1.0;
@@ -5666,7 +5670,17 @@ function animate(){
     }
   }
 
-  /* render via the post-process composer (handles bloom + afterimage chain) */
+  /* render via the post-process composer (handles bloom + afterimage chain).
+     After an adaptive-resolution step, skip the effect passes for a few frames
+     while their recreated targets fill with real content. */
+  if (_postWarm > 0) {
+    _postWarm--;
+    bloomPass.enabled = false;
+    afterimagePass.enabled = false;
+  } else {
+    bloomPass.enabled = true;
+    afterimagePass.enabled = !INTENSITY_LOW;
+  }
   if (composer) composer.render(); else renderer.render(scene, camera);
 
   /* FPS counter — updated once per second; drives adaptive resolution */
@@ -5685,6 +5699,7 @@ function animate(){
         renderer.setPixelRatio(BASE_PIXEL_RATIO * resScale);
         composer.setPixelRatio(BASE_PIXEL_RATIO * resScale);
         composer.setSize(window.innerWidth, window.innerHeight);
+        _postWarm = 3; /* let the fresh bloom/afterimage targets warm before compositing */
       }
     }
   }
