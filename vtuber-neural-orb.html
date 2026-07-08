@@ -1226,7 +1226,8 @@ _appliedVeilKey = veilColorOuter + veilColorMid + veilColorInner; /* baked at cr
      mouthOpen -> inner liquid + filaments flare (the orb "talks")
      blink     -> inner light dips (the orb blinks with you)
    URL params: ?orb=0 restores the classic nucleus. ?orbscale=N (percent,
-   100-2400, default 1425). ?orbhue=N max hue-shift degrees (default 45). Colours derive
+   100-2400, default 1425). ?orbbloom=N glow-halo strength (percent, 20-200,
+   default 70). ?orbhue=N max hue-shift degrees (default 45). Colours derive
    from ?nucleus/?inner/?halo/?sparkle, or override with ?orba ?orbb
    ?orbglowa ?orbglowb. */
 const ORB_ENABLED = params.get('orb') !== '0';
@@ -1248,6 +1249,10 @@ const COMPACT = (()=>{ const v = parseInt(params.get('compact'),10); return (!is
 const COMPACT_MID = (COMPACT + 1) / 2;
 aurGroup.scale.setScalar(COMPACT_MID);
 const ORB_HUE = (()=>{ const v = parseInt(params.get('orbhue'),10); return (!isNaN(v) && v>=-180 && v<=180) ? v : 45; })();
+/* ?orbbloom=N (20–200, default 70) — scales the orb's own glow halo, which is
+   also what feeds the scene bloom pass. 100 = the original hot halo; the
+   default sits at 70 so the liquid detail reads instead of washing out. */
+const ORB_BLOOM = (()=>{ const v = parseInt(params.get('orbbloom'),10); return (!isNaN(v) && v>=20 && v<=200) ? v/100 : 0.7; })();
 let ORB_COL_A  = _parseHexParam('orba')     || nucleusColor;          /* rim + liquid A */
 let ORB_COL_B  = _parseHexParam('orbb')     || URL_INNER || haloColor;/* rim + liquid B */
 let ORB_GLOW_A = _parseHexParam('orbglowa') || haloColor;             /* outer glow A */
@@ -1484,7 +1489,7 @@ function updateGooOrb(t, voice, mouth){
   gl.uniform1f(U.u_morphPhase, orbPhase.morph);
   gl.uniform1f(U.u_rotPhase, orbPhase.rot);
   gl.uniform1f(U.u_liquidPhase, orbPhase.liquid);
-  gl.uniform1f(U.u_glowStrength, Math.min(orbBase.glowStrength + voice*0.5, 1.4));
+  gl.uniform1f(U.u_glowStrength, Math.min(orbBase.glowStrength + voice*0.5, 1.4) * ORB_BLOOM);
   gl.uniform1f(U.u_liquidBright, liquidBright);
   gl.uniform1f(U.u_filament, orbBase.filament * (1 + mouth*0.8));
   gl.uniform3fv(U.u_colBlue, _orbShifted(ORB_COL_A, hueDeg));
