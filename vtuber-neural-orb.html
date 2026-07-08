@@ -1430,9 +1430,12 @@ void main(){
     E += (gc*g*1.4 + vec3(0.6,0.8,1.0)*pow(g,3.0)*0.7)*u_glowStrength;
   }
   /* fade to black before the texture edge so the additive sprite never
-     shows a square boundary — the glow dies out inside the quad */
-  float vign = smoothstep(1.0, 0.72, max(abs(p.x), abs(p.y)));
-  E *= vign;
+     shows a square boundary. RADIAL distance, not max(|x|,|y|) — the old
+     Chebyshev fade had square iso-contours, so the residual glow read as a
+     soft fog BOX around the orb. Squared for a steeper falloff that kills
+     the faint floor glow well before the quad edge. */
+  float vign = smoothstep(1.0, 0.55, length(p));
+  E *= vign * vign;
   /* pure emission on black — the additive sprite treats black as invisible */
   fragColor = vec4(clamp(E,0.0,1.0),1.0);
 }`;
