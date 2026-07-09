@@ -4,6 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Neural Avatar — Goo Orb Core</title>
+<script>
+/* PRE-PAINT OBS GATE — body.obs-clean is normally added by the module script,
+   which waits on the three.js CDN import; on a slow fetch the setup panel
+   could flash on screen for a second or two (visible to site visitors via
+   embedded scene iframes). This runs synchronously before first paint,
+   straight off the URL, so clean modes never render the admin UI at all. */
+if (/[?&](obs|stinger)=1(&|$)/.test(location.search)) {
+  document.documentElement.classList.add('obs-pre');
+}
+</script>
+<style>
+  html.obs-pre .glass-panel,
+  html.obs-pre #control-buttons,
+  html.obs-pre #fps-indicator { display: none !important; }
+</style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap" rel="stylesheet">
