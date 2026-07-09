@@ -5451,9 +5451,18 @@
      on #game-scene. starting-soon / brb / ending / just-chatting keep their
      original SVG eye design — the iframe's opaque-rectangle behaviour was
      cutting through their title / social-link / countdown chrome. */
+  /* TIDAL — the house look for every avatar-carrying scene: goo-orb page,
+     voice-graded palette (abyssal blue at rest → gilded gold speaking →
+     crimson at peak), water current, gold alchemy veils. Change it here and
+     the showcase + both gaming overlays follow. */
+  const TIDAL_LOOK = 'shockwave=1&voicegrade=1&morph=6'
+    + '&inner=5aa4f0&mid=4a7dd8&outer=2c4a8a&sparkle=7fc0ff&bloomtint=3a7ad0'
+    + '&nucleus=6fb0ff&halo=2f5fb0'
+    + '&veil1c=f0e07a&veil2c=e8b84b&veil3c=fff4d0'
+    + '&veil1=alchemy&veil2=runes&veil3=mixed';
   const NEURAL_SCENE_MAP = {
-    'avatar':     { mode: 'showcase', params: '?obs=1&morph=6&theme=3&density=100&intensity=high' },
-    'game-scene': { mode: 'corner',   params: '?obs=1&morph=6&theme=3&density=60&intensity=low' },
+    'avatar':     { mode: 'showcase', page: 'vtuber-neural-orb.html', params: '?obs=1&density=80&' + TIDAL_LOOK },
+    'game-scene': { mode: 'corner',   page: 'vtuber-neural-orb.html', params: '?obs=1&density=60&intensity=low&stars=0&' + TIDAL_LOOK },
     /* HOME HERO — the construct lives behind the wordmark. test=1 self-animates
        (no cam/mic prompt for visitors), obs=1 hides the avatar's own UI. Low
        density + intensity keep the landing page light; v2 adaptive resolution
@@ -5544,7 +5553,7 @@
       /* clear all mode classes then apply the one we want */
       frame.classList.remove('slot', 'showcase', 'watermark', 'corner', 'hero');
       frame.classList.add(scene.mode);
-      const targetSrc = 'neural-avatar.html' + scene.params;
+      const targetSrc = (scene.page || 'neural-avatar.html') + scene.params;
       /* only reload if params actually changed — avoids re-prompting webcam */
       if (!frame.src || !frame.src.endsWith(scene.params)) {
         frame.src = targetSrc;
@@ -8320,12 +8329,15 @@
     if (wrap) {
       wrap.innerHTML = '';
       const iframe = document.createElement('iframe');
-      /* game-scene avatar = user builder appearance + corner-tuned overrides */
-      const gameParams = new URLSearchParams(typeof avatarAppearanceParams === 'function' ? avatarAppearanceParams() : '');
-      ['obs=1','density=55','intensity=low','bloomtint=a0c8ff'].forEach(kv => {
+      /* game-scene avatar = the house TIDAL look on the goo-orb page, with
+         corner-tuned overrides. (Previously merged the admin URL-builder
+         appearance; now pinned to TIDAL_LOOK so the gaming overlays always
+         ship the default — edit TIDAL_LOOK to retune everywhere at once.) */
+      const gameParams = new URLSearchParams(TIDAL_LOOK);
+      ['obs=1','density=55','intensity=low','stars=0'].forEach(kv => {
         const [k,v] = kv.split('='); gameParams.set(k, v);
       });
-      iframe.src = 'neural-avatar.html?' + gameParams.toString();
+      iframe.src = 'vtuber-neural-orb.html?' + gameParams.toString();
       iframe.allow = 'camera; microphone; autoplay';
       iframe.setAttribute('allowtransparency', 'true');
       wrap.appendChild(iframe);
