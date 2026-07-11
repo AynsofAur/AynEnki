@@ -964,6 +964,11 @@
     user-select: none;
   }
   body.neural-on #avatarControlPanel { display: block; }
+  /* NEVER in OBS — overlay-active means the route arrived via URL hash, i.e.
+     a Browser Source. The panel is admin chrome (and its postMessage bridge
+     can't be driven from inside OBS anyway); it must not render on stream.
+     Browsing the site normally (nav / admin launch) keeps the panel. */
+  body.overlay-active #avatarControlPanel { display: none !important; }
   #avatarControlPanel.collapsed .acp-body { display: none; }
   #avatarControlPanel .acp-header {
     display: flex; align-items: center; justify-content: space-between;
