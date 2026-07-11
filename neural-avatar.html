@@ -4922,6 +4922,16 @@ function animate(){
   AVATAR_STATE.headYaw = lerp(AVATAR_STATE.headYaw, AVATAR_STATE.targetHeadYaw, 0.1);
   AVATAR_STATE.headPitch = lerp(AVATAR_STATE.headPitch, AVATAR_STATE.targetHeadPitch, 0.1);
   AVATAR_STATE.faceActive = lerp(AVATAR_STATE.faceActive, AVATAR_STATE.targetFaceActive, 0.12);
+  /* NaN GUARD — one non-finite target (e.g. a MediaPipe or audio glitch mid-
+     stream) would poison these lerps forever: NaN never decays, leaving the
+     avatar stuck at full glow / frozen colour until reload. Reset anything
+     non-finite so a bad frame self-heals instead of sticking. */
+  for (const k of ['voiceLevel','voicePitch','mouthOpen','blink','headYaw','headPitch','faceActive']) {
+    if (!isFinite(AVATAR_STATE[k])) {
+      AVATAR_STATE[k] = 0;
+      AVATAR_STATE['target' + k.charAt(0).toUpperCase() + k.slice(1)] = 0;
+    }
+  }
 
   /* update meters in setup panel */
   if (voiceMeterEl) voiceMeterEl.style.width = (AVATAR_STATE.voiceLevel*100).toFixed(1) + '%';

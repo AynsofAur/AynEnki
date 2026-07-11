@@ -5277,18 +5277,43 @@
   };
 
   let state = loadState();
+  /* LEGACY BRAND MIGRATION — saved state written before the AynEnki rebrand
+     still carries "Malikeye" strings (brand, overlay handles, scene text).
+     That saved state lives in EVERY browser profile that ever opened the
+     site — including OBS's isolated CEF storage, where it kept showing
+     "TWITCH /MALIKEYE" on overlays long after the rebrand shipped. Walk all
+     saved string values once and rewrite the old brand, case-aware. */
+  function _migrateBrand(node) {
+    if (typeof node === 'string') {
+      return node
+        .replace(/MALIKEYE/g, 'AYNENKI')
+        .replace(/Malikeye/g, 'AynEnki')
+        .replace(/malikeye/g, 'aynenki');
+    }
+    if (Array.isArray(node)) return node.map(_migrateBrand);
+    if (node && typeof node === 'object') {
+      const out = {};
+      for (const k of Object.keys(node)) out[k] = _migrateBrand(node[k]);
+      return out;
+    }
+    return node;
+  }
   function loadState() {
     try {
       const raw = localStorage.getItem('malikeye_hub');
       if (raw) {
-        const parsed = JSON.parse(raw);
-        return {
+        const migrated = raw.match(/malikeye/i) && JSON.stringify(JSON.parse(raw)).match(/malikeye/i);
+        const parsed = _migrateBrand(JSON.parse(raw));
+        const merged = {
           ...DEFAULTS, ...parsed,
           socials: { ...DEFAULTS.socials, ...(parsed.socials || {}) },
           portfolio: parsed.portfolio || DEFAULTS.portfolio,
           shop: parsed.shop || DEFAULTS.shop,
           schedule: parsed.schedule || DEFAULTS.schedule
         };
+        /* persist the scrub so it only happens once per profile */
+        if (migrated) { try { localStorage.setItem('malikeye_hub', JSON.stringify(merged)); } catch(e) {} }
+        return merged;
       }
     } catch(e) { console.warn('State load failed', e); }
     return JSON.parse(JSON.stringify(DEFAULTS));
