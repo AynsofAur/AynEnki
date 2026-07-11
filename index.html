@@ -927,9 +927,14 @@
     display: none;
   }
   #neuralAvatarFrame.visible { opacity: 1; }
-  /* SHOWCASE — view-avatar centerpiece, large */
+  /* SHOWCASE — view-avatar centerpiece, large.
+     z 120: fullscreen overlay views are OPAQUE at z 100, and the shared
+     iframe is their sibling — anything lower is painted over entirely.
+     (The corner avatar had sat at z 89 under the game-scene view: rendered
+     perfectly, completely invisible.) */
   #neuralAvatarFrame.showcase {
     width: min(85vw, 85vh); height: min(85vw, 85vh);
+    z-index: 120;
   }
   /* WATERMARK — just-chatting style, behind the title text */
   #neuralAvatarFrame.watermark {
@@ -941,7 +946,7 @@
     top: auto; left: auto; transform: none;
     bottom: 108px; right: 24px;
     width: 440px; height: 440px;
-    z-index: 89;
+    z-index: 120; /* above the opaque fullscreen view (z 100) — see showcase note */
   }
   /* ============ AVATAR CONTROL PANEL ============
      Floating panel that appears when the neural avatar is active. Sends
