@@ -5574,6 +5574,10 @@ function animate(){
        shell colour banding uses the unscaled distanceFromRoot attribute, so
        colours are unaffected — this just zooms the geometry. */
     nodesMesh.scale.setScalar(_constructFam ? CONSTRUCT_VIEW_SCALE : 1);
+    /* point sprites are sized in raw PIXELS — scale with viewport height so
+       small embeds (e.g. the 440px game-scene corner) get proportional nodes
+       instead of fullscreen-fat sprites smearing into white clutter */
+    u.uBaseNodeSize.value = 0.6 * Math.min(1, window.innerHeight / 1080);
   }
   if (connectionsMesh) {
     const u = connectionsMesh.material.uniforms;

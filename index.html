@@ -5529,7 +5529,7 @@
     + '&veil1=alchemy&veil2=runes&veil3=mixed';
   const NEURAL_SCENE_MAP = {
     'avatar':     { mode: 'showcase', page: 'vtuber-neural-orb.html', params: '?obs=1&density=80&' + TIDAL_LOOK },
-    'game-scene': { mode: 'corner',   page: 'vtuber-neural-orb.html', params: '?obs=1&density=60&intensity=low&stars=0&adaptive=0&' + TIDAL_LOOK },
+    'game-scene': { mode: 'corner',   page: 'vtuber-neural-orb.html', params: '?obs=1&density=50&intensity=low&stars=0&adaptive=0&' + TIDAL_LOOK },
     /* HOME HERO — the construct lives behind the wordmark. test=1 self-animates
        (no cam/mic prompt for visitors), obs=1 hides the avatar's own UI. Low
        density + intensity keep the landing page light; v2 adaptive resolution
@@ -8401,7 +8401,7 @@
          appearance; now pinned to TIDAL_LOOK so the gaming overlays always
          ship the default — edit TIDAL_LOOK to retune everywhere at once.) */
       const gameParams = new URLSearchParams(TIDAL_LOOK);
-      ['obs=1','density=55','intensity=low','stars=0','adaptive=0'].forEach(kv => {
+      ['obs=1','density=50','intensity=low','stars=0','adaptive=0'].forEach(kv => {
         const [k,v] = kv.split('='); gameParams.set(k, v);
       });
       iframe.src = 'vtuber-neural-orb.html?' + gameParams.toString();
