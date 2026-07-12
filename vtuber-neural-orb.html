@@ -5564,11 +5564,13 @@ function animate(){
     u.uShellScaleInner.value = shellInner;
     u.uShellScaleMid.value   = shellMid;
     u.uShellScaleOuter.value = shellOuter;
-    /* ENKI CURRENT drift — inner counter-rotates against mid, like layered
-       water circling the orb in opposite directions. Slow: full inner loop
-       ~63s, mid ~105s. The shader adds height-sheared sway on top. */
-    u.uShellSpinInner.value = -t * 0.10;
-    u.uShellSpinMid.value   =  t * 0.06;
+    /* ENKI CURRENT — bounded SLOSH, not accumulating rotation. The old
+       ever-growing drift angle wound every cross-shell connection around
+       the core like yarn (angle gap between shells grew ~0.16 rad/s
+       forever), building the "white streak ball" over a session. Sines cap
+       the relative twist at ~±0.6 rad: the water swings and returns. */
+    u.uShellSpinInner.value = Math.sin(t * 0.050) * 0.35;
+    u.uShellSpinMid.value   = Math.sin(t * 0.037 + 2.1) * -0.25;
     u.uNucleusOffset.value.set(nucleusOffsetX, nucleusOffsetY, 0);
     /* construct family renders larger on screen via a uniform mesh scale. The
        shell colour banding uses the unscaled distanceFromRoot attribute, so
@@ -5584,11 +5586,13 @@ function animate(){
     u.uShellScaleInner.value = shellInner;
     u.uShellScaleMid.value   = shellMid;
     u.uShellScaleOuter.value = shellOuter;
-    /* ENKI CURRENT drift — inner counter-rotates against mid, like layered
-       water circling the orb in opposite directions. Slow: full inner loop
-       ~63s, mid ~105s. The shader adds height-sheared sway on top. */
-    u.uShellSpinInner.value = -t * 0.10;
-    u.uShellSpinMid.value   =  t * 0.06;
+    /* ENKI CURRENT — bounded SLOSH, not accumulating rotation. The old
+       ever-growing drift angle wound every cross-shell connection around
+       the core like yarn (angle gap between shells grew ~0.16 rad/s
+       forever), building the "white streak ball" over a session. Sines cap
+       the relative twist at ~±0.6 rad: the water swings and returns. */
+    u.uShellSpinInner.value = Math.sin(t * 0.050) * 0.35;
+    u.uShellSpinMid.value   = Math.sin(t * 0.037 + 2.1) * -0.25;
     u.uNucleusOffset.value.set(nucleusOffsetX, nucleusOffsetY, 0);
     connectionsMesh.scale.setScalar(_constructFam ? CONSTRUCT_VIEW_SCALE : 1);
   }
