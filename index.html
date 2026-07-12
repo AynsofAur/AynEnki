@@ -1317,6 +1317,17 @@
   }
   .gs-info-bar .logo-mark { display: flex; align-items: center; gap: 0.7rem; flex: 0 0 auto; }
   .gs-info-bar .logo-mark svg { width: 42px; height: 42px; filter: drop-shadow(0 0 6px var(--red-glow)); }
+  /* brand diamond — replaced the Malikeye eye glyph across the overlays */
+  .brand-glyph {
+    color: var(--gold); line-height: 1; flex: 0 0 auto;
+    text-shadow: 0 0 8px var(--red-glow), 0 0 18px rgba(201, 160, 80, 0.35);
+  }
+  /* brand glyph — the ❖ diamond replaces the old Malikeye eye mark on the
+     gaming overlays; matches the nav brand and the AynEnki slides */
+  .brand-glyph {
+    color: var(--gold); line-height: 1; flex: 0 0 auto;
+    text-shadow: 0 0 8px var(--red-glow), 0 0 18px rgba(201, 160, 80, 0.35);
+  }
   .gs-info-bar .logo-mark .name {
     font-family: 'Black Ops One', sans-serif; font-weight: 900;
     color: var(--gold-bright); letter-spacing: 0.32em; font-size: 13px;
@@ -2601,7 +2612,7 @@
     </div>
     <div class="gs-goals-zone" id="gsGoalsZone">
       <div class="gs-head">
-        <svg width="28" height="28" viewBox="-150 -150 300 300"><use href="#eyeTiny" x="-150" y="-150" width="300" height="300"/></svg>
+        <span class="brand-glyph" style="font-size:22px;">&#10070;</span>
         <div class="title" id="gsPanelTitle">NOW PLAYING</div>
       </div>
       <div class="gs-ornate"><hr><span>&#10070;</span><hr></div>
@@ -2616,7 +2627,7 @@
     </div>
     <div class="gs-info-bar with-avatar">
       <div class="logo-mark">
-        <svg width="42" height="42" viewBox="-150 -150 300 300"><use href="#eyeTiny" x="-150" y="-150" width="300" height="300"/></svg>
+        <span class="brand-glyph" style="font-size:32px;">&#10070;</span>
         <div class="name" id="gsBrand">AYNENKI</div>
       </div>
       <div class="divider" id="gsDiv1" style="display:none;"></div>
@@ -2637,7 +2648,7 @@
   <section class="view" id="view-game-goals">
     <div class="gs-goals-zone" style="top:5vh;bottom:5vh;width:300px;">
       <div class="gs-head">
-        <svg width="30" height="30" viewBox="-150 -150 300 300"><use href="#eyeTiny" x="-150" y="-150" width="300" height="300"/></svg>
+        <span class="brand-glyph" style="font-size:24px;">&#10070;</span>
         <div class="title" id="ggPanelTitle">NOW PLAYING</div>
       </div>
       <div class="gs-ornate"><hr><span>&#10070;</span><hr></div>
@@ -2657,7 +2668,7 @@
   <section class="view" id="view-game-info-bar">
     <div class="gs-info-bar">
       <div class="logo-mark">
-        <svg width="42" height="42" viewBox="-150 -150 300 300"><use href="#eyeTiny" x="-150" y="-150" width="300" height="300"/></svg>
+        <span class="brand-glyph" style="font-size:32px;">&#10070;</span>
         <div class="name" id="gibBrand">AYNENKI</div>
       </div>
       <div class="divider" id="gibDiv1" style="display:none;"></div>
@@ -2687,7 +2698,7 @@
     <div class="corner-orn bl"><svg viewBox="0 0 100 100"><path d="M5 40 V5 H40 M5 5 L25 25 M15 5 H35 M5 15 V35"/><circle cx="5" cy="5" r="2.5" fill="#C9A050"/></svg></div>
     <div class="corner-orn br"><svg viewBox="0 0 100 100"><path d="M5 40 V5 H40 M5 5 L25 25 M15 5 H35 M5 15 V35"/><circle cx="5" cy="5" r="2.5" fill="#C9A050"/></svg></div>
     <div class="jc-header">
-      <svg viewBox="-150 -150 300 300"><use href="#eyeTiny" x="-150" y="-150" width="300" height="300"/></svg>
+      <span class="brand-glyph" style="font-size:32px;">&#10070;</span>
       <div class="jc-header-text">
         <div class="b" id="jcBrand">AYNENKI</div>
         <div class="s">Talking with the Order</div>
@@ -5515,10 +5526,10 @@
     + '&inner=5aa4f0&mid=4a7dd8&outer=2c4a8a&sparkle=7fc0ff&bloomtint=3a7ad0'
     + '&nucleus=6fb0ff&halo=2f5fb0'
     + '&veil1c=f0e07a&veil2c=e8b84b&veil3c=fff4d0'
-    + '&veil1=alchemy&veil2=runes&veil3=mixed';
+    + '&veil1=alchemy&veil2=runes&veil3=mixed&veillegible=1';
   const NEURAL_SCENE_MAP = {
     'avatar':     { mode: 'showcase', page: 'vtuber-neural-orb.html', params: '?obs=1&density=80&' + TIDAL_LOOK },
-    'game-scene': { mode: 'corner',   page: 'vtuber-neural-orb.html', params: '?obs=1&density=60&intensity=low&stars=0&' + TIDAL_LOOK },
+    'game-scene': { mode: 'corner',   page: 'vtuber-neural-orb.html', params: '?obs=1&density=60&intensity=low&stars=0&adaptive=0&' + TIDAL_LOOK },
     /* HOME HERO — the construct lives behind the wordmark. test=1 self-animates
        (no cam/mic prompt for visitors), obs=1 hides the avatar's own UI. Low
        density + intensity keep the landing page light; v2 adaptive resolution
@@ -8390,7 +8401,7 @@
          appearance; now pinned to TIDAL_LOOK so the gaming overlays always
          ship the default — edit TIDAL_LOOK to retune everywhere at once.) */
       const gameParams = new URLSearchParams(TIDAL_LOOK);
-      ['obs=1','density=55','intensity=low','stars=0'].forEach(kv => {
+      ['obs=1','density=55','intensity=low','stars=0','adaptive=0'].forEach(kv => {
         const [k,v] = kv.split('='); gameParams.set(k, v);
       });
       iframe.src = 'vtuber-neural-orb.html?' + gameParams.toString();

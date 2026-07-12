@@ -1045,18 +1045,18 @@ const GLITCH_ALPHABET = (() => {
    Same draw as a glitch frame but with no character substitution, no slice
    displacement, no noise — just the base glyph rendered cleanly. */
 function makeCleanGlyphTexture(baseChar, cssColor){
-  const size = 192;
+  const size = 384;
   const c = document.createElement('canvas');
   c.width = size; c.height = size;
   const ctx = c.getContext('2d');
   ctx.clearRect(0, 0, size, size);
-  ctx.font = '700 140px "Times New Roman", "Noto Serif Hebrew", serif';
+  ctx.font = '700 280px "Times New Roman", "Noto Serif Hebrew", serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.shadowColor = cssColor;
-  ctx.shadowBlur = 32;
+  ctx.shadowBlur = 64;
   ctx.fillStyle = cssColor;
-  ctx.fillText(baseChar, size / 2, size / 2 + 6);
+  ctx.fillText(baseChar, size / 2, size / 2 + 12);
   const tex = new THREE.CanvasTexture(c);
   tex.minFilter = THREE.LinearFilter;
   tex.magFilter = THREE.LinearFilter;
@@ -1069,7 +1069,7 @@ function makeGlitchPool(baseSet, cssColor, poolSize){
      glitch flickers still feel thematic to the chosen alphabet), 75% chance
      to pull a random char from the GLITCH_ALPHABET background mix. */
   const set = Array.isArray(baseSet) ? baseSet : [baseSet];
-  const size = 192;
+  const size = 384;
   const pool = [];
   for (let f = 0; f < poolSize; f++){
     const c = document.createElement('canvas');
@@ -1081,7 +1081,7 @@ function makeGlitchPool(baseSet, cssColor, poolSize){
       ? set[Math.floor(Math.random() * set.length)]
       : GLITCH_ALPHABET[Math.floor(Math.random() * GLITCH_ALPHABET.length)];
     /* random font weight + slight size variation per frame */
-    const fontPx = 110 + Math.floor(Math.random() * 30);
+    const fontPx = 220 + Math.floor(Math.random() * 60);
     const weight = Math.random() < 0.5 ? 400 : 700;
     ctx.font = `${weight} ${fontPx}px "Times New Roman", "Noto Serif Hebrew", serif`;
     ctx.textAlign = 'center';
@@ -1093,14 +1093,14 @@ function makeGlitchPool(baseSet, cssColor, poolSize){
     ctx.shadowBlur = 14 + Math.random() * 22;
     /* red ghost */
     ctx.fillStyle = 'rgba(255, 80, 100, 0.55)';
-    ctx.fillText(text, size / 2 + splitX, size / 2 + 6 + splitY);
+    ctx.fillText(text, size / 2 + splitX, size / 2 + 12 + splitY);
     /* blue ghost */
     ctx.fillStyle = 'rgba(80, 160, 255, 0.55)';
-    ctx.fillText(text, size / 2 - splitX, size / 2 + 6 - splitY);
+    ctx.fillText(text, size / 2 - splitX, size / 2 + 12 - splitY);
     /* main fill */
     ctx.shadowBlur = 26 + Math.random() * 16;
     ctx.fillStyle = cssColor;
-    ctx.fillText(text, size / 2, size / 2 + 6);
+    ctx.fillText(text, size / 2, size / 2 + 12);
     /* horizontal slice displacement — rip a few rows and slide them sideways */
     const sliceCount = 3 + Math.floor(Math.random() * 4);
     for (let i = 0; i < sliceCount; i++){
@@ -1330,7 +1330,7 @@ function applyVoiceGrade(){
   const v = AVATAR_STATE.voiceLevel;
   /* fast attack, slow release — colour lingers after a shout, like cooling metal */
   _gradeLevel += (v - _gradeLevel) * (v > _gradeLevel ? 0.09 : 0.02);
-  const g = Math.max(0, Math.min(1, _gradeLevel / 0.8));
+  const g = Math.max(0, Math.min(1, _gradeLevel / 0.7));
   const inner = _gradeMix('inner', g), mid = _gradeMix('mid', g), outer = _gradeMix('outer', g);
   [nodesMesh, connectionsMesh].forEach(m => {
     if (!m) return;
@@ -1499,6 +1499,9 @@ function updateGooOrb(t, voice, mouth){
   orbPhase.morph  += (orbBase.morphSpeed + voice*0.9) * dt;
   orbPhase.rot    += (orbBase.rotSpeed + voice*0.15) * dt;
   orbPhase.liquid += (orbBase.liquidSpeed + voice*0.6) * dt;
+  /* wrap phases (~100 revolutions) — unbounded accumulators hit the same
+     GLSL float-precision decay as raw time on multi-hour sessions */
+  orbPhase.morph  %= 628.3185; orbPhase.rot %= 628.3185; orbPhase.liquid %= 628.3185;
   const hueDeg = AVATAR_STATE.voicePitch * ORB_HUE;
   let liquidBright = orbBase.liquidBright * (1 + mouth*0.9);
   liquidBright *= 1 - AVATAR_STATE.blink * 0.7;             /* real blinks dim the light */
@@ -3966,7 +3969,7 @@ let lastPulseIndex=0;
    so every pulse lands with a brief halo flash instead of only a colour ring. */
 let pulseBoost = 0;
 function triggerPulseAt(pos, color){
-  const time = clock.getElapsedTime();
+  const time = clock.getElapsedTime() % 1800; /* match shader clock */
   if(!nodesMesh||!connectionsMesh) return;
   pulseBoost = Math.min(1, pulseBoost + 0.45);
   lastPulseIndex=(lastPulseIndex+1)%3;
@@ -4663,7 +4666,7 @@ window.addEventListener('message', (e) => {
   }
   if (d.fireShockwave === true && nodesMesh) {
     /* manual shockwave trigger — useful for keyboard binding / button press */
-    const now = clock.getElapsedTime();
+    const now = clock.getElapsedTime() % 1800; /* match shader clock */
     nodesMesh.material.uniforms.uShockTime.value = now;
     nodesMesh.material.uniforms.uShockOrigin.value.set(d.shockX || 0, d.shockY || 0, d.shockZ || 4);
     if (connectionsMesh && connectionsMesh.material.uniforms.uShockTime) {
@@ -5184,6 +5187,10 @@ function easedApproach(current, target, t){
 function animate(){
   requestAnimationFrame(animate);
   const t = clock.getElapsedTime();
+  /* shader clock — wrapped: raw elapsed time past ~1h loses float precision
+     inside GLSL trig/noise, degrading nodes into fuzzy white clutter on long
+     sessions. All time-valued uniforms use st so precision never decays. */
+  const st = t % 1800;
 
   /* ============ STINGER DRIVER ============
      Scripted collapse→burst loop. Drives voiceLevel + mouthOpen + bloom +
@@ -5244,7 +5251,7 @@ function animate(){
     const idleMouth = Math.max(0, Math.sin(t * 0.18 + 0.6)) * 0.25;
     const idleYaw = Math.sin(t * 0.13) * 0.35;
     const idlePitch = Math.sin(t * 0.09 + 1.7) * 0.18;
-    AVATAR_STATE.targetVoiceLevel = lerp(AVATAR_STATE.targetVoiceLevel, idleBreath * 0.35, idleStrength * 0.6);
+    if (!audioAnalyser) AVATAR_STATE.targetVoiceLevel = lerp(AVATAR_STATE.targetVoiceLevel, idleBreath * 0.35, idleStrength * 0.6); /* only fake breath when NO mic — a live mic owns the voice */
     AVATAR_STATE.targetMouthOpen  = lerp(AVATAR_STATE.targetMouthOpen,  idleMouth,         idleStrength * 0.6);
     AVATAR_STATE.targetHeadYaw    = lerp(AVATAR_STATE.targetHeadYaw,    idleYaw,           idleStrength * 0.4);
     AVATAR_STATE.targetHeadPitch  = lerp(AVATAR_STATE.targetHeadPitch,  idlePitch,         idleStrength * 0.4);
@@ -5417,10 +5424,10 @@ function animate(){
       if (delta > 0.18 && t - AVATAR_STATE.lastShockTime > 0.35) {
         AVATAR_STATE.lastShockTime = t;
         const u = nodesMesh.material.uniforms;
-        if (u.uShockTime) u.uShockTime.value = t;
+        if (u.uShockTime) u.uShockTime.value = st;
         if (u.uShockOrigin) u.uShockOrigin.value.set(0, 0, 4);
         if (connectionsMesh && connectionsMesh.material.uniforms.uShockTime) {
-          connectionsMesh.material.uniforms.uShockTime.value = t;
+          connectionsMesh.material.uniforms.uShockTime.value = st;
           connectionsMesh.material.uniforms.uShockOrigin.value.set(0, 0, 4);
         }
       }
@@ -5428,9 +5435,9 @@ function animate(){
     }
     /* keep uTimeNow ticking so shockwave shader can compute its age */
     if (nodesMesh && nodesMesh.material.uniforms.uTimeNow) {
-      nodesMesh.material.uniforms.uTimeNow.value = t;
+      nodesMesh.material.uniforms.uTimeNow.value = st;
       if (connectionsMesh && connectionsMesh.material.uniforms.uTimeNow) {
-        connectionsMesh.material.uniforms.uTimeNow.value = t;
+        connectionsMesh.material.uniforms.uTimeNow.value = st;
       }
     }
     /* ============ REVERIE STATE ============
@@ -5457,7 +5464,7 @@ function animate(){
   if(!config.paused){
     if(nodesMesh){
       const u = nodesMesh.material.uniforms;
-      u.uTime.value = t;
+      u.uTime.value = st;
       u.uVoiceLevel.value = AVATAR_STATE.voiceLevel;
       u.uVoicePitch.value = AVATAR_STATE.voicePitch;
       u.uMouthOpen.value = AVATAR_STATE.mouthOpen;
@@ -5466,7 +5473,7 @@ function animate(){
     }
     if(connectionsMesh){
       const u = connectionsMesh.material.uniforms;
-      u.uTime.value = t;
+      u.uTime.value = st;
       u.uVoiceLevel.value = AVATAR_STATE.voiceLevel;
       u.uVoicePitch.value = AVATAR_STATE.voicePitch;
       u.uMouthOpen.value = AVATAR_STATE.mouthOpen;
@@ -5503,7 +5510,7 @@ function animate(){
   if (afterimagePass.enabled && afterimagePass.uniforms?.damp) {
     afterimagePass.uniforms.damp.value = (0.55 + voiceEased * 0.32) * mouthBloomCompensate;
   }
-  if (finishPass.enabled) finishPass.uniforms.uTime.value = t;
+  if (finishPass.enabled) finishPass.uniforms.uTime.value = st;
 
   /* THREE-SHELL SCALING (mouth-only, tuned subtle):
      Magnitudes are intentionally small so the network reads as breathing
@@ -5667,7 +5674,7 @@ function animate(){
        glides with head yaw/pitch exactly like the core it replaces. Mouth
        adds a small sprite-scale swell (matching the old core's mouth rig). */
     if (orbSprite) {
-      updateGooOrb(t, voiceEased, mouthEased);
+      updateGooOrb(st, voiceEased, mouthEased);
       orbSprite.position.set(nucleusOffsetX, nucleusOffsetY, 0);
       orbSprite.scale.setScalar(ORB_SCALE * (1 + mouthEased * 0.18));
     }
@@ -5721,7 +5728,7 @@ function animate(){
     fpsLastT = t;
     if (ADAPTIVE_RES) {
       let next = resScale;
-      if (fps < 45 && resScale > 0.6) next = Math.max(0.6, resScale - 0.15);
+      if (fps < 45 && resScale > 0.75) next = Math.max(0.75, resScale - 0.15);
       else if (fps > 58 && resScale < 1) next = Math.min(1, resScale + 0.05);
       if (Math.abs(next - resScale) > 0.001) {
         resScale = next;
