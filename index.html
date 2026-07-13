@@ -957,10 +957,24 @@
     width: min(85vw, 85vh); height: min(85vw, 85vh);
     z-index: 120;
   }
-  /* WATERMARK — just-chatting style, behind the title text */
+  /* WATERMARK — just-chatting: the living network sits BETWEEN the body
+     backdrop and the (transparent) scene view, so all jc chrome renders
+     above it. z 1 < view z 100 is the point — do not "fix" it upward. */
   #neuralAvatarFrame.watermark {
     width: min(64vh, 880px); height: min(64vh, 880px);
-    z-index: 1; /* BEHIND .jc-title-block (z:9) and chrome (z:10) */
+    z-index: 1;
+  }
+  /* watermark presence — alive but behind the scene's voice, not shouting */
+  #neuralAvatarFrame.watermark.visible { opacity: 0.6; }
+  /* the sandwich: jc view goes clear so the iframe below shows through… */
+  body.neural-on #view-just-chatting { background: transparent; }
+  /* …and the body carries the slide backdrop behind the iframe (the view's
+     own gradient normally does this job, but it's transparent here) */
+  body.overlay-active {
+    background:
+      radial-gradient(circle 600px at -100px -100px, rgba(200, 149, 42, 0.05) 0%, transparent 70%),
+      radial-gradient(circle 700px at calc(100% + 100px) calc(100% + 100px), rgba(122, 92, 30, 0.06) 0%, transparent 70%),
+      radial-gradient(ellipse 70% 60% at 50% 50%, #0d0b18 0%, #050508 70%);
   }
   /* CORNER — game-scene, matches .gs-avatar-zone dims */
   #neuralAvatarFrame.corner {
@@ -5530,6 +5544,9 @@
   const NEURAL_SCENE_MAP = {
     'avatar':     { mode: 'showcase', page: 'vtuber-neural-orb.html', params: '?obs=1&density=80&' + TIDAL_LOOK },
     'game-scene': { mode: 'corner',   page: 'vtuber-neural-orb.html', params: '?obs=1&density=50&intensity=low&stars=0&adaptive=0&' + TIDAL_LOOK },
+    /* JUST CHATTING — living Tidal watermark replaces the static eye; the
+       legacy .jc-watermark svg auto-hides via the body.neural-on rule */
+    'just-chatting': { mode: 'watermark', page: 'vtuber-neural-orb.html', params: '?obs=1&density=60&intensity=low&stars=0&adaptive=0&' + TIDAL_LOOK },
     /* HOME HERO — the construct lives behind the wordmark. test=1 self-animates
        (no cam/mic prompt for visitors), obs=1 hides the avatar's own UI. Low
        density + intensity keep the landing page light; v2 adaptive resolution
