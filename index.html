@@ -5332,7 +5332,24 @@
     password: 'stream'
   };
 
+  /* ============ PUBLISHED STATE ============
+     Site content baked in at deploy time by the publish-portfolio skill,
+     from an admin-panel export. null = nothing published yet (DEFAULTS show).
+     The markers below are the injection anchors — do not rename them. */
+  /* __PUBLISHED_STATE_START__ */
+  const PUBLISHED_STATE = null;
+  /* __PUBLISHED_STATE_END__ */
+
   let state = loadState();
+  /* fingerprint of the content at load — saveState only bumps _savedAt when
+     content really changed, because the avatar URL builder auto-saves on
+     every DOMContentLoaded and a no-op save must not out-date a publish */
+  const _loadFingerprint = _contentFingerprint(state);
+  function _contentFingerprint(s) {
+    const c = { ...s };
+    delete c._savedAt; delete c._publishedAt;
+    return JSON.stringify(c);
+  }
   /* LEGACY BRAND MIGRATION — saved state written before the AynEnki rebrand
      still carries "Malikeye" strings (brand, overlay handles, scene text).
      That saved state lives in EVERY browser profile that ever opened the
@@ -5355,26 +5372,43 @@
     return node;
   }
   function loadState() {
+    /* the published snapshot layered over DEFAULTS is the base every browser
+       starts from — it's what visitors with no saved state see */
+    const base = PUBLISHED_STATE ? {
+      ...DEFAULTS, ...PUBLISHED_STATE,
+      socials: { ...DEFAULTS.socials, ...(PUBLISHED_STATE.socials || {}) }
+    } : DEFAULTS;
     try {
       const raw = localStorage.getItem('malikeye_hub');
       if (raw) {
         const migrated = raw.match(/malikeye/i) && JSON.stringify(JSON.parse(raw)).match(/malikeye/i);
         const parsed = _migrateBrand(JSON.parse(raw));
+        /* a publish newer than this browser's last save means the local copy
+           is stale (content shipped since then) — take the snapshot, keeping
+           only this browser's admin password */
+        if (PUBLISHED_STATE && (PUBLISHED_STATE._publishedAt || 0) > (parsed._savedAt || 0)) {
+          const fresh = JSON.parse(JSON.stringify(base));
+          if (parsed.password) fresh.password = parsed.password;
+          return fresh;
+        }
         const merged = {
-          ...DEFAULTS, ...parsed,
-          socials: { ...DEFAULTS.socials, ...(parsed.socials || {}) },
-          portfolio: parsed.portfolio || DEFAULTS.portfolio,
-          shop: parsed.shop || DEFAULTS.shop,
-          schedule: parsed.schedule || DEFAULTS.schedule
+          ...base, ...parsed,
+          socials: { ...base.socials, ...(parsed.socials || {}) },
+          portfolio: parsed.portfolio || base.portfolio,
+          shop: parsed.shop || base.shop,
+          schedule: parsed.schedule || base.schedule
         };
         /* persist the scrub so it only happens once per profile */
         if (migrated) { try { localStorage.setItem('malikeye_hub', JSON.stringify(merged)); } catch(e) {} }
         return merged;
       }
     } catch(e) { console.warn('State load failed', e); }
-    return JSON.parse(JSON.stringify(DEFAULTS));
+    return JSON.parse(JSON.stringify(base));
   }
   function saveState() {
+    /* stamp real edits so loadState can tell local changes from a stale copy
+       that predates the latest publish; no-op saves keep their old stamp */
+    if (_contentFingerprint(state) !== _loadFingerprint) state._savedAt = Date.now();
     try { localStorage.setItem('malikeye_hub', JSON.stringify(state)); return true; }
     catch(e) {
       console.warn('Save failed', e);
