@@ -166,6 +166,27 @@
     opacity: 0.025;
   }
   .view.fullscreen-view.active { display: block; }
+  /* ===== OBS GAMEPLAY OVERLAYS — nothing may paint behind the HUD =====
+     game-scene / game-goals / game-info-bar composite OVER live gameplay,
+     unlike the standby scenes which own the whole frame and want their
+     backdrop. Three layers had to go:
+       1. the fullscreen-view backdrop gradient — its bottom stop (#0d0b18 →
+          #050508) is fully OPAQUE, so it covered the gameplay outright;
+       2. the ::after film grain — an feTurbulence texture that reads as
+          crawling dots over near-black and that stream compression
+          amplifies badly. This was the "noise" in the background;
+       3. the ::before breathing pulse, pointless with nothing behind it.
+     None of these can be removed from the OBS side: a Browser Source's
+     Custom CSS only sets background-color, which cannot clear a
+     background-image gradient or a pseudo-element. */
+  body.overlay-active[data-route^="game"],
+  body.overlay-active[data-route^="game"] .view.fullscreen-view {
+    background: none !important;
+  }
+  body.overlay-active[data-route^="game"] .view.fullscreen-view::before,
+  body.overlay-active[data-route^="game"] .view.fullscreen-view::after {
+    content: none !important;
+  }
   .container { max-width: 1100px; margin: 0 auto; }
 
   /* ===== ORNATE ELEMENTS (shared) ===== */

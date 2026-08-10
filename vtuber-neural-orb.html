@@ -1358,7 +1358,10 @@ function initGooOrb(){
   orbCanvas.width = 512; orbCanvas.height = 512;
   /* no preserveDrawingBuffer — the CanvasTexture upload happens in the same
      task as the draw, so the buffer is always valid when three.js reads it */
-  const gl = orbCanvas.getContext('webgl2', { antialias:false, alpha:false });
+  /* alpha:true so the sprite can be transparent outside the glow; NOT
+     premultiplied — the shader writes straight (colour, coverage) pairs and
+     three.js uploads them verbatim, so the additive colour survives intact */
+  const gl = orbCanvas.getContext('webgl2', { antialias:false, alpha:true, premultipliedAlpha:false });
   if (!gl) { console.warn('[goo-orb] WebGL2 unavailable — keeping classic nucleus'); return false; }
   orbGL = gl;
   const VERT = `#version 300 es
@@ -1452,8 +1455,14 @@ void main(){
      the faint floor glow well before the quad edge. */
   float vign = smoothstep(1.0, 0.55, length(p));
   E *= vign * vign;
-  /* pure emission on black — the additive sprite treats black as invisible */
-  fragColor = vec4(clamp(E,0.0,1.0),1.0);
+  /* pure emission on black — the additive sprite treats black as invisible.
+     Alpha has to carry coverage rather than a flat 1.0: additive blending
+     ignores black RGB, but a constant alpha still wrote a=1 across the whole
+     quad, so the sprite's square became an opaque black block the moment the
+     overlay composited over gameplay. The material is premultiplied, so RGB
+     still adds through unchanged — only the alpha channel changes. */
+  vec3 Ec = clamp(E,0.0,1.0);
+  fragColor = vec4(Ec, max(max(Ec.r,Ec.g),Ec.b));
 }`;
   const mk = (ty,src)=>{ const sh=gl.createShader(ty); gl.shaderSource(sh,src); gl.compileShader(sh);
     if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh)||'orb shader failed'); return sh; };
@@ -1481,8 +1490,18 @@ void main(){
 
   orbTexture = new THREE.CanvasTexture(orbCanvas);
   const sprMat = new THREE.SpriteMaterial({
-    map: orbTexture, blending: THREE.AdditiveBlending,
+    map: orbTexture,
     depthWrite: false, depthTest: false, transparent: true,
+    /* Plain AdditiveBlending is (SRC_ALPHA, ONE) for BOTH colour and alpha.
+       With the old flat a=1 texture that wrote a=1 over the entire quad, so
+       the sprite's square turned opaque black the moment the overlay
+       composited over gameplay. Now the shader emits real coverage in alpha,
+       but scaling colour by it would dim the orb — so blend colour straight
+       (ONE, ONE) and let alpha accumulate coverage on its own channel.
+       Net effect on RGB is identical to before; only alpha changes. */
+    blending: THREE.CustomBlending,
+    blendSrc: THREE.OneFactor,      blendDst: THREE.OneFactor,
+    blendSrcAlpha: THREE.OneFactor, blendDstAlpha: THREE.OneFactor,
   });
   orbSprite = new THREE.Sprite(sprMat);
   orbSprite.scale.setScalar(ORB_SCALE);
