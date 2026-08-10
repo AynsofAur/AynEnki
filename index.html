@@ -177,6 +177,14 @@
      hash-routed overlays only. Standby scenes paint their own backdrop via
      .view.fullscreen-view, so they look unchanged. */
   html.overlay-active { background: transparent !important; }
+  /* …unless ?backdrop= asks for the solid field back. Same scene, second
+     OBS source: one composites over gameplay, the duplicate stands alone as
+     a full-frame backdrop (e.g. an 80/20 layout with the avatar). The grain
+     and the dark scene gradient stay off in BOTH — those were the noise,
+     this only restores the flat colour. */
+  html.overlay-active.overlay-backdrop {
+    background: var(--overlay-backdrop, var(--black)) !important;
+  }
   /* ===== OBS GAMEPLAY OVERLAYS — nothing may paint behind the HUD =====
      game-scene / game-goals / game-info-bar composite OVER live gameplay,
      unlike the standby scenes which own the whole frame and want their
@@ -5620,6 +5628,18 @@
      index.html?camera=brio#game-scene. Needed when a machine has an HDMI
      capture dongle sitting alongside the webcam and auto-pick guesses wrong. */
   const CAMERA_OVERRIDE = (new URLSearchParams(location.search).get('camera') || '').trim();
+  /* ?backdrop=1 keeps the solid field behind a gameplay overlay instead of
+     compositing over the game; ?backdrop=<hex|colour> picks the shade (handy
+     for a chroma key). Paired with a duplicated OBS source this gives one
+     transparent overlay and one full-frame backdrop off the same scene. */
+  const BACKDROP_PARAM = (new URLSearchParams(location.search).get('backdrop') || '').trim();
+  if (BACKDROP_PARAM) {
+    document.documentElement.classList.add('overlay-backdrop');
+    if (BACKDROP_PARAM !== '1') {
+      const c = /^[0-9a-f]{3,8}$/i.test(BACKDROP_PARAM) ? '#' + BACKDROP_PARAM : BACKDROP_PARAM;
+      document.documentElement.style.setProperty('--overlay-backdrop', c);
+    }
+  }
   function withCameraOverride(params) {
     if (!CAMERA_OVERRIDE) return params;
     return params + (params.includes('?') ? '&' : '?') + 'camera=' + encodeURIComponent(CAMERA_OVERRIDE);
