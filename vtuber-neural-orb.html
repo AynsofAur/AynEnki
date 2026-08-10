@@ -4087,6 +4087,12 @@ function sampleAudio(){
    these likely doesn't show a real face — it's a placeholder or interceptor.
    Users can still force a specific device via ?camera=substring. */
 const VIRTUAL_CAM_PATTERNS = /vtube|vts.virtual|obs.virtual|nvidia.broadcast|snap.camera|manycam|xsplit|streamlabs|elgato.virtual|droidcam|epoccam|iriun/i;
+/* HDMI / game-capture dongles enumerate exactly like webcams but carry a
+   console or second-PC feed, never a face — and OBS usually already holds one
+   open as a Video Capture Device, so grabbing it fails with NotReadableError
+   ("device busy") instead of just tracking nothing. Rank them below real
+   webcams. "usb video" is the generic MS2109 label. */
+const CAPTURE_CARD_PATTERNS = /ms2109|usb ?video|hdmi|game ?capture|cam ?link|elgato|avermedia|magewell|live ?gamer/i;
 function pickCamera(cams){
   if (!cams.length) return null;
   /* explicit URL filter wins — first cam whose label contains the substring */
@@ -4096,6 +4102,9 @@ function pickCamera(cams){
   }
   /* otherwise prefer any camera whose label does NOT match a known virtual */
   const physical = cams.filter(c => c.label && !VIRTUAL_CAM_PATTERNS.test(c.label));
+  /* real face cameras rank above capture dongles */
+  const faceCams = physical.filter(c => !CAPTURE_CARD_PATTERNS.test(c.label));
+  if (faceCams.length) return faceCams[0];
   if (physical.length) return physical[0];
   /* labels can be empty in some contexts (permission not yet granted) — fall
      back to the first device so we at least try something. */

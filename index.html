@@ -5575,6 +5575,15 @@
     + '&nucleus=6fb0ff&halo=2f5fb0'
     + '&veil1c=f0e07a&veil2c=e8b84b&veil3c=fff4d0'
     + '&veil1=alchemy&veil2=runes&veil3=mixed';
+  /* ?camera=<substring> on the SITE url is forwarded into the avatar iframe, so
+     an OBS Browser Source can pin a specific webcam without a code edit — e.g.
+     index.html?camera=brio#game-scene. Needed when a machine has an HDMI
+     capture dongle sitting alongside the webcam and auto-pick guesses wrong. */
+  const CAMERA_OVERRIDE = (new URLSearchParams(location.search).get('camera') || '').trim();
+  function withCameraOverride(params) {
+    if (!CAMERA_OVERRIDE) return params;
+    return params + (params.includes('?') ? '&' : '?') + 'camera=' + encodeURIComponent(CAMERA_OVERRIDE);
+  }
   const NEURAL_SCENE_MAP = {
     'avatar':     { mode: 'showcase', page: 'vtuber-neural-orb.html', params: '?obs=1&density=80&' + TIDAL_LOOK },
     'game-scene': { mode: 'corner',   page: 'vtuber-neural-orb.html', params: '?obs=1&density=50&intensity=low&stars=0&adaptive=0&' + TIDAL_LOOK },
@@ -5671,9 +5680,10 @@
       /* clear all mode classes then apply the one we want */
       frame.classList.remove('slot', 'showcase', 'watermark', 'corner', 'hero');
       frame.classList.add(scene.mode);
-      const targetSrc = (scene.page || 'neural-avatar.html') + scene.params;
+      const sceneParams = withCameraOverride(scene.params);
+      const targetSrc = (scene.page || 'neural-avatar.html') + sceneParams;
       /* only reload if params actually changed — avoids re-prompting webcam */
-      if (!frame.src || !frame.src.endsWith(scene.params)) {
+      if (!frame.src || !frame.src.endsWith(sceneParams)) {
         frame.src = targetSrc;
       }
       requestAnimationFrame(() => frame.classList.add('visible'));
@@ -8339,7 +8349,7 @@
     const userParams = (typeof avatarAppearanceParams === 'function') ? avatarAppearanceParams() : '';
     const merged = new URLSearchParams(userParams);
     Object.keys(overrides).forEach(k => merged.set(k, overrides[k]));
-    return '?' + merged.toString();
+    return withCameraOverride('?' + merged.toString());
   }
   const _neuralTimers = { starting: null, brbMsg: null, techMsg: null };
   /* Rotates a phrase array into a target element with a glitch flicker.
