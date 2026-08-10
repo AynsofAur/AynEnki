@@ -1858,6 +1858,14 @@
   }
   #sweepOsd.show { opacity: 1; transform: none; }
   body.overlay-active #sweepOsd { display: none; }
+  /* …and the curtain itself. _shouldSweep() bails on fromHash routes, so the
+     sweep can never play in OBS — but the parked curtain sits at only -103%,
+     and its .sweep-noise child is deliberately OVERSIZED (2227x1253 over a
+     1920x1080 parent), so ~56px of animated static hung back into the top of
+     frame. The opaque scene backdrop (z 100) used to hide it above the
+     curtain's z 90; once the gameplay overlays went transparent it showed up
+     as a moving grey bar. Nothing in an overlay ever needs it. */
+  body.overlay-active #routeSweep { display: none !important; }
   #routeSweep.cover  { animation: sweepCover 0.19s cubic-bezier(0.35, 0, 0.75, 1) forwards; }
   #routeSweep.reveal { animation: sweepReveal 0.34s cubic-bezier(0.25, 0, 0.4, 1) forwards; }
   @keyframes sweepCover {
