@@ -166,6 +166,17 @@
     opacity: 0.025;
   }
   .view.fullscreen-view.active { display: block; }
+  /* ===== OBS ROOT TRANSPARENCY =====
+     `html, body { background: var(--black) }` near the top of this file
+     paints the ROOT element, and it is the ROOT's background that fills the
+     browser canvas — body's is only consulted when the root has none. A
+     Browser Source's Custom CSS can only reach `body`, so OBS had no way to
+     clear it and EVERY overlay composited fully opaque: nothing behind the
+     source could show through, whatever the scene layers did.
+     route() mirrors .overlay-active onto <html>, so this lifts for
+     hash-routed overlays only. Standby scenes paint their own backdrop via
+     .view.fullscreen-view, so they look unchanged. */
+  html.overlay-active { background: transparent !important; }
   /* ===== OBS GAMEPLAY OVERLAYS — nothing may paint behind the HUD =====
      game-scene / game-goals / game-info-bar composite OVER live gameplay,
      unlike the standby scenes which own the whole frame and want their
@@ -5795,9 +5806,13 @@
       view.classList.add('fullscreen-view');
       document.getElementById('nav').classList.add('hidden');
       document.body.classList.add('overlay-active');
+      /* mirror onto <html>: only the ROOT's background reaches the browser
+         canvas, so overlay transparency is impossible from body alone */
+      document.documentElement.classList.add('overlay-active');
     } else {
       document.getElementById('nav').classList.remove('hidden');
       document.body.classList.remove('overlay-active');
+      document.documentElement.classList.remove('overlay-active');
     }
     if (!opts.fromHash) {
       const newHash = name === 'home' ? '' : '#' + name;
