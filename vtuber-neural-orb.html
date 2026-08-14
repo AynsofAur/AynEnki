@@ -1780,6 +1780,35 @@ void main(){
 const finishPass = new ShaderPass(FinishShader);
 finishPass.enabled = false; /* applyBgMode() enables it for the dark bg mode */
 composer.addPass(finishPass);
+
+/* ============ ALPHA RESTORE ============
+   UnrealBloomPass composites its result back over the read buffer and writes
+   alpha 1 across the WHOLE frame while doing it. The canvas therefore arrives
+   fully opaque, and an OBS Browser Source that should composite over gameplay
+   shows up as a black rectangle — even though every CSS layer is correctly
+   transparent. Measured: corner alpha 255 whenever bloom strength > 0, 0 only
+   at ?intensity=low, which is the one preset that sets strength to 0 and turns
+   the pass into a no-op. Losing the glow is not an acceptable price for
+   transparency.
+   The avatar is pure emission on black — additive glow, no lit surfaces — so
+   brightness IS coverage. Rebuilding alpha from the brightest channel restores
+   exactly the compositing the scene should have produced, and matches what the
+   goo-orb sprite already does with its own alpha.
+   Only runs in transparent mode; over a dark or chroma backdrop the backdrop
+   itself must stay opaque, so applyBgMode() toggles this. */
+const AlphaRestoreShader = {
+  uniforms: { tDiffuse: { value: null } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+  fragmentShader: `uniform sampler2D tDiffuse; varying vec2 vUv;
+void main(){
+  vec4 c = texture2D(tDiffuse, vUv);
+  gl_FragColor = vec4(c.rgb, clamp(max(max(c.r, c.g), c.b), 0.0, 1.0));
+}`
+};
+const alphaRestorePass = new ShaderPass(AlphaRestoreShader);
+alphaRestorePass.enabled = TRANSPARENT;   /* applyBgMode() keeps this in sync */
+composer.addPass(alphaRestorePass);
+
 composer.addPass(new OutputPass());
 
 /* ============ SHADER UNIFORMS (with reactive additions) ============ */
@@ -4897,6 +4926,9 @@ function applyBgMode(){
   }
   /* cinematic finish (vignette + grain) only over the dark bg — in clean or
      chroma modes the edge darkening / grain would pollute keying. */
+  /* alpha only needs rebuilding when the canvas is meant to composite. Over a
+     dark or chroma backdrop the frame must stay opaque or the key goes with it. */
+  alphaRestorePass.enabled = (mode === 'clean');
   const cine = mode === 'dark' && !INTENSITY_LOW;
   finishPass.enabled = cine;
   finishPass.uniforms.uVignette.value = cine ? 0.32 : 0.0;
