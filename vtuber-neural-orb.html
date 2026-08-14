@@ -784,6 +784,11 @@ const URL_SHOCK_SPEED = (()=>{ const v = parseFloat(params.get('shockspeed')); r
    this substring (case-insensitive). Lets you override the auto-picker if it
    guesses wrong. Example: ?camera=c920 forces a Logitech C920. */
 const CAMERA_FILTER = (params.get('camera') || '').toLowerCase().trim();
+/* ?mic=<substring> — same idea for audio input (e.g. ?mic=focusrite). Machines
+   with virtual routing devices (Voicemod, Steam Streaming, Sonic Studio) or a
+   capture-card audio input often default to one of those, which is silent or
+   carries game audio rather than a voice. */
+const MIC_FILTER = (params.get('mic') || '').toLowerCase().trim();
 /* ?stinger=1 — STINGER TRANSITION MODE. The avatar runs a scripted
    collapse-then-burst animation on a loop, with NO cam/mic, NO UI, NO setup
    panel. Designed to be screen-recorded into an MP4 the user loads into OBS
@@ -4046,21 +4051,66 @@ function updateDiagBanner(){
 }
 
 /* ============ AUDIO REACTIVE ============ */
+/* Virtual / routing devices: they enumerate like microphones but carry silence
+   unless something is actively piping into them, so a default-device grab can
+   land on one and the avatar simply never moves. */
+const VIRTUAL_MIC_PATTERNS = /voicemod|steam streaming|sonic studio|virtual|vb-audio|voicemeeter|cable output|nvidia broadcast|obs virtual|wave link|banana|vaio/i;
+/* Capture-card and loopback inputs: real signal, but it's console/desktop
+   audio, not a voice — reacting to these makes the avatar dance to the game. */
+const LOOPBACK_MIC_PATTERNS = /digital audio interface|usb digital audio|ms2109|hdmi|stereo mix|line ?in|what ?u ?hear/i;
+function pickMic(mics){
+  if (!mics.length) return null;
+  /* explicit ?mic= filter wins — first input whose label contains the substring */
+  if (MIC_FILTER) {
+    const match = mics.find(m => (m.label || '').toLowerCase().includes(MIC_FILTER));
+    if (match) return match;
+  }
+  const labelled = mics.filter(m => m.label);
+  const real = labelled.filter(m => !VIRTUAL_MIC_PATTERNS.test(m.label) && !LOOPBACK_MIC_PATTERNS.test(m.label));
+  if (real.length) return real[0];
+  const notVirtual = labelled.filter(m => !VIRTUAL_MIC_PATTERNS.test(m.label));
+  if (notVirtual.length) return notVirtual[0];
+  return mics[0];
+}
 let audioCtx=null, audioAnalyser=null, audioTimeData=null, audioFreqData=null;
 async function startAudio(){
   try {
+    let chosen = null;
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const mics = devices.filter(d => d.kind === 'audioinput' && d.deviceId !== 'communications');
+      console.log('[neural-avatar] available mics:', mics.map(m => m.label || m.deviceId).join(' | '));
+      chosen = pickMic(mics);
+      if (chosen) console.log('[neural-avatar] picked mic:', chosen.label || chosen.deviceId);
+    } catch(e) { /* enumerateDevices can fail in some CEF contexts */ }
     /* Explicit constraints — OBS's CEF has different defaults from Chrome.
        In particular autoGainControl is often OFF in CEF, making the same mic
        read much quieter than in a normal Chrome tab. Forcing AGC + noise
        suppression + echo cancellation ON matches Chrome behaviour. */
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true
-      }
-    });
+    const audioConstraints = {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true
+    };
+    if (chosen && chosen.deviceId) audioConstraints.deviceId = { exact: chosen.deviceId };
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
     audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    /* OBS auto-starts this page by calling startBtn.click() programmatically,
+       which is NOT user activation — so the context can come up 'suspended'
+       and the analyser then reads pure silence forever. Nothing errors; the
+       avatar just never moves. Resume it, and retry on any later interaction. */
+    if (audioCtx.state === 'suspended') {
+      try { await audioCtx.resume(); } catch(e) { /* fall through to the listeners */ }
+      if (audioCtx.state === 'suspended') {
+        const kick = () => {
+          audioCtx.resume().catch(()=>{});
+          if (audioCtx.state === 'running') {
+            ['pointerdown','keydown','touchstart'].forEach(ev => window.removeEventListener(ev, kick));
+          }
+        };
+        ['pointerdown','keydown','touchstart'].forEach(ev => window.addEventListener(ev, kick, { passive: true }));
+      }
+    }
     const source = audioCtx.createMediaStreamSource(stream);
     audioAnalyser = audioCtx.createAnalyser();
     audioAnalyser.fftSize = 2048;
