@@ -198,13 +198,29 @@
      None of these can be removed from the OBS side: a Browser Source's
      Custom CSS only sets background-color, which cannot clear a
      background-image gradient or a pseudo-element. */
+  /* ?backdrop=0 applies the same stripping to ANY overlay route, so a standby
+     scene can be layered over your own background (or the shared avatar)
+     instead of carrying its built-in dark field. The gameplay routes get it
+     unconditionally; everyone else opts in. */
   body.overlay-active[data-route^="game"],
-  body.overlay-active[data-route^="game"] .view.fullscreen-view {
+  body.overlay-active.overlay-clear,
+  body.overlay-active[data-route^="game"] .view.fullscreen-view,
+  body.overlay-active.overlay-clear .view.fullscreen-view {
     background: none !important;
   }
   body.overlay-active[data-route^="game"] .view.fullscreen-view::before,
-  body.overlay-active[data-route^="game"] .view.fullscreen-view::after {
+  body.overlay-active[data-route^="game"] .view.fullscreen-view::after,
+  body.overlay-active.overlay-clear .view.fullscreen-view::before,
+  body.overlay-active.overlay-clear .view.fullscreen-view::after {
     content: none !important;
+  }
+  /* the scenes also stack their own decorative fills — a radial wash and a
+     second grain layer — which survive the rules above because they're real
+     elements, not the view's own background */
+  body.overlay-active.overlay-clear .overlay-bg-radial,
+  body.overlay-active.overlay-clear .overlay-grain,
+  body.overlay-active.overlay-clear .overlay-vignette {
+    display: none !important;
   }
   .container { max-width: 1100px; margin: 0 auto; }
 
@@ -5633,7 +5649,14 @@
      for a chroma key). Paired with a duplicated OBS source this gives one
      transparent overlay and one full-frame backdrop off the same scene. */
   const BACKDROP_PARAM = (new URLSearchParams(location.search).get('backdrop') || '').trim();
-  if (BACKDROP_PARAM) {
+  if (BACKDROP_PARAM === '0') {
+    /* the inverse: strip a scene's built-in dark field so it can be layered
+       over your own background or the shared avatar. Must be checked BEFORE
+       the truthiness test below — "0" is a non-empty string, so it would
+       otherwise be read as "give me a backdrop" and land on solid black. */
+    document.documentElement.classList.add('overlay-clear');
+    document.body.classList.add('overlay-clear');
+  } else if (BACKDROP_PARAM) {
     document.documentElement.classList.add('overlay-backdrop');
     if (BACKDROP_PARAM !== '1') {
       const c = /^[0-9a-f]{3,8}$/i.test(BACKDROP_PARAM) ? '#' + BACKDROP_PARAM : BACKDROP_PARAM;
