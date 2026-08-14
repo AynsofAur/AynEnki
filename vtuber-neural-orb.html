@@ -760,6 +760,14 @@ const URL_SCALE = (()=>{ const v = parseInt(params.get('scale'),10); return (!is
 const URL_FRAMEX = (()=>{ const v = parseInt(params.get('framex'),10); return (!isNaN(v) && Math.abs(v)<=2000) ? v : null; })();
 const URL_FRAMEY = (()=>{ const v = parseInt(params.get('framey'),10); return (!isNaN(v) && Math.abs(v)<=2000) ? v : null; })();
 const URL_FRAMEZOOM = (()=>{ const v = parseInt(params.get('framezoom'),10); return (!isNaN(v) && v>=40 && v<=300) ? v/100 : null; })();
+/* ?fit=N (40–100) — FRAME THE CAMERA, not the rendered pixels. Pulls the
+   camera back until the whole composition occupies N% of the frame, so the
+   avatar is guaranteed to stay inside its boundary however dense or loud it
+   gets. This is what ?framezoom cannot do: framezoom is a CSS scale applied
+   to the canvas AFTER rendering, so anything above 100% simply magnifies the
+   picture past the canvas edges and clips it. When ?fit is set, framezoom is
+   forced back to 1 so the two can't fight. */
+const URL_FIT = (()=>{ const v = parseInt(params.get('fit'),10); return (!isNaN(v) && v>=40 && v<=100) ? v/100 : null; })();
 /* ?debug=1 — shows a persistent live-values readout (voice/mouth/yaw/pitch) AND
    the small camera preview, even when ?obs=1 is set. Helps verify what's
    actually reaching the network in OBS without yanking the setup panel back. */
@@ -5165,8 +5173,132 @@ function onResize(){
   renderer.setSize(window.innerWidth, window.innerHeight);
   composer.setSize(window.innerWidth, window.innerHeight);
   bloomPass.resolution.set(window.innerWidth, window.innerHeight);
+  /* aspect changed, so the fit has to be redone — an OBS source resized from
+     1920x1080 to a tall box is width-bound instead. The pixel refinement is
+     measured as a FRACTION of the frame, so its peak is meaningless at a new
+     aspect; reset it or the conservative analytic fit would stand alone and
+     the avatar would stay shrunken after every resize. */
+  _fitPasses = 0; _fitPeak = 0;
+  applyFit();
 }
 window.addEventListener('resize', onResize);
+
+/* ============ FIT TO FRAME ============
+   Measures what the avatar actually draws and pulls the camera back until it
+   fits. Two things make this more than "read the bounding box":
+     - the avatar GROWS when you speak (orb radius x1.45, sprite x1.18 at
+       peak), so fitting the resting size clips the moment you talk;
+     - face tracking pans controls.target by up to (3, 2) world units, which
+       slides the whole composition sideways in frame.
+   Both get headroom below. The starfield is excluded — it's a backdrop dome,
+   not the character, and it would swamp the measurement. */
+const FIT_PEAK_GROWTH = 1.25;  /* voice/mouth expansion headroom */
+const FIT_PAN_HEADROOM = 3.5;  /* world units controls.target can drift */
+function _compositionRadius(){
+  const box = new THREE.Box3(), tmp = new THREE.Box3();
+  scene.traverse(obj => {
+    if (obj === starField || obj.visible === false) return;
+    if (!(obj.isMesh || obj.isPoints || obj.isSprite || obj.isLine || obj.isLineSegments)) return;
+    tmp.setFromObject(obj);
+    if (Number.isFinite(tmp.min.x) && Number.isFinite(tmp.max.x)) box.union(tmp);
+  });
+  if (box.isEmpty()) return null;
+  return box.getBoundingSphere(new THREE.Sphere()).radius;
+}
+function applyFit(){
+  if (URL_FIT === null) return false;
+  const R = _compositionRadius();
+  if (!R || !Number.isFinite(R)) return false;
+  const need = R * FIT_PEAK_GROWTH + FIT_PAN_HEADROOM;
+  const tanHalf = Math.tan((camera.fov * Math.PI / 180) / 2);
+  /* distance at which `need` spans URL_FIT of the frame, vertically and
+     horizontally; the tighter axis wins (portrait sources are width-bound) */
+  const dV = need / (tanHalf * URL_FIT);
+  const dH = need / (tanHalf * camera.aspect * URL_FIT);
+  const d = Math.max(dV, dH);
+  /* OrbitControls would silently clamp the pull-back and reintroduce the
+     overflow we're removing */
+  if (controls.maxDistance < d) controls.maxDistance = d * 1.05;
+  const dir = camera.position.clone().sub(controls.target);
+  if (dir.lengthSq() < 1e-6) dir.set(0, 0, 1);
+  dir.normalize();
+  camera.position.copy(controls.target).addScaledVector(dir, d);
+  controls.update();
+  return true;
+}
+/* The analytic fit above measures the GEOMETRIC envelope, which is far bigger
+   than what actually lights up — the outer shells are sparse and faint, so a
+   strict bounding-sphere fit lands around half the frame and ?fit=92 would be
+   a lie. Refine against real pixels instead, so the number means what it says.
+   Reads a cheap 240px-wide downscale of the frame, finds the lit bounding box
+   and corrects the camera distance (apparent size ~ 1/distance). Converges in
+   a handful of passes, then stops. If readback is unavailable the analytic fit
+   simply stands — conservative, but never clipped. */
+let _fitPasses = 0, _fitLastFrame = -1, _fitPeak = 0;
+const FIT_MAX_PASSES = 12;
+/* the size-per-distance product drifts upward as the camera closes in (nearer
+   parts of a 3D cloud project larger, and bloom spreads), so leave real slack
+   rather than converging onto the exact boundary */
+const FIT_SAFETY = 1.06;
+/* Measured at FULL resolution deliberately. A downscale averages a lone bright
+   particle with its black neighbours, dropping it under the threshold — the
+   composition then measures smaller than it is and the fit zooms in until the
+   edges clip. Costs a handful of readbacks during the first seconds only. */
+function _litExtent(){
+  const cv = renderer.domElement;
+  const W = cv.width, H = cv.height;
+  const s = document.createElement('canvas');
+  s.width = W; s.height = H;
+  const ctx = s.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return null;
+  let d;
+  try { ctx.drawImage(cv, 0, 0); d = ctx.getImageData(0, 0, W, H).data; } catch(e) { return null; }
+  let minX = W, maxX = -1, minY = H, maxY = -1, lit = 0;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = (y * W + x) * 4;
+    if (d[i+3] > 10 && (d[i] + d[i+1] + d[i+2]) > 30) {
+      lit++;
+      if (x < minX) minX = x; if (x > maxX) maxX = x;
+      if (y < minY) minY = y; if (y > maxY) maxY = y;
+    }
+  }
+  if (lit < 20) return null;   /* nothing drawn yet — don't act on noise */
+  /* Measure symmetrically about the FRAME CENTRE, not as a raw bounding box.
+     The composition doesn't sit dead centre — the camera looks down from y=8
+     and face tracking slides it around — so a box that merely *fits* can still
+     clip one edge while leaving margin at the other. Reserving the larger half
+     on each axis makes containment independent of where it drifts. */
+  const cx = W / 2, cy = H / 2;
+  return {
+    w: 2 * Math.max(cx - minX, maxX - cx) / W,
+    h: 2 * Math.max(cy - minY, maxY - cy) / H
+  };
+}
+function refineFit(frame){
+  if (URL_FIT === null || _fitPasses >= FIT_MAX_PASSES) return;
+  if (frame === _fitLastFrame || frame % 8 !== 0) return;  /* let it settle between passes */
+  _fitLastFrame = frame;
+  const e = _litExtent();
+  if (!e) return;
+  const dir = camera.position.clone().sub(controls.target);
+  const curDist = dir.length();
+  if (curDist < 1e-3) return;
+  /* Track apparent-size x distance, NOT apparent size. Under perspective the
+     projected extent scales as 1/distance, so this product is invariant to
+     where the camera sits — which lets a peak recorded at one distance stay
+     meaningful after the camera has moved. Tracking raw apparent size instead
+     makes the loop diverge: an early peak is compared against the target
+     forever and the camera retreats a little further every pass. */
+  _fitPeak = Math.max(_fitPeak, Math.max(e.w, e.h) * curDist);
+  /* solve directly for the distance that puts the peak at the requested
+     fraction of the frame — no stepping, so it lands in one pass */
+  const want = (_fitPeak * FIT_SAFETY) / URL_FIT;
+  if (Math.abs(want / curDist - 1) < 0.02) { _fitPasses = FIT_MAX_PASSES; return; }
+  const dist = Math.min(Math.max(want, controls.minDistance), controls.maxDistance);
+  camera.position.copy(controls.target).addScaledVector(dir.normalize(), dist);
+  controls.update();
+  _fitPasses++;
+}
 
 /* ============ ANIMATION LOOP ============ */
 const clock = new THREE.Clock();
@@ -5754,6 +5886,7 @@ function animate(){
     afterimagePass.enabled = !INTENSITY_LOW;
   }
   if (composer) composer.render(); else renderer.render(scene, camera);
+  refineFit(fpsFrames);
 
   /* FPS counter — updated once per second; drives adaptive resolution */
   fpsFrames++;
@@ -5813,6 +5946,13 @@ if (aurGroup) aurGroup.visible = aurVisible;
 if (centerEyeGroup) centerEyeGroup.visible = eyeVisible;
 applyBgMode();
 hydrateUI();
+/* fit last: every mesh, veil and sprite must exist before it can be measured */
+if (applyFit()) {
+  /* a post-render CSS magnification would undo the containment we just
+     computed, so ?fit wins outright over ?framezoom */
+  frameZoom = 1;
+  applyFrameTransform();
+}
 animate();
 </script>
 </body>
