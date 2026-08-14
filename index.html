@@ -5648,6 +5648,14 @@
      compositing over the game; ?backdrop=<hex|colour> picks the shade (handy
      for a chroma key). Paired with a duplicated OBS source this gives one
      transparent overlay and one full-frame backdrop off the same scene. */
+  /* ?avatar=0 — suppress this scene's OWN avatar. Needed once a single shared
+     avatar Browser Source is layered across scenes in OBS: every scene here
+     embeds its own, so you'd get two orbs stacked. Turns each scene into a
+     background plate: all chrome, countdowns and backdrop kept, no avatar.
+     Three separate places embed one — the shared #neuralAvatarFrame, the
+     standby scenes via initNeuralScene(), and initNeuralGame() — so this has
+     to gate all three or it works on some scenes and silently not others. */
+  const AVATAR_OFF = new URLSearchParams(location.search).get('avatar') === '0';
   const BACKDROP_PARAM = (new URLSearchParams(location.search).get('backdrop') || '').trim();
   if (BACKDROP_PARAM === '0') {
     /* the inverse: strip a scene's built-in dark field so it can be layered
@@ -5756,6 +5764,19 @@
     const frame = document.getElementById('neuralAvatarFrame');
     if (!frame) return;
     const scene = NEURAL_SCENE_MAP[routeName];
+    if (AVATAR_OFF) {
+      /* Park the shared frame, but KEEP body.neural-on where the scene would
+         normally have it. That class is what hides the legacy SVG eye; drop it
+         and the old static eye reappears exactly where the orb used to be —
+         worse than no avatar when a live one is layered on top in OBS. */
+      if (_neuralHideTimer) { clearTimeout(_neuralHideTimer); _neuralHideTimer = null; }
+      frame.classList.remove('visible');
+      frame.style.display = 'none';
+      if (frame.src && frame.src !== 'about:blank') frame.src = 'about:blank';
+      if (scene && scene.mode !== 'hero') document.body.classList.add('neural-on');
+      else document.body.classList.remove('neural-on');
+      return;
+    }
     if (scene) {
       if (_neuralHideTimer) { clearTimeout(_neuralHideTimer); _neuralHideTimer = null; }
       frame.style.display = 'block';
@@ -8461,7 +8482,8 @@
   function initNeuralScene(kind) {
     /* 1. embed avatar iframe behind HUD (replaces previous to avoid stale state) */
     const wrap = document.querySelector(`#view-neural-${kind} .nv-avatar-frame`);
-    if (wrap) {
+    if (wrap && AVATAR_OFF) wrap.innerHTML = '';   /* background plate — the shared source supplies the avatar */
+    if (wrap && !AVATAR_OFF) {
       wrap.innerHTML = '';
       const iframe = document.createElement('iframe');
       iframe.src = 'neural-avatar.html' + neuralScenePreset(kind);
@@ -8541,7 +8563,8 @@
   function initNeuralGame(){
     /* embed avatar — corner preset uses Tree of Life morph at low density */
     const wrap = document.querySelector('#view-neural-game .nv-game-avatar');
-    if (wrap) {
+    if (wrap && AVATAR_OFF) wrap.innerHTML = '';   /* background plate — the shared source supplies the avatar */
+    if (wrap && !AVATAR_OFF) {
       wrap.innerHTML = '';
       const iframe = document.createElement('iframe');
       /* game-scene avatar = the house TIDAL look on the goo-orb page, with
