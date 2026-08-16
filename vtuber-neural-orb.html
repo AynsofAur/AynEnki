@@ -10,7 +10,7 @@
    could flash on screen for a second or two (visible to site visitors via
    embedded scene iframes). This runs synchronously before first paint,
    straight off the URL, so clean modes never render the admin UI at all. */
-if (/[?&](obs|stinger)=1(&|$)/.test(location.search)) {
+if (/[?&](obs|stinger|boot)=1(&|$)/.test(location.search)) {
   document.documentElement.classList.add('obs-pre');
 }
 </script>
@@ -77,8 +77,14 @@ body.stinger-mode #control-buttons,
 body.stinger-mode #fps-indicator,
 body.stinger-mode #avatarControlPanel,
 body.stinger-mode #diag-banner,
-body.stinger-mode #debug-readout { display: none !important; }
-body.stinger-mode { background: transparent !important; }
+body.stinger-mode #debug-readout,
+body.boot-mode #setup-panel,
+body.boot-mode #control-buttons,
+body.boot-mode #fps-indicator,
+body.boot-mode #avatarControlPanel,
+body.boot-mode #diag-banner,
+body.boot-mode #debug-readout { display: none !important; }
+body.stinger-mode, body.boot-mode { background: transparent !important; }
 #stinger-flash {
   position: fixed; inset: 0;
   pointer-events: none; z-index: 100;
@@ -698,7 +704,9 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 /* ============ URL PARAMS ============ */
 const params = new URLSearchParams(location.search);
 const OBS_MODE = params.get('obs') === '1';
-const TRANSPARENT = OBS_MODE || params.get('transparent') === '1';
+/* boot read inline: BOOT_MODE is declared further down with its duration, but
+   transparency has to be decided here, before the renderer is built */
+const TRANSPARENT = OBS_MODE || params.get('boot') === '1' || params.get('transparent') === '1';
 const NO_STARS = params.get('stars') === '0';
 const NO_AUR = params.get('aur') === '0';
 /* eye defaults HIDDEN now — user opted out of it visually but kept the wiring.
@@ -795,6 +803,15 @@ const MIC_FILTER = (params.get('mic') || '').toLowerCase().trim();
    as a Stinger Transition. ?stingerdur=N sets cycle duration in seconds
    (default 1.0). The midpoint of each cycle is the moment OBS swaps scenes. */
 const STINGER_MODE = params.get('stinger') === '1';
+/* ?boot=1 — STREAM STARTUP SEQUENCE. Scripted one-shot assembly: empty frame,
+   then nodes fade in and link up, veil rings spin up, and finally the core
+   ignites and settles to the steady idle glow, which it then holds. Its own
+   URL so it only runs on the scene you put it on — the master avatar never
+   replays it. Like the stinger it takes NO cam or mic, so it cannot compete
+   with the shared avatar for the webcam while it plays.
+   ?bootdur=N sets the length in seconds (default 8, clamped 3-20). */
+const BOOT_MODE = params.get('boot') === '1';
+const BOOT_DURATION = Math.max(3, Math.min(20, parseFloat(params.get('bootdur')) || 8));
 const STINGER_DURATION = Math.max(0.4, Math.min(3.0, parseFloat(params.get('stingerdur')) || 1.0));
 /* ?stingertint=hex — color of the midpoint flash (default cyan to match avatar) */
 const STINGER_TINT = _parseHexParam('stingertint') || '#a0d8ff';
@@ -871,6 +888,7 @@ if (STINGER_MODE) {
   document.body.classList.add('stinger-mode', 'obs-clean'); /* obs-clean hides extras too */
   document.documentElement.style.setProperty('--stinger-tint', STINGER_TINT);
 }
+if (BOOT_MODE) document.body.classList.add('boot-mode', 'obs-clean');
 if (TRANSPARENT) {
   document.body.classList.add('transparent');
   document.documentElement.classList.add('transparent');
@@ -1825,6 +1843,11 @@ const pulseUniforms = {
   ]},
   uPulseSpeed: { value: 18.0 },
   uBaseNodeSize: { value: 0.6 },
+  /* boot sequence fade (1 = normal). Lives here because nodes and connections
+     both clone pulseUniforms, so one uniform fades the whole network. Their
+     ShaderMaterials ignore material.opacity — nothing reads it — which is why
+     the fade has to reach the fragment shader itself. */
+  uBootFade: { value: 1.0 },
   /* reactive uniforms */
   uVoiceLevel: { value: 0.0 },
   uVoicePitch: { value: 0.3 },
@@ -2033,6 +2056,7 @@ uniform vec3 uPulseColors[3];
 uniform float uVoiceLevel;
 uniform float uVoicePitch;
 uniform float uMouthOpen;
+uniform float uBootFade;
 uniform vec3 uShellColorInner;
 uniform vec3 uShellColorMid;
 uniform vec3 uShellColorOuter;
@@ -2135,7 +2159,7 @@ void main(){
      which roughly cancels the (~1.21x area) scale increase. Voice still
      freely amplifies via the *(1+vVoice*0.8) line above this fade. */
   finalColor*=(1.0 - uMouthOpen * 0.5);
-  gl_FragColor=vec4(finalColor,alpha*distanceFade);
+  gl_FragColor=vec4(finalColor,alpha*distanceFade*uBootFade);
 }`
 };
 
@@ -2245,6 +2269,7 @@ void main(){
 uniform float uTime;
 uniform vec3 uPulseColors[3];
 uniform float uMouthOpen;
+uniform float uBootFade;
 uniform vec3 uShellColorInner;
 uniform vec3 uShellColorMid;
 uniform vec3 uShellColorOuter;
@@ -2293,7 +2318,7 @@ void main(){
      to mouth opening so the scale growth doesn't feed extra bright pixels
      into the bloom pass. */
   finalColor*=(1.0 - uMouthOpen * 0.5);
-  gl_FragColor=vec4(finalColor,alpha*distanceFade);
+  gl_FragColor=vec4(finalColor,alpha*distanceFade*uBootFade);
 }`
 };
 
@@ -5212,9 +5237,15 @@ startBtn.addEventListener('click', async () => {
   }
 });
 
-/* in OBS mode OR test mode, auto-start */
-if(OBS_MODE || testMode){
+/* in OBS mode OR test mode, auto-start — but never in boot mode, which is a
+   scripted sequence: grabbing the webcam here would fight the shared master
+   avatar for the Brio for the eight seconds the intro is on screen */
+if((OBS_MODE || testMode) && !BOOT_MODE){
   setTimeout(() => startBtn.click(), 1000);
+}
+if (BOOT_MODE) {
+  const sp = document.getElementById('setup-panel');
+  if (sp) sp.style.display = 'none';
 }
 /* In stinger mode we DON'T click the awaken button — we never want cam/mic
    to engage during a stinger recording. The animate loop's stinger driver
@@ -5356,8 +5387,82 @@ function _litExtent(){
     h: 2 * Math.max(cy - minY, maxY - cy) / H
   };
 }
+/* ============ BOOT SEQUENCE ============
+   Runs immediately before the composer so it can shape values the rest of the
+   frame has already computed. Each beat is a smoothstep window over the
+   normalised sequence position, so they overlap and hand off rather than
+   popping:
+     nodes  05-45%  points grow in from nothing
+     links  15-60%  connections wire the cloud together
+     veils  45-80%  rings spin up and the glyphs resolve
+     core   62-96%  the orb ignites, bloom swelling past its resting strength
+   Past 100% every factor sits at 1, so the scene simply IS the idle avatar —
+   it holds there instead of freezing or looping, and the usual breathing and
+   drift keep it alive while you finish setting up.
+   Node size and bloom strength are RE-COMPUTED every frame by the code above,
+   so those are scaled. Connection and sprite opacity are not, so those are
+   assigned outright — multiplying them frame after frame would ratchet the
+   whole scene down to invisible. */
+let _bootDone = false;
+function _bootEachVeil(fn){
+  if (!aurGroup) return;
+  aurGroup.traverse(o => {
+    if (!o.material || typeof o.material.opacity !== 'number') return;
+    if (o.userData._bootBase === undefined) o.userData._bootBase = o.material.opacity;
+    fn(o);
+  });
+}
+function applyBootSequence(t){
+  if (!BOOT_MODE || _bootDone) return;
+  const p = Math.min(1, Math.max(0, t / BOOT_DURATION));
+
+  if (p >= 1) {
+    /* Hand the scene back. Everything below is restored to the value it had
+       before the sequence touched it, once — keep driving veil opacity and the
+       live glitch/breathing animation would be pinned to a stale first-frame
+       value forever, which is worse than never having animated it. */
+    if (nodesMesh && nodesMesh.material.uniforms.uBootFade) nodesMesh.material.uniforms.uBootFade.value = 1;
+    if (connectionsMesh && connectionsMesh.material.uniforms.uBootFade) connectionsMesh.material.uniforms.uBootFade.value = 1;
+    _bootEachVeil(o => { o.material.opacity = o.userData._bootBase; });
+    if (orbSprite && orbSprite.material && orbSprite.userData._bootBase !== undefined) {
+      orbSprite.material.opacity = orbSprite.userData._bootBase;
+    }
+    _bootDone = true;
+    return;
+  }
+
+  const beat = (a, b) => { const x = Math.min(1, Math.max(0, (p - a) / (b - a))); return x * x * (3 - 2 * x); };
+  const nodesIn = beat(0.05, 0.45);
+  const linksIn = beat(0.15, 0.60);
+  const veilsIn = beat(0.45, 0.80);
+  const coreIn  = beat(0.62, 0.96);
+
+  /* both fade through uBootFade in their fragment shaders — material.opacity
+     is inert on a ShaderMaterial that never reads it */
+  if (nodesMesh && nodesMesh.material.uniforms.uBootFade) {
+    nodesMesh.material.uniforms.uBootFade.value = nodesIn;
+  }
+  if (connectionsMesh && connectionsMesh.material.uniforms.uBootFade) {
+    connectionsMesh.material.uniforms.uBootFade.value = linksIn;
+  }
+  _bootEachVeil(o => { o.material.opacity = o.userData._bootBase * veilsIn; });
+  if (orbSprite && orbSprite.material) {
+    if (orbSprite.userData._bootBase === undefined) orbSprite.userData._bootBase = orbSprite.material.opacity;
+    orbSprite.material.opacity = orbSprite.userData._bootBase * coreIn;
+  }
+  /* ignition: bloom overshoots as the core lights, then eases back to rest */
+  const swell = 1 + 1.1 * Math.max(0, 1 - Math.abs(p - 0.88) / 0.12);
+  bloomPass.strength *= coreIn * swell;
+}
 function refineFit(frame){
   if (URL_FIT === null || _fitPasses >= FIT_MAX_PASSES) return;
+  /* Never refine during a boot sequence. The refinement measures lit pixels,
+     so mid-assembly it sizes the frame around a half-drawn scene and keeps
+     retreating as the rest fades in; deferring it to the end instead makes the
+     composition visibly snap the instant the sequence finishes. The analytic
+     fit already ran at startup and guarantees containment — an intro can
+     afford to sit slightly smaller in exchange for not lurching on screen. */
+  if (BOOT_MODE) return;
   if (frame === _fitLastFrame || frame % 8 !== 0) return;  /* let it settle between passes */
   _fitLastFrame = frame;
   const e = _litExtent();
@@ -5967,6 +6072,7 @@ function animate(){
     bloomPass.enabled = true;
     afterimagePass.enabled = !INTENSITY_LOW;
   }
+  applyBootSequence(t);
   if (composer) composer.render(); else renderer.render(scene, camera);
   refineFit(fpsFrames);
 
