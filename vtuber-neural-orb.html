@@ -5404,6 +5404,10 @@ function _litExtent(){
    assigned outright — multiplying them frame after frame would ratchet the
    whole scene down to invisible. */
 let _bootDone = false;
+/* warm-up: only meaningful when a fit was requested, since that's the thing
+   that needs a fully-drawn scene to measure */
+let _bootWarm = BOOT_MODE && URL_FIT !== null;
+let _bootT0 = null;
 function _bootEachVeil(fn){
   if (!aurGroup) return;
   aurGroup.traverse(o => {
@@ -5414,7 +5418,31 @@ function _bootEachVeil(fn){
 }
 function applyBootSequence(t){
   if (!BOOT_MODE || _bootDone) return;
-  const p = Math.min(1, Math.max(0, t / BOOT_DURATION));
+
+  if (_bootWarm) {
+    /* Frame the FINISHED composition before the intro plays: render it in
+       full but keep the canvas invisible, let the pixel fit converge, then
+       start from an empty frame with the camera already correct. Measuring a
+       half-assembled scene instead makes the fit creep outward as the rest
+       fades in; deferring it to the end makes the whole composition snap the
+       instant the sequence completes. The canvas is hidden via CSS opacity,
+       which OBS composites as fully transparent while the drawing buffer the
+       fit reads stays intact. */
+    const cv = renderer.domElement;
+    if (cv.style.opacity !== '0') cv.style.opacity = '0';
+    if (nodesMesh && nodesMesh.material.uniforms.uBootFade) nodesMesh.material.uniforms.uBootFade.value = 1;
+    if (connectionsMesh && connectionsMesh.material.uniforms.uBootFade) connectionsMesh.material.uniforms.uBootFade.value = 1;
+    /* converged, or the readback never worked — either way stop stalling */
+    if (_fitPasses >= FIT_MAX_PASSES || t > 3.0) {
+      _bootWarm = false;
+      _bootT0 = t;
+      cv.style.opacity = '';
+    }
+    return;
+  }
+
+  if (_bootT0 === null) _bootT0 = t;
+  const p = Math.min(1, Math.max(0, (t - _bootT0) / BOOT_DURATION));
 
   if (p >= 1) {
     /* Hand the scene back. Everything below is restored to the value it had
@@ -5456,13 +5484,10 @@ function applyBootSequence(t){
 }
 function refineFit(frame){
   if (URL_FIT === null || _fitPasses >= FIT_MAX_PASSES) return;
-  /* Never refine during a boot sequence. The refinement measures lit pixels,
-     so mid-assembly it sizes the frame around a half-drawn scene and keeps
-     retreating as the rest fades in; deferring it to the end instead makes the
-     composition visibly snap the instant the sequence finishes. The analytic
-     fit already ran at startup and guarantees containment — an intro can
-     afford to sit slightly smaller in exchange for not lurching on screen. */
-  if (BOOT_MODE) return;
+  /* In boot mode the fit runs ONLY during the hidden warm-up, while the scene
+     is drawn in full. Once the intro starts, the frame is deliberately
+     half-empty and any measurement of it would be meaningless. */
+  if (BOOT_MODE && !_bootWarm) return;
   if (frame === _fitLastFrame || frame % 8 !== 0) return;  /* let it settle between passes */
   _fitLastFrame = frame;
   const e = _litExtent();
